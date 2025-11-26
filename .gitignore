@@ -1,0 +1,26 @@
+# Secrets
+secrets.yaml
+*.secret
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Logs
+*.log
+logs/
+
+# State files
+.emsn_last_sync
+*.state
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.swp
