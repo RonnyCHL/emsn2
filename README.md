@@ -12,15 +12,17 @@ Biodiversiteitsmonitoring systeem met:
 - 🌤️ Weerstation integratie
 - 📊 Grafana dashboards
 - 🏠 Home Assistant koppeling
+- AtmosBird
+- SkySafe vogeltrekmonitoring
 
 ## Stations
 
 | Station | IP | Hardware |
 |---------|-----|----------|
-| emsn2-zolder | 192.168.1.178 | Pi 5, Steinberg UR44 |
-| emsn2-berging | 192.168.1.87 | Pi 4B, Steinberg UR22mkII |
-| emsn2-meteo | 192.168.1.156 | Pi Zero 2W, Davis Vantage Pro V2 |
-| emsn2-bats | 192.168.1.xxx | Pi 5, Dodotronic Ultramic 200K |
+| emsn2-zolder | 192.168.1.178 | Raspberry Pi 5, Steinberg UR22mkII |
+| emsn2-berging | 192.168.1.87 | Raspberry Pi 4B, Steinberg UR44 |
+| emsn2-meteo | 192.168.1.156 | Raspberry Pi Zero 2W, Davis Vantage Pro V2 |
+| emsn2-bats | 192.168.1.xxx | Raspberry Pi 5, Dodotronic Ultramic 200K |
 
 
 ## Documentatie
