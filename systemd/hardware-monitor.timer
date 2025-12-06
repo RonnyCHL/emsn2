@@ -1,0 +1,18 @@
+[Unit]
+Description=EMSN Hardware Monitor Timer - Runs every 1 minute
+Documentation=https://github.com/emsn/bird-detection
+After=network-online.target
+Wants=network-online.target
+
+[Timer]
+# Run every 1 minute
+OnCalendar=*:*:00
+# Start 1 minute after boot
+OnBootSec=1min
+# Accuracy window (allow up to 10 seconds drift for power saving)
+AccuracySec=10s
+# If a run was missed (system was off), run immediately
+Persistent=true
+
+[Install]
+WantedBy=timers.target

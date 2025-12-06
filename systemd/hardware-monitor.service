@@ -1,0 +1,41 @@
+[Unit]
+Description=EMSN Hardware Monitor - Zolder Station
+Documentation=https://github.com/emsn/bird-detection
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/sync
+
+# Environment
+Environment=PYTHONUNBUFFERED=1
+
+# Execute hardware monitor script
+ExecStart=/usr/bin/python3 /home/ronny/sync/hardware_monitor.py
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hardware-monitor
+
+# Resource limits
+Nice=15
+IOSchedulingClass=2
+IOSchedulingPriority=7
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/mnt/usb/logs
+
+# Timeout
+TimeoutStartSec=30
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

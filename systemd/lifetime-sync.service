@@ -1,0 +1,41 @@
+[Unit]
+Description=EMSN Lifetime Sync - Zolder Station
+Documentation=https://github.com/emsn/bird-detection
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/sync
+
+# Environment
+Environment=PYTHONUNBUFFERED=1
+
+# Execute sync script
+ExecStart=/usr/bin/python3 /home/ronny/sync/lifetime_sync.py
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lifetime-sync
+
+# Resource limits
+Nice=10
+IOSchedulingClass=2
+IOSchedulingPriority=7
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/mnt/usb/logs
+
+# Restart policy (only for this execution)
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
