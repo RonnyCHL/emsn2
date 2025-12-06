@@ -1,5 +1,5 @@
 [Unit]
-Description=EMSN Lifetime Sync - Zolder Station
+Description=EMSN Lifetime Sync - Berging Station
 Documentation=https://github.com/emsn/bird-detection
 After=network-online.target
 Wants=network-online.target

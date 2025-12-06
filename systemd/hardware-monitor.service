@@ -1,5 +1,5 @@
 [Unit]
-Description=EMSN Hardware Monitor - Zolder Station
+Description=EMSN Hardware Monitor - Berging Station
 Documentation=https://github.com/emsn/bird-detection
 After=network-online.target
 Wants=network-online.target
