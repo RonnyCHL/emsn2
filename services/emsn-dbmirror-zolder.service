@@ -1,0 +1,22 @@
+[Unit]
+Description=EMSN 2.0 - Database Mirror Sync (Zolder)
+After=network-online.target mnt-usb.mount
+Wants=network-online.target
+Requires=mnt-usb.mount
+
+[Service]
+Type=oneshot
+User=ronny
+WorkingDirectory=/home/ronny/emsn2
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/database_mirror_sync.py
+
+# Logging
+StandardOutput=append:/mnt/usb/logs/emsn-dbmirror-zolder.log
+StandardError=append:/mnt/usb/logs/emsn-dbmirror-zolder.error.log
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
