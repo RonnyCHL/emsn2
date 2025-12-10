@@ -76,7 +76,7 @@ class MQTTPublisher:
     def connect(self):
         """Connect to MQTT broker"""
         try:
-            self.client = mqtt.Client()
+            self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
             self.client.username_pw_set(self.config['username'], self.config['password'])
             self.client.on_connect = self._on_connect
             self.client.on_disconnect = self._on_disconnect
@@ -87,14 +87,14 @@ class MQTTPublisher:
             self.logger.error(f"Failed to connect to MQTT broker: {e}")
             return False
 
-    def _on_connect(self, client, userdata, flags, rc):
-        if rc == 0:
+    def _on_connect(self, client, userdata, flags, reason_code, properties):
+        if reason_code == 0:
             self.connected = True
             self.logger.info("Connected to MQTT broker")
         else:
-            self.logger.error(f"MQTT connection failed with code {rc}")
+            self.logger.error(f"MQTT connection failed with code {reason_code}")
 
-    def _on_disconnect(self, client, userdata, rc):
+    def _on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties):
         self.connected = False
         self.logger.warning("Disconnected from MQTT broker")
 

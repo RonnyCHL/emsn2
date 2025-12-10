@@ -30,7 +30,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler(f"{LOG_PATH}/database_mirror_sync.log"),
-        logging.StreamHandler()
+        logging.StreamHandler(sys.stdout)  # Explicitly use stdout for systemd
     ]
 )
 logger = logging.getLogger(__name__)
