@@ -1,0 +1,10 @@
+[Unit]
+Description=EMSN Backup Cleanup Timer - Weekly
+
+[Timer]
+OnCalendar=Sun *-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

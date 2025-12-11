@@ -1,0 +1,51 @@
+# EMSN 2.0 Log Rotation Configuration
+# Install: sudo cp /home/ronny/emsn2/config/emsn-logs.logrotate /etc/logrotate.d/emsn-logs
+
+# Hardware monitor logs
+/mnt/usb/logs/hardware_monitor_*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    dateext
+    dateformat -%Y%m%d
+    create 644 ronny ronny
+}
+
+# Lifetime sync logs
+/mnt/usb/logs/lifetime_sync_*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    dateext
+    dateformat -%Y%m%d
+    create 644 ronny ronny
+}
+
+# Database mirror sync logs
+/mnt/usb/logs/database_mirror_sync.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    size 10M
+    create 644 ronny ronny
+}
+
+# EMSN service logs
+/mnt/usb/logs/emsn-*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 ronny ronny
+}

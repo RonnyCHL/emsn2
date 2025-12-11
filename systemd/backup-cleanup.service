@@ -1,0 +1,16 @@
+[Unit]
+Description=EMSN Backup Cleanup Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/backup_cleanup.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=backup-cleanup
+
+[Install]
+WantedBy=multi-user.target
