@@ -15,6 +15,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import paho.mqtt.client as mqtt
 
+# Import Bayesian verification model
+from bayesian_verification import BayesianVerificationModel, calculate_bayesian_verification_score
+
 # Configuration
 STATION_NAME = "zolder"  # Dit script draait alleen op zolder (centraal)
 LOG_DIR = Path("/mnt/usb/logs")
@@ -179,6 +182,7 @@ class DualDetectionSync:
         self.logger = logger
         self.mqtt = mqtt_publisher
         self.pg_conn = None
+        self.bayesian_model = None
 
     def connect_database(self):
         """Connect to PostgreSQL database"""
@@ -186,6 +190,13 @@ class DualDetectionSync:
             self.logger.info(f"Connecting to PostgreSQL at {PG_CONFIG['host']}:{PG_CONFIG['port']}")
             self.pg_conn = psycopg2.connect(**PG_CONFIG)
             self.logger.success("Database connection established")
+
+            # Initialize Bayesian model with database connection
+            self.logger.info("Initializing Bayesian verification model...")
+            self.bayesian_model = BayesianVerificationModel(self.pg_conn, self.logger)
+            self.bayesian_model.load_species_statistics()
+            self.logger.success(f"Bayesian model initialized with {len(self.bayesian_model.species_stats)} species")
+
             return True
         except psycopg2.Error as e:
             self.logger.error(f"PostgreSQL connection error: {e}")
@@ -277,10 +288,14 @@ class DualDetectionSync:
             conf_diff = abs(float(zolder_conf) - float(berging_conf))
             avg_conf = (float(zolder_conf) + float(berging_conf)) / 2
 
-            # Verification score: higher when both have high confidence and close in time
-            # Score = avg_confidence * (1 - time_factor) where time_factor increases with time diff
-            time_factor = float(time_diff) / TIME_WINDOW_SECONDS
-            verification_score = avg_conf * (1 - (time_factor * 0.5))
+            # Calculate Bayesian verification score
+            bayesian_result = self.bayesian_model.calculate_dual_verification_score(
+                species=species,
+                zolder_confidence=float(zolder_conf),
+                berging_confidence=float(berging_conf),
+                time_diff_seconds=float(time_diff)
+            )
+            verification_score = bayesian_result['verification_score']
 
             # Use the earlier timestamp as detection_time
             detection_time = min(zolder_time, berging_time)
@@ -442,6 +457,50 @@ class DualDetectionSync:
         except psycopg2.Error as e:
             self.logger.error(f"Error getting statistics: {e}")
             return {}
+
+    def recalculate_all_verification_scores(self):
+        """Recalculate verification scores for all existing dual detections using Bayesian model"""
+        try:
+            cursor = self.pg_conn.cursor()
+
+            # Fetch all existing dual detections
+            cursor.execute("""
+                SELECT id, species, zolder_confidence, berging_confidence, time_difference_seconds
+                FROM dual_detections
+            """)
+            records = cursor.fetchall()
+
+            self.logger.info(f"Recalculating Bayesian scores for {len(records)} dual detections...")
+
+            updated = 0
+            for row in records:
+                dual_id, species, zolder_conf, berging_conf, time_diff = row
+
+                # Calculate new Bayesian verification score
+                bayesian_result = self.bayesian_model.calculate_dual_verification_score(
+                    species=species,
+                    zolder_confidence=float(zolder_conf),
+                    berging_confidence=float(berging_conf),
+                    time_diff_seconds=float(time_diff)
+                )
+                new_score = bayesian_result['verification_score']
+
+                # Update the record
+                cursor.execute("""
+                    UPDATE dual_detections
+                    SET verification_score = %s
+                    WHERE id = %s
+                """, (new_score, dual_id))
+                updated += 1
+
+            self.pg_conn.commit()
+            self.logger.success(f"Recalculated {updated} verification scores with Bayesian model")
+            return updated
+
+        except psycopg2.Error as e:
+            self.pg_conn.rollback()
+            self.logger.error(f"Error recalculating scores: {e}")
+            return 0
 
     def close_connection(self):
         """Close database connection"""
