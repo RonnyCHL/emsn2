@@ -1,0 +1,20 @@
+[Unit]
+Description=EMSN Dual Detection Sync Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/sync/dual_detection_sync.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dual-detection
+Nice=10
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target
