@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
 from ulanzi_config import (
     ULANZI, MQTT as MQTT_CONFIG, PG_CONFIG,
     RARITY_TIERS, CONFIDENCE_COLORS, CONFIDENCE_THRESHOLDS,
-    DISPLAY, SPECIAL_EVENTS, LOG_DIR
+    DISPLAY, SPECIAL_EVENTS, LOG_DIR, RTTTL_SOUNDS
 )
 
 
@@ -44,6 +44,50 @@ class UlanziLogger:
     def error(self, msg): self.log('ERROR', msg)
     def warning(self, msg): self.log('WARNING', msg)
     def success(self, msg): self.log('SUCCESS', msg)
+
+
+class SpeciesNameCache:
+    """Cache voor wetenschappelijke naam → Nederlandse naam mapping"""
+
+    def __init__(self, logger):
+        self.logger = logger
+        self.cache = {}  # scientific_name -> dutch_name
+        self.pg_conn = None
+
+    def connect(self, pg_conn):
+        """Use existing connection"""
+        self.pg_conn = pg_conn
+
+    def refresh(self):
+        """Load species name mappings from database"""
+        if not self.pg_conn:
+            return False
+
+        try:
+            cursor = self.pg_conn.cursor()
+            cursor.execute("""
+                SELECT DISTINCT species, common_name
+                FROM bird_detections
+                WHERE species IS NOT NULL AND common_name IS NOT NULL
+            """)
+
+            self.cache = {}
+            for row in cursor.fetchall():
+                scientific_name, dutch_name = row
+                self.cache[scientific_name.lower()] = dutch_name
+
+            self.logger.info(f"Species name cache loaded: {len(self.cache)} mappings")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error loading species names: {e}")
+            return False
+
+    def get_dutch_name(self, scientific_name):
+        """Get Dutch name from scientific name"""
+        if not scientific_name:
+            return None
+        return self.cache.get(scientific_name.lower())
 
 
 class RarityCache:
@@ -176,6 +220,22 @@ class UlanziNotifier:
         else:
             return CONFIDENCE_COLORS['low']
 
+    def get_sound(self, confidence, is_dual=False, is_new_species=False):
+        """Get RTTTL sound based on confidence level"""
+        if is_new_species:
+            return RTTTL_SOUNDS['new']
+        if is_dual:
+            return RTTTL_SOUNDS['dual']
+
+        if confidence >= CONFIDENCE_THRESHOLDS['excellent']:
+            return RTTTL_SOUNDS['green']      # 90%+
+        elif confidence >= CONFIDENCE_THRESHOLDS['good']:
+            return RTTTL_SOUNDS['yellow']     # 85-89%
+        elif confidence >= CONFIDENCE_THRESHOLDS['medium']:
+            return RTTTL_SOUNDS['orange']     # 75-84%
+        else:
+            return RTTTL_SOUNDS['red']        # 65-74%
+
     def format_message(self, station, common_name, confidence, is_dual=False, is_new_species=False):
         """Format notification message"""
         conf_pct = int(confidence * 100)
@@ -235,6 +295,7 @@ class UlanziBridge:
     def __init__(self):
         self.logger = UlanziLogger()
         self.rarity_cache = RarityCache(self.logger)
+        self.species_names = SpeciesNameCache(self.logger)
         self.cooldown = CooldownManager()
         self.notifier = UlanziNotifier(self.logger)
         self.mqtt_client = None
@@ -325,34 +386,41 @@ class UlanziBridge:
             self.logger.info(f"Skipping low confidence: {detection['common_name']} ({detection['confidence']:.0%})")
             return
 
-        # Get species rarity info
-        species_info = self.rarity_cache.get_species_info(detection['common_name'])
+        # Get Dutch name from scientific name
+        dutch_name = self.species_names.get_dutch_name(detection['scientific_name'])
+        if not dutch_name:
+            # Fallback to English name if no Dutch translation found
+            dutch_name = detection['common_name']
+            self.logger.warning(f"No Dutch name for {detection['scientific_name']}, using: {dutch_name}")
+
+        # Get species rarity info (using Dutch name for cache lookup)
+        species_info = self.rarity_cache.get_species_info(dutch_name)
         tier_config = species_info['tier_config']
 
-        # Check cooldown
-        if not self.cooldown.can_notify(detection['common_name'], tier_config):
-            self.logger.info(f"Skipping (cooldown): {detection['common_name']}")
+        # Check cooldown (using Dutch name)
+        if not self.cooldown.can_notify(dutch_name, tier_config):
+            self.logger.info(f"Skipping (cooldown): {dutch_name}")
             return
 
-        # Format and send notification
+        # Format and send notification with Dutch name
         message = self.notifier.format_message(
             station=station,
-            common_name=detection['common_name'],
+            common_name=dutch_name,
             confidence=detection['confidence']
         )
 
         color = self.notifier.get_color(detection['confidence'])
-        sound = tier_config['sound'] if tier_config['play_sound'] else None
+        sound = self.notifier.get_sound(detection['confidence']) if tier_config['play_sound'] else None
 
         if self.notifier.send_notification(message, color, sound):
-            self.cooldown.record_notification(detection['common_name'])
+            self.cooldown.record_notification(dutch_name)
 
-            # Log to database
-            self.log_notification(detection, station, species_info['tier'], True)
+            # Log to database (with Dutch name)
+            self.log_notification(dutch_name, detection['confidence'], station, species_info['tier'], True)
         else:
-            self.log_notification(detection, station, species_info['tier'], False, 'send_failed')
+            self.log_notification(dutch_name, detection['confidence'], station, species_info['tier'], False, 'send_failed')
 
-    def log_notification(self, detection, station, tier, was_shown, skip_reason=None):
+    def log_notification(self, dutch_name, confidence, station, tier, was_shown, skip_reason=None):
         """Log notification to database"""
         try:
             if not self.rarity_cache.pg_conn:
@@ -364,9 +432,9 @@ class UlanziBridge:
                 (species_nl, station, confidence, rarity_tier, was_shown, skip_reason, notification_type)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
-                detection['common_name'],
+                dutch_name,
                 station.lower(),
-                detection['confidence'],
+                confidence,
                 tier,
                 was_shown,
                 skip_reason,
@@ -384,6 +452,10 @@ class UlanziBridge:
 
         # Initialize rarity cache
         self.rarity_cache.refresh()
+
+        # Initialize species name cache (uses same connection)
+        self.species_names.connect(self.rarity_cache.pg_conn)
+        self.species_names.refresh()
 
         # Setup MQTT client
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)

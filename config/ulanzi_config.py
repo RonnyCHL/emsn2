@@ -34,42 +34,42 @@ PG_CONFIG = {
     'password': 'REDACTED_DB_PASS'
 }
 
-# RTTTL Sounds per tier
+# RTTTL Sounds - staan al op Ulanzi in MELODIES map
 RTTTL_SOUNDS = {
-    'rare': 'rare:d=4,o=5,b=140:e6,8p,e6,8p,8e6,8p,c6,e6,g6,p,g',  # Lang, opvallend
-    'uncommon': 'uncommon:d=4,o=5,b=180:e6,e6,8e6',  # Medium
-    'common': 'common:d=4,o=5,b=200:e6',  # Kort
-    'dual': 'dual:d=4,o=5,b=140:c6,e6,g6,c7',  # Speciaal voor dual
+    'dual': 'emsn_dual:d=4,o=5,b=180:8g,8c6',
+    'green': 'emsn_green:d=4,o=5,b=200:8c6',      # 90%+ confidence
+    'yellow': 'emsn_yellow:d=4,o=5,b=200:8g',     # 85-89%
+    'orange': 'emsn_orange:d=4,o=5,b=200:8e',     # 75-84%
+    'red': 'emsn_red:d=4,o=5,b=200:8c',           # 65-74%
+    'milestone': 'emsn_milestone:d=4,o=5,b=180:8g,8g,8a,4g',
+    'new': 'emsn_new:d=4,o=5,b=200:8c,8e,8g,4c6',  # Nieuwe soort dit jaar
 }
 
 # Rarity Tiers - gebaseerd op detecties in laatste 30 dagen
+# Sounds zijn nu confidence-based, niet rarity-based
 RARITY_TIERS = {
     'rare': {
         'min_count': 0,
         'max_count': 19,
         'cooldown_seconds': 0,  # Altijd tonen
-        'sound': RTTTL_SOUNDS['rare'],
         'play_sound': True,
     },
     'uncommon': {
         'min_count': 20,
         'max_count': 99,
         'cooldown_seconds': 120,  # 2 minuten
-        'sound': RTTTL_SOUNDS['uncommon'],
         'play_sound': True,
     },
     'common': {
         'min_count': 100,
         'max_count': 499,
         'cooldown_seconds': 300,  # 5 minuten
-        'sound': RTTTL_SOUNDS['common'],
         'play_sound': True,
     },
     'very_common': {
         'min_count': 500,
         'max_count': float('inf'),
         'cooldown_seconds': 600,  # 10 minuten
-        'sound': None,
         'play_sound': False,
     }
 }
