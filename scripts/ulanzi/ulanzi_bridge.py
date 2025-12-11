@@ -90,6 +90,48 @@ class SpeciesNameCache:
         return self.cache.get(scientific_name.lower())
 
 
+class FirstOfYearCache:
+    """Cache voor tracking eerste detectie dit jaar per soort"""
+
+    def __init__(self, logger):
+        self.logger = logger
+        self.seen_this_year = set()  # Dutch names already detected this year
+        self.pg_conn = None
+
+    def connect(self, pg_conn):
+        """Use existing connection"""
+        self.pg_conn = pg_conn
+
+    def refresh(self):
+        """Load species already detected this year"""
+        if not self.pg_conn:
+            return False
+
+        try:
+            cursor = self.pg_conn.cursor()
+            cursor.execute("""
+                SELECT DISTINCT common_name
+                FROM bird_detections
+                WHERE EXTRACT(YEAR FROM detection_timestamp) = EXTRACT(YEAR FROM NOW())
+            """)
+
+            self.seen_this_year = {row[0] for row in cursor.fetchall()}
+            self.logger.info(f"First-of-year cache: {len(self.seen_this_year)} species seen in {datetime.now().year}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error loading first-of-year cache: {e}")
+            return False
+
+    def is_first_of_year(self, dutch_name):
+        """Check if this is the first detection of this species this year"""
+        return dutch_name not in self.seen_this_year
+
+    def mark_seen(self, dutch_name):
+        """Mark species as seen this year"""
+        self.seen_this_year.add(dutch_name)
+
+
 class RarityCache:
     """Cache voor species rarity tiers"""
 
@@ -296,6 +338,7 @@ class UlanziBridge:
         self.logger = UlanziLogger()
         self.rarity_cache = RarityCache(self.logger)
         self.species_names = SpeciesNameCache(self.logger)
+        self.first_of_year = FirstOfYearCache(self.logger)
         self.cooldown = CooldownManager()
         self.notifier = UlanziNotifier(self.logger)
         self.mqtt_client = None
@@ -343,6 +386,7 @@ class UlanziBridge:
             topics = [
                 (MQTT_CONFIG['topics']['zolder_detection'], 1),
                 (MQTT_CONFIG['topics']['berging_detection'], 1),
+                (MQTT_CONFIG['topics']['dual_detection'], 1),
                 (MQTT_CONFIG['topics']['presence'], 1),
             ]
             client.subscribe(topics)
@@ -363,9 +407,10 @@ class UlanziBridge:
                 pass
             return
 
-        # Skip if not home
-        if not self.presence_home:
-            self.logger.info("Skipping notification (not home)")
+        # Handle dual detection messages (JSON format from dual_detection_sync)
+        # Dual detections always show regardless of presence (special event)
+        if 'dual' in topic:
+            self.handle_dual_detection(msg.payload)
             return
 
         # Determine station from topic
@@ -393,12 +438,23 @@ class UlanziBridge:
             dutch_name = detection['common_name']
             self.logger.warning(f"No Dutch name for {detection['scientific_name']}, using: {dutch_name}")
 
+        # Check if this is the first detection of this species this year
+        is_first_of_year = self.first_of_year.is_first_of_year(dutch_name)
+
         # Get species rarity info (using Dutch name for cache lookup)
         species_info = self.rarity_cache.get_species_info(dutch_name)
         tier_config = species_info['tier_config']
+        tier = species_info['tier']
 
-        # Check cooldown (using Dutch name)
-        if not self.cooldown.can_notify(dutch_name, tier_config):
+        # Check presence - if not home, only show special events
+        if not self.presence_home:
+            is_special = is_first_of_year or tier == 'rare'
+            if not is_special:
+                self.logger.info(f"Skipping (not home, not special): {dutch_name}")
+                return
+
+        # Check cooldown (skip for first-of-year - special event)
+        if not is_first_of_year and not self.cooldown.can_notify(dutch_name, tier_config):
             self.logger.info(f"Skipping (cooldown): {dutch_name}")
             return
 
@@ -406,21 +462,76 @@ class UlanziBridge:
         message = self.notifier.format_message(
             station=station,
             common_name=dutch_name,
-            confidence=detection['confidence']
+            confidence=detection['confidence'],
+            is_new_species=is_first_of_year
         )
 
-        color = self.notifier.get_color(detection['confidence'])
-        sound = self.notifier.get_sound(detection['confidence']) if tier_config['play_sound'] else None
+        # First-of-year gets special sound, otherwise confidence-based
+        if is_first_of_year:
+            color = self.notifier.get_color(detection['confidence'])
+            sound = self.notifier.get_sound(detection['confidence'], is_new_species=True)
+            notification_type = 'first_of_year'
+        else:
+            color = self.notifier.get_color(detection['confidence'])
+            sound = self.notifier.get_sound(detection['confidence']) if tier_config['play_sound'] else None
+            notification_type = 'standard'
 
         if self.notifier.send_notification(message, color, sound):
             self.cooldown.record_notification(dutch_name)
 
-            # Log to database (with Dutch name)
-            self.log_notification(dutch_name, detection['confidence'], station, species_info['tier'], True)
-        else:
-            self.log_notification(dutch_name, detection['confidence'], station, species_info['tier'], False, 'send_failed')
+            # Mark as seen this year
+            if is_first_of_year:
+                self.first_of_year.mark_seen(dutch_name)
+                self.logger.success(f"FIRST OF YEAR: {dutch_name}")
 
-    def log_notification(self, dutch_name, confidence, station, tier, was_shown, skip_reason=None):
+            # Log to database (with Dutch name)
+            self.log_notification(dutch_name, detection['confidence'], station, species_info['tier'], True, notification_type=notification_type)
+        else:
+            self.log_notification(dutch_name, detection['confidence'], station, species_info['tier'], False, 'send_failed', notification_type=notification_type)
+
+    def handle_dual_detection(self, payload):
+        """Handle dual detection messages from dual_detection_sync"""
+        try:
+            data = json.loads(payload.decode('utf-8') if isinstance(payload, bytes) else payload)
+
+            species = data.get('species')
+            common_name = data.get('common_name')  # This is already Dutch from the database
+            avg_confidence = data.get('avg_confidence', 0)
+            verification_score = data.get('verification_score', 0)
+
+            if not common_name:
+                self.logger.warning("Dual detection missing common_name")
+                return
+
+            # Check confidence threshold
+            if avg_confidence < CONFIDENCE_THRESHOLDS['min_display']:
+                self.logger.info(f"Skipping dual (low confidence): {common_name} ({avg_confidence:.0%})")
+                return
+
+            # Dual detections always show (ignore cooldown) - special event
+            # Format message for dual detection
+            message = self.notifier.format_message(
+                station='Dubbel',
+                common_name=common_name,
+                confidence=avg_confidence,
+                is_dual=True
+            )
+
+            # Dual detection uses cyan color and dual sound
+            color = self.notifier.get_color(avg_confidence, is_dual=True)
+            sound = self.notifier.get_sound(avg_confidence, is_dual=True)
+
+            if self.notifier.send_notification(message, color, sound):
+                # Log to database
+                self.log_notification(common_name, avg_confidence, 'dual', 'special', True, notification_type='dual')
+                self.logger.success(f"Dual detection: {common_name} (score: {verification_score:.2f})")
+
+        except json.JSONDecodeError as e:
+            self.logger.error(f"Failed to parse dual detection JSON: {e}")
+        except Exception as e:
+            self.logger.error(f"Error handling dual detection: {e}")
+
+    def log_notification(self, dutch_name, confidence, station, tier, was_shown, skip_reason=None, notification_type='standard'):
         """Log notification to database"""
         try:
             if not self.rarity_cache.pg_conn:
@@ -438,7 +549,7 @@ class UlanziBridge:
                 tier,
                 was_shown,
                 skip_reason,
-                'standard'
+                notification_type
             ))
             self.rarity_cache.pg_conn.commit()
         except Exception as e:
@@ -456,6 +567,10 @@ class UlanziBridge:
         # Initialize species name cache (uses same connection)
         self.species_names.connect(self.rarity_cache.pg_conn)
         self.species_names.refresh()
+
+        # Initialize first-of-year cache
+        self.first_of_year.connect(self.rarity_cache.pg_conn)
+        self.first_of_year.refresh()
 
         # Setup MQTT client
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)

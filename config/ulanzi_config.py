@@ -20,6 +20,7 @@ MQTT = {
     'topics': {
         'zolder_detection': 'emsn2/zolder/detection/new',
         'berging_detection': 'emsn2/berging/detection/new',
+        'dual_detection': 'emsn2/dual/detection/new',
         'ulanzi_notify': 'emsn2/ulanzi/notify',
         'presence': 'emsn2/presence/home',
     }
