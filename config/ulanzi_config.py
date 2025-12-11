@@ -47,30 +47,41 @@ RTTTL_SOUNDS = {
 }
 
 # Rarity Tiers - gebaseerd op detecties in laatste 30 dagen
-# Sounds zijn nu confidence-based, niet rarity-based
+# Sounds zijn confidence-based, display duur is tier-based
 RARITY_TIERS = {
-    'rare': {
+    'legendary': {
         'min_count': 0,
+        'max_count': 0,
+        'cooldown_seconds': 0,      # Altijd tonen
+        'display_duration_sec': 45,
+        'play_sound': True,
+    },
+    'rare': {
+        'min_count': 1,
         'max_count': 19,
-        'cooldown_seconds': 0,  # Altijd tonen
+        'cooldown_seconds': 1800,   # 30 minuten
+        'display_duration_sec': 35,
         'play_sound': True,
     },
     'uncommon': {
         'min_count': 20,
         'max_count': 99,
-        'cooldown_seconds': 120,  # 2 minuten
+        'cooldown_seconds': 7200,   # 2 uur
+        'display_duration_sec': 25,
         'play_sound': True,
     },
     'common': {
         'min_count': 100,
         'max_count': 499,
-        'cooldown_seconds': 300,  # 5 minuten
+        'cooldown_seconds': 14400,  # 4 uur
+        'display_duration_sec': 15,
         'play_sound': True,
     },
-    'very_common': {
+    'abundant': {
         'min_count': 500,
         'max_count': float('inf'),
-        'cooldown_seconds': 600,  # 10 minuten
+        'cooldown_seconds': 28800,  # 8 uur
+        'display_duration_sec': 10,
         'play_sound': False,
     }
 }
@@ -106,6 +117,12 @@ SPECIAL_EVENTS = {
     'first_of_year': True,      # Eerste detectie dit jaar
     'dual_detection': True,     # Beide stations
     'milestone': True,          # Milestone bereikt
+}
+
+# Milestone thresholds
+MILESTONES = {
+    'detection_milestones': [1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000],
+    'species_milestones': [50, 75, 100, 125, 150, 175, 200],
 }
 
 # Lookback period voor rarity berekening

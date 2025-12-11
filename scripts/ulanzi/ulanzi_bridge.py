@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
 from ulanzi_config import (
     ULANZI, MQTT as MQTT_CONFIG, PG_CONFIG,
     RARITY_TIERS, CONFIDENCE_COLORS, CONFIDENCE_THRESHOLDS,
-    DISPLAY, SPECIAL_EVENTS, LOG_DIR, RTTTL_SOUNDS
+    DISPLAY, SPECIAL_EVENTS, LOG_DIR, RTTTL_SOUNDS, MILESTONES
 )
 
 
@@ -132,6 +132,77 @@ class FirstOfYearCache:
         self.seen_this_year.add(dutch_name)
 
 
+class MilestoneTracker:
+    """Track detection and species milestones"""
+
+    def __init__(self, logger):
+        self.logger = logger
+        self.pg_conn = None
+        self.total_detections = 0
+        self.total_species = 0
+        self.achieved_detection_milestones = set()
+        self.achieved_species_milestones = set()
+
+    def connect(self, pg_conn):
+        """Use existing connection"""
+        self.pg_conn = pg_conn
+
+    def refresh(self):
+        """Load current counts and achieved milestones"""
+        if not self.pg_conn:
+            return False
+
+        try:
+            cursor = self.pg_conn.cursor()
+
+            # Get total detection count
+            cursor.execute("SELECT COUNT(*) FROM bird_detections")
+            self.total_detections = cursor.fetchone()[0]
+
+            # Get total unique species count
+            cursor.execute("SELECT COUNT(DISTINCT species) FROM bird_detections")
+            self.total_species = cursor.fetchone()[0]
+
+            # Determine which milestones have already been achieved
+            for m in MILESTONES['detection_milestones']:
+                if self.total_detections >= m:
+                    self.achieved_detection_milestones.add(m)
+
+            for m in MILESTONES['species_milestones']:
+                if self.total_species >= m:
+                    self.achieved_species_milestones.add(m)
+
+            self.logger.info(f"Milestones: {self.total_detections} detections, {self.total_species} species")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error loading milestone data: {e}")
+            return False
+
+    def check_detection_milestone(self):
+        """Check if a new detection milestone was reached. Returns milestone number or None."""
+        self.total_detections += 1
+
+        for m in MILESTONES['detection_milestones']:
+            if self.total_detections == m and m not in self.achieved_detection_milestones:
+                self.achieved_detection_milestones.add(m)
+                return m
+        return None
+
+    def check_species_milestone(self, is_new_species):
+        """Check if a new species milestone was reached. Returns milestone number or None."""
+        if not is_new_species:
+            return None
+
+        self.total_species += 1
+
+        for m in MILESTONES['species_milestones']:
+            if self.total_species == m and m not in self.achieved_species_milestones:
+                self.achieved_species_milestones.add(m)
+                return m
+        return None
+
+
 class RarityCache:
     """Cache voor species rarity tiers"""
 
@@ -194,7 +265,7 @@ class RarityCache:
         for tier_name, tier_config in RARITY_TIERS.items():
             if tier_config['min_count'] <= count <= tier_config['max_count']:
                 return tier_name
-        return 'very_common'
+        return 'abundant'
 
     def get_species_info(self, common_name):
         """Get species info including rarity tier"""
@@ -205,12 +276,12 @@ class RarityCache:
         if common_name in self.cache:
             return self.cache[common_name]
 
-        # Unknown species = rare
+        # Unknown species = legendary (never seen before in 30 days)
         return {
             'species': None,
             'count': 0,
-            'tier': 'rare',
-            'tier_config': RARITY_TIERS['rare']
+            'tier': 'legendary',
+            'tier_config': RARITY_TIERS['legendary']
         }
 
 
@@ -289,17 +360,31 @@ class UlanziNotifier:
         else:
             return f"{station}-{common_name}-{conf_pct}%"
 
-    def calculate_duration(self, message):
-        """Calculate display duration based on message length"""
-        base = DISPLAY['base_duration_ms']
-        per_char = DISPLAY['per_char_duration_ms']
-        calculated = base + (len(message) * per_char)
-        return min(calculated, DISPLAY['max_duration_ms'])
+    def calculate_duration(self, message, tier_duration_sec=None):
+        """
+        Calculate display duration based on message length and tier.
+        Uses dynamic calculation: base + (characters × 0.5) seconds
+        But respects tier minimum duration.
+        """
+        # Dynamic calculation: 10 + (len × 0.5) seconds
+        base_sec = DISPLAY['base_duration_ms'] / 1000
+        per_char_sec = DISPLAY['per_char_duration_ms'] / 1000
+        dynamic_duration = base_sec + (len(message) * per_char_sec)
 
-    def send_notification(self, message, color, sound=None, duration=None):
+        # Use tier duration as minimum, dynamic as maximum
+        if tier_duration_sec:
+            duration_sec = max(tier_duration_sec, dynamic_duration)
+        else:
+            duration_sec = dynamic_duration
+
+        # Cap at max duration
+        max_sec = DISPLAY['max_duration_ms'] / 1000
+        return int(min(duration_sec, max_sec))
+
+    def send_notification(self, message, color, sound=None, duration_sec=None):
         """Send notification to Ulanzi via HTTP API"""
-        if duration is None:
-            duration = self.calculate_duration(message)
+        if duration_sec is None:
+            duration_sec = self.calculate_duration(message)
 
         # Convert hex color to RGB list
         color_hex = color.lstrip('#')
@@ -308,7 +393,7 @@ class UlanziNotifier:
         payload = {
             'text': message,
             'color': color_rgb,
-            'duration': duration // 1000,  # AWTRIX uses seconds
+            'duration': duration_sec,  # AWTRIX uses seconds
             'scrollSpeed': DISPLAY['scroll_speed'],
         }
 
@@ -339,6 +424,7 @@ class UlanziBridge:
         self.rarity_cache = RarityCache(self.logger)
         self.species_names = SpeciesNameCache(self.logger)
         self.first_of_year = FirstOfYearCache(self.logger)
+        self.milestones = MilestoneTracker(self.logger)
         self.cooldown = CooldownManager()
         self.notifier = UlanziNotifier(self.logger)
         self.mqtt_client = None
@@ -476,7 +562,11 @@ class UlanziBridge:
             sound = self.notifier.get_sound(detection['confidence']) if tier_config['play_sound'] else None
             notification_type = 'standard'
 
-        if self.notifier.send_notification(message, color, sound):
+        # Calculate duration based on tier and message length
+        tier_duration = tier_config.get('display_duration_sec', 15)
+        duration_sec = self.notifier.calculate_duration(message, tier_duration)
+
+        if self.notifier.send_notification(message, color, sound, duration_sec):
             self.cooldown.record_notification(dutch_name)
 
             # Mark as seen this year
@@ -486,8 +576,45 @@ class UlanziBridge:
 
             # Log to database (with Dutch name)
             self.log_notification(dutch_name, detection['confidence'], station, species_info['tier'], True, notification_type=notification_type)
+
+            # Check for milestones
+            self.check_and_notify_milestones(dutch_name, detection['confidence'], is_first_of_year)
         else:
             self.log_notification(dutch_name, detection['confidence'], station, species_info['tier'], False, 'send_failed', notification_type=notification_type)
+
+    def check_and_notify_milestones(self, dutch_name, confidence, is_first_of_year):
+        """Check and send milestone notifications"""
+        # Check detection milestone
+        detection_milestone = self.milestones.check_detection_milestone()
+        if detection_milestone:
+            self.send_milestone_notification('detection', detection_milestone, dutch_name, confidence)
+
+        # Check species milestone (only if this was a new species)
+        species_milestone = self.milestones.check_species_milestone(is_first_of_year)
+        if species_milestone:
+            self.send_milestone_notification('species', species_milestone, dutch_name, confidence)
+
+    def send_milestone_notification(self, milestone_type, milestone_value, dutch_name, confidence):
+        """Send a milestone notification to Ulanzi"""
+        conf_pct = int(confidence * 100)
+
+        if milestone_type == 'detection':
+            # Format: "VOGEL 10000: Ekster-87%"
+            message = f"VOGEL {milestone_value}: {dutch_name}-{conf_pct}%"
+        else:
+            # Format: "SOORT 100: Ekster-87%"
+            message = f"SOORT {milestone_value}: {dutch_name}-{conf_pct}%"
+
+        # Milestones use gold color and milestone sound
+        color = '#FFD700'  # Gold
+        sound = RTTTL_SOUNDS['milestone']
+
+        # Give milestones a long duration (45 sec like legendary)
+        duration_sec = self.notifier.calculate_duration(message, 45)
+
+        if self.notifier.send_notification(message, color, sound, duration_sec):
+            self.logger.success(f"MILESTONE: {milestone_type} #{milestone_value} reached with {dutch_name}")
+            self.log_notification(dutch_name, confidence, 'milestone', 'special', True, notification_type=f'milestone_{milestone_type}')
 
     def handle_dual_detection(self, payload):
         """Handle dual detection messages from dual_detection_sync"""
@@ -521,10 +648,16 @@ class UlanziBridge:
             color = self.notifier.get_color(avg_confidence, is_dual=True)
             sound = self.notifier.get_sound(avg_confidence, is_dual=True)
 
-            if self.notifier.send_notification(message, color, sound):
+            # Dual detections get special long duration (45 sec like legendary)
+            duration_sec = self.notifier.calculate_duration(message, 45)
+
+            if self.notifier.send_notification(message, color, sound, duration_sec):
                 # Log to database
                 self.log_notification(common_name, avg_confidence, 'dual', 'special', True, notification_type='dual')
                 self.logger.success(f"Dual detection: {common_name} (score: {verification_score:.2f})")
+
+                # Check for milestones (dual counts as detection, but not as new species)
+                self.check_and_notify_milestones(common_name, avg_confidence, False)
 
         except json.JSONDecodeError as e:
             self.logger.error(f"Failed to parse dual detection JSON: {e}")
@@ -571,6 +704,10 @@ class UlanziBridge:
         # Initialize first-of-year cache
         self.first_of_year.connect(self.rarity_cache.pg_conn)
         self.first_of_year.refresh()
+
+        # Initialize milestone tracker
+        self.milestones.connect(self.rarity_cache.pg_conn)
+        self.milestones.refresh()
 
         # Setup MQTT client
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
