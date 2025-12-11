@@ -34,27 +34,35 @@ PG_CONFIG = {
     'password': 'REDACTED_DB_PASS'
 }
 
+# RTTTL Sounds per tier
+RTTTL_SOUNDS = {
+    'rare': 'rare:d=4,o=5,b=140:e6,8p,e6,8p,8e6,8p,c6,e6,g6,p,g',  # Lang, opvallend
+    'uncommon': 'uncommon:d=4,o=5,b=180:e6,e6,8e6',  # Medium
+    'common': 'common:d=4,o=5,b=200:e6',  # Kort
+    'dual': 'dual:d=4,o=5,b=140:c6,e6,g6,c7',  # Speciaal voor dual
+}
+
 # Rarity Tiers - gebaseerd op detecties in laatste 30 dagen
 RARITY_TIERS = {
     'rare': {
         'min_count': 0,
         'max_count': 19,
         'cooldown_seconds': 0,  # Altijd tonen
-        'sound': 'emsn_rare',
+        'sound': RTTTL_SOUNDS['rare'],
         'play_sound': True,
     },
     'uncommon': {
         'min_count': 20,
         'max_count': 99,
         'cooldown_seconds': 120,  # 2 minuten
-        'sound': 'emsn_uncommon',
+        'sound': RTTTL_SOUNDS['uncommon'],
         'play_sound': True,
     },
     'common': {
         'min_count': 100,
         'max_count': 499,
         'cooldown_seconds': 300,  # 5 minuten
-        'sound': 'emsn_common',
+        'sound': RTTTL_SOUNDS['common'],
         'play_sound': True,
     },
     'very_common': {
@@ -97,15 +105,6 @@ SPECIAL_EVENTS = {
     'first_of_year': True,      # Eerste detectie dit jaar
     'dual_detection': True,     # Beide stations
     'milestone': True,          # Milestone bereikt
-}
-
-# RTTTL Sounds (voor later uploaden naar Ulanzi)
-RTTTL_SOUNDS = {
-    'emsn_rare': 'emsn_rare:d=4,o=5,b=140:e6,8p,e6,8p,8e6,8p,c6,e6,g6,p,g',
-    'emsn_uncommon': 'emsn_uncommon:d=4,o=5,b=180:e6,e6,e6',
-    'emsn_common': 'emsn_common:d=4,o=5,b=200:e6',
-    'emsn_dual': 'emsn_dual:d=4,o=5,b=140:c6,e6,g6,c7',
-    'emsn_milestone': 'emsn_milestone:d=4,o=5,b=120:c6,e6,g6,c7,8p,c7,g6,e6,c6',
 }
 
 # Lookback period voor rarity berekening

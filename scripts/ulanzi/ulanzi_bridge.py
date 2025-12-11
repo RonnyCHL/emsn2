@@ -211,7 +211,7 @@ class UlanziNotifier:
         }
 
         if sound:
-            payload['sound'] = sound
+            payload['rtttl'] = sound  # AWTRIX uses rtttl for custom sounds
 
         try:
             url = f"{self.api_base}/notify"
