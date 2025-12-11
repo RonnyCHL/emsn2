@@ -1,0 +1,15 @@
+[Unit]
+Description=EMSN Rarity Cache Refresh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/ulanzi/rarity_cache_refresh.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rarity-cache
