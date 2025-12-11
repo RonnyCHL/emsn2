@@ -52,35 +52,35 @@ RARITY_TIERS = {
     'legendary': {
         'min_count': 0,
         'max_count': 0,
-        'cooldown_seconds': 0,      # Altijd tonen
+        'cooldown_seconds': 0,      # Geen cooldown
         'display_duration_sec': 45,
         'play_sound': True,
     },
     'rare': {
         'min_count': 1,
         'max_count': 19,
-        'cooldown_seconds': 1800,   # 30 minuten
+        'cooldown_seconds': 300,    # 5 minuten
         'display_duration_sec': 35,
         'play_sound': True,
     },
     'uncommon': {
         'min_count': 20,
         'max_count': 99,
-        'cooldown_seconds': 7200,   # 2 uur
+        'cooldown_seconds': 900,    # 15 minuten
         'display_duration_sec': 25,
         'play_sound': True,
     },
     'common': {
         'min_count': 100,
         'max_count': 499,
-        'cooldown_seconds': 14400,  # 4 uur
+        'cooldown_seconds': 3600,   # 1 uur
         'display_duration_sec': 15,
         'play_sound': True,
     },
     'abundant': {
         'min_count': 500,
         'max_count': float('inf'),
-        'cooldown_seconds': 28800,  # 8 uur
+        'cooldown_seconds': 7200,   # 2 uur
         'display_duration_sec': 10,
         'play_sound': False,
     }
@@ -106,7 +106,7 @@ CONFIDENCE_THRESHOLDS = {
 
 # Display Settings
 DISPLAY = {
-    'scroll_speed': 130,
+    'scroll_speed': 80,  # Lager = langzamer scrollen (default AWTRIX is 100)
     'base_duration_ms': 10000,  # 10 seconden basis
     'per_char_duration_ms': 500,  # +0.5 sec per karakter
     'max_duration_ms': 30000,  # Max 30 seconden

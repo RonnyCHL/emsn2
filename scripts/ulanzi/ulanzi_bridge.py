@@ -52,7 +52,22 @@ class SpeciesNameCache:
     def __init__(self, logger):
         self.logger = logger
         self.cache = {}  # scientific_name -> dutch_name
+        self.fallback = {}  # Externe lookup tabel
         self.pg_conn = None
+        self._load_fallback()
+
+    def _load_fallback(self):
+        """Load fallback Dutch names from JSON file"""
+        fallback_file = Path(__file__).parent.parent.parent / 'config' / 'dutch_bird_names.json'
+        try:
+            if fallback_file.exists():
+                with open(fallback_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # Normalize keys to lowercase
+                    self.fallback = {k.lower(): v for k, v in data.items()}
+                self.logger.info(f"Fallback names loaded: {len(self.fallback)} species")
+        except Exception as e:
+            self.logger.warning(f"Could not load fallback names: {e}")
 
     def connect(self, pg_conn):
         """Use existing connection"""
@@ -84,10 +99,12 @@ class SpeciesNameCache:
             return False
 
     def get_dutch_name(self, scientific_name):
-        """Get Dutch name from scientific name"""
+        """Get Dutch name from scientific name (DB first, then fallback)"""
         if not scientific_name:
             return None
-        return self.cache.get(scientific_name.lower())
+        key = scientific_name.lower()
+        # Try database cache first, then fallback
+        return self.cache.get(key) or self.fallback.get(key)
 
 
 class FirstOfYearCache:
@@ -395,6 +412,7 @@ class UlanziNotifier:
             'color': color_rgb,
             'duration': duration_sec,  # AWTRIX uses seconds
             'scrollSpeed': DISPLAY['scroll_speed'],
+            'repeat': 1,  # Toon tekst maar 1x (niet herhalen)
         }
 
         if sound:
