@@ -1,0 +1,14 @@
+[Unit]
+Description=AtmosBird Advanced Analysis
+After=network.target
+
+[Service]
+Type=oneshot
+User=ronny
+WorkingDirectory=/home/ronny
+ExecStart=/usr/bin/python3 /home/ronny/atmosbird_analysis.py
+StandardOutput=append:/mnt/usb/logs/atmosbird-analysis.log
+StandardError=append:/mnt/usb/logs/atmosbird-analysis.error.log
+
+[Install]
+WantedBy=multi-user.target

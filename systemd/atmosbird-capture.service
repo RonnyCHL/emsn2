@@ -1,0 +1,14 @@
+[Unit]
+Description=AtmosBird Sky Capture
+After=network.target
+
+[Service]
+Type=oneshot
+User=ronny
+WorkingDirectory=/home/ronny
+ExecStart=/usr/bin/python3 /home/ronny/atmosbird_capture.py
+StandardOutput=append:/mnt/usb/logs/atmosbird-capture.log
+StandardError=append:/mnt/usb/logs/atmosbird-capture.error.log
+
+[Install]
+WantedBy=multi-user.target

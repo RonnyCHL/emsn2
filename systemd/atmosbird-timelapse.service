@@ -1,0 +1,14 @@
+[Unit]
+Description=AtmosBird Daily Timelapse Generator
+After=network.target
+
+[Service]
+Type=oneshot
+User=ronny
+WorkingDirectory=/home/ronny
+ExecStart=/usr/bin/python3 /home/ronny/atmosbird_timelapse.py
+StandardOutput=append:/mnt/usb/logs/atmosbird-timelapse.log
+StandardError=append:/mnt/usb/logs/atmosbird-timelapse.error.log
+
+[Install]
+WantedBy=multi-user.target

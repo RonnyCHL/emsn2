@@ -1,0 +1,11 @@
+[Unit]
+Description=AtmosBird Daily Timelapse Timer (daily at 00:30)
+Requires=atmosbird-timelapse.service
+
+[Timer]
+OnCalendar=daily
+OnCalendar=*-*-* 00:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
