@@ -1,0 +1,19 @@
+[Unit]
+Description=FlySafe Radar Scraper Timer (Nighttime - Every 2 hours)
+
+[Timer]
+# Nighttime schedule: 22:00, 00:00, 02:00, 04:00
+OnCalendar=22:00
+OnCalendar=00:00
+OnCalendar=02:00
+OnCalendar=04:00
+
+# Trigger the service
+Unit=flysafe-radar.service
+
+# Accuracy
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

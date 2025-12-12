@@ -1,0 +1,529 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "id": 100,
+      "panels": [],
+      "title": "Huidige Status",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 25},
+              {"color": "orange", "value": 50},
+              {"color": "red", "value": 75}
+            ]
+          },
+          "unit": "percent",
+          "max": 100
+        }
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 1},
+      "id": 1,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "targets": [{
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "rawSql": "SELECT intensity_level as \"Radar\" FROM radar_observations ORDER BY observation_date DESC, observation_time DESC LIMIT 1",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }],
+      "title": "Radar Intensiteit",
+      "type": "gauge"
+    },
+    {
+      "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "blue", "value": null},
+              {"color": "green", "value": 50},
+              {"color": "yellow", "value": 200},
+              {"color": "orange", "value": 500}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 1},
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [{
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "rawSql": "SELECT COUNT(*) as \"Detecties\" FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '4 hours' AND confidence >= 0.7",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }],
+      "title": "BirdNET (4 uur)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "blue", "value": null},
+              {"color": "green", "value": 10},
+              {"color": "yellow", "value": 30},
+              {"color": "orange", "value": 50}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 1},
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [{
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "rawSql": "SELECT COUNT(DISTINCT species) as \"Soorten\" FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '4 hours' AND confidence >= 0.7",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }],
+      "title": "Soorten (4 uur)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 1},
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [{
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "rawSql": "SELECT to_char(observation_date, 'DD-MM') || ' ' || to_char(observation_time, 'HH24:MI') as \"Laatste Update\" FROM radar_observations ORDER BY observation_date DESC, observation_time DESC LIMIT 1",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }],
+      "title": "Laatste Radar Scan",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 7},
+      "id": 101,
+      "panels": [],
+      "title": "Radar & BirdNET Trends",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Radar %",
+            "axisPlacement": "left",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 30,
+            "gradientMode": "opacity",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": {"group": "A", "mode": "none"},
+            "thresholdsStyle": {"mode": "area"}
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 25},
+              {"color": "orange", "value": 50},
+              {"color": "red", "value": 75}
+            ]
+          },
+          "unit": "percent",
+          "max": 100
+        },
+        "overrides": [{
+          "matcher": {"id": "byName", "options": "BirdNET Detecties"},
+          "properties": [
+            {"id": "custom.axisPlacement", "value": "right"},
+            {"id": "custom.axisLabel", "value": "Detecties"},
+            {"id": "color", "value": {"fixedColor": "blue", "mode": "fixed"}},
+            {"id": "custom.fillOpacity", "value": 10},
+            {"id": "unit", "value": "short"},
+            {"id": "custom.thresholdsStyle", "value": {"mode": "off"}}
+          ]
+        }]
+      },
+      "gridPos": {"h": 9, "w": 16, "x": 0, "y": 8},
+      "id": 10,
+      "options": {
+        "legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT observation_date + observation_time as time, intensity_level as \"Radar Intensiteit\" FROM radar_observations WHERE observation_date >= CURRENT_DATE - INTERVAL '7 days' ORDER BY time",
+          "format": "time_series",
+          "rawQuery": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT observation_date + observation_time as time, bird_detections_count as \"BirdNET Detecties\" FROM radar_observations WHERE observation_date >= CURRENT_DATE - INTERVAL '7 days' AND bird_detections_count IS NOT NULL ORDER BY time",
+          "format": "time_series",
+          "rawQuery": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Radar vs BirdNET (7 dagen)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"hideFrom": {"legend": false, "tooltip": false, "viz": false}},
+          "mappings": []
+        }
+      },
+      "gridPos": {"h": 9, "w": 8, "x": 16, "y": 8},
+      "id": 11,
+      "options": {
+        "displayLabels": ["name", "percent"],
+        "legend": {"displayMode": "table", "placement": "right", "showLegend": true, "values": ["value"]},
+        "pieType": "donut",
+        "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false},
+        "tooltip": {"mode": "single"}
+      },
+      "targets": [{
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "rawSql": "SELECT intensity_category as \"Categorie\", COUNT(*) as \"Aantal\" FROM radar_observations WHERE observation_date >= CURRENT_DATE - INTERVAL '7 days' AND intensity_category IS NOT NULL GROUP BY intensity_category ORDER BY COUNT(*) DESC",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }],
+      "title": "Intensiteit Verdeling",
+      "type": "piechart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 17},
+      "id": 102,
+      "panels": [],
+      "title": "Trekvogels & Weer",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "lineWidth": 1,
+            "scaleDistribution": {"type": "linear"}
+          },
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
+      "id": 20,
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.8,
+        "groupWidth": 0.7,
+        "legend": {"calcs": [], "displayMode": "list", "placement": "right", "showLegend": true},
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {"mode": "single"},
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [{
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "rawSql": "SELECT COALESCE(common_name, species) as \"Soort\", COUNT(*) as \"Detecties\" FROM bird_detections WHERE date >= CURRENT_DATE - INTERVAL '7 days' AND confidence >= 0.7 AND species IN ('Turdus pilaris', 'Turdus iliacus', 'Anser anser', 'Anser albifrons', 'Branta leucopsis', 'Fringilla coelebs', 'Fringilla montifringilla', 'Corvus frugilegus', 'Turdus philomelos', 'Sturnus vulgaris') GROUP BY COALESCE(common_name, species) ORDER BY COUNT(*) DESC LIMIT 10",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }],
+      "title": "Top 10 Trekvogels (7 dagen)",
+      "type": "barchart"
+    },
+    {
+      "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {"group": "A", "mode": "none"},
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        },
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Wind"}, "properties": [{"id": "color", "value": {"fixedColor": "blue", "mode": "fixed"}}, {"id": "unit", "value": "velocityms"}]},
+          {"matcher": {"id": "byName", "options": "Temp"}, "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}, {"id": "custom.axisPlacement", "value": "right"}, {"id": "unit", "value": "celsius"}]}
+        ]
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
+      "id": 21,
+      "options": {
+        "legend": {"calcs": ["mean"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "none"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT measurement_timestamp as time, wind_speed as \"Wind\", temp_outdoor as \"Temp\" FROM weather_data WHERE measurement_timestamp >= NOW() - INTERVAL '24 hours' ORDER BY time",
+          "format": "time_series",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Weer Condities (24 uur)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 26},
+      "id": 103,
+      "panels": [],
+      "title": "Dag/Nacht Analyse",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisLabel": "Detecties",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "hue",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "lineWidth": 1,
+            "scaleDistribution": {"type": "linear"}
+          },
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 27},
+      "id": 30,
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.9,
+        "groupWidth": 0.7,
+        "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": false},
+        "orientation": "vertical",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {"mode": "single"},
+        "xTickLabelRotation": 0
+      },
+      "targets": [{
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "rawSql": "SELECT LPAD(EXTRACT(HOUR FROM time)::int::text, 2, '0') || ':00' as \"Uur\", COUNT(*) as \"Detecties\" FROM bird_detections WHERE date >= CURRENT_DATE - INTERVAL '7 days' AND confidence >= 0.7 GROUP BY EXTRACT(HOUR FROM time) ORDER BY EXTRACT(HOUR FROM time)",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }],
+      "title": "BirdNET Detecties per Uur",
+      "type": "barchart"
+    },
+    {
+      "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisLabel": "Gem. Intensiteit",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "hue",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "lineWidth": 1,
+            "scaleDistribution": {"type": "linear"}
+          },
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "max": 100
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 27},
+      "id": 31,
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.9,
+        "groupWidth": 0.7,
+        "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": false},
+        "orientation": "vertical",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {"mode": "single"},
+        "xTickLabelRotation": 0
+      },
+      "targets": [{
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "rawSql": "SELECT LPAD(EXTRACT(HOUR FROM observation_time)::int::text, 2, '0') || ':00' as \"Uur\", AVG(intensity_level) as \"Radar\" FROM radar_observations WHERE observation_date >= CURRENT_DATE - INTERVAL '7 days' GROUP BY EXTRACT(HOUR FROM observation_time) ORDER BY EXTRACT(HOUR FROM observation_time)",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }],
+      "title": "Radar Intensiteit per Uur",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 35},
+      "id": 104,
+      "panels": [],
+      "title": "Recente Observaties & Details",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "custom": {"align": "auto", "cellOptions": {"type": "auto"}, "inspect": false},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Intensiteit"},
+            "properties": [
+              {"id": "custom.cellOptions", "value": {"mode": "gradient", "type": "gauge"}},
+              {"id": "max", "value": 100},
+              {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 25}, {"color": "orange", "value": 50}, {"color": "red", "value": 75}]}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Correlatie"},
+            "properties": [
+              {"id": "custom.cellOptions", "value": {"mode": "gradient", "type": "gauge"}},
+              {"id": "max", "value": 1},
+              {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.3}, {"color": "green", "value": 0.6}]}}
+            ]
+          }
+        ]
+      },
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 36},
+      "id": 40,
+      "options": {"cellHeight": "sm", "footer": {"countRows": false, "fields": "", "reducer": ["sum"], "show": false}, "showHeader": true},
+      "targets": [{
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "rawSql": "SELECT to_char(observation_date, 'DD-MM-YYYY') as \"Datum\", to_char(observation_time, 'HH24:MI') as \"Tijd\", intensity_category as \"Categorie\", intensity_level as \"Intensiteit\", bird_detections_count as \"Vogels\", ROUND(correlation_score::numeric, 3) as \"Correlatie\" FROM radar_observations WHERE observation_date >= CURRENT_DATE - INTERVAL '7 days' ORDER BY observation_date DESC, observation_time DESC LIMIT 30",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }],
+      "title": "Radar Observaties Log",
+      "type": "table"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": ["flysafe", "radar", "migration", "birds", "emsn"],
+  "templating": {"list": []},
+  "time": {"from": "now-7d", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "FlySafe Radar - Bird Migration",
+  "uid": "flysafe-radar",
+  "version": 1
+}

@@ -1,0 +1,19 @@
+[Unit]
+Description=FlySafe Radar Scraper Timer (Daytime - Every 4 hours)
+
+[Timer]
+# Daytime schedule: 06:00, 10:00, 14:00, 18:00
+OnCalendar=06:00
+OnCalendar=10:00
+OnCalendar=14:00
+OnCalendar=18:00
+
+# Trigger the service
+Unit=flysafe-radar.service
+
+# Accuracy
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
