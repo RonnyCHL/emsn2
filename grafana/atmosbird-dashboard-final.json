@@ -208,7 +208,7 @@
         "gridPos": {"x": 8, "y": 15, "w": 8, "h": 8},
         "targets": [{
           "datasource": {"type": "postgres", "uid": "emsn_postgres"},
-          "rawSql": "SELECT phase_name, ROUND(illumination_percent::numeric, 1) as illumination, age_days, TO_CHAR(observation_timestamp, 'YYYY-MM-DD HH24:MI') as time FROM moon_observations ORDER BY observation_timestamp DESC LIMIT 10",
+          "rawSql": "SELECT phase_name, ROUND(illumination_percent::numeric, 1) as illumination, age_days, TO_CHAR(observation_timestamp, 'YYYY-MM-DD HH24:MI') as timestamp FROM moon_observations ORDER BY observation_timestamp DESC LIMIT 10",
           "format": "table",
           "refId": "A"
         }]
@@ -221,7 +221,7 @@
         "gridPos": {"x": 16, "y": 15, "w": 8, "h": 8},
         "targets": [{
           "datasource": {"type": "postgres", "uid": "emsn_postgres"},
-          "rawSql": "SELECT TO_CHAR(measurement_timestamp, 'HH24:MI') as time, photos_captured_today as photos, ROUND(disk_usage_percent::numeric, 1) as disk_pct, CASE WHEN last_capture_success THEN '✓' ELSE '✗' END as status FROM atmosbird_health ORDER BY measurement_timestamp DESC LIMIT 10",
+          "rawSql": "SELECT TO_CHAR(measurement_timestamp, 'HH24:MI') as timestamp, photos_captured_today as photos, ROUND(disk_usage_percent::numeric, 1) as disk_pct, CASE WHEN last_capture_success THEN '✓' ELSE '✗' END as status FROM atmosbird_health ORDER BY measurement_timestamp DESC LIMIT 10",
           "format": "table",
           "refId": "A"
         }]
