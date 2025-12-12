@@ -24,7 +24,7 @@ if not ANTHROPIC_API_KEY:
     print("❌ ANTHROPIC_API_KEY environment variable not set")
     sys.exit(1)
 
-OBSIDIAN_PATH = Path("/mnt/nas/obsidian/EMSN/Rapporten")
+OBSIDIAN_PATH = Path("/home/ronny/emsn2/reports")
 LOG_DIR = Path("/mnt/usb/logs")
 
 
@@ -107,7 +107,7 @@ class WeeklyReportGenerator:
 
         # Rare sightings (species with < 5 detections in the week)
         cur.execute("""
-            SELECT species, detection_timestamp, confidence_score, station_id
+            SELECT species, detection_timestamp, confidence, station
             FROM bird_detections
             WHERE detection_timestamp BETWEEN %s AND %s
             AND species IN (
@@ -117,7 +117,7 @@ class WeeklyReportGenerator:
                 GROUP BY species
                 HAVING COUNT(*) <= 5
             )
-            ORDER BY confidence_score DESC
+            ORDER BY confidence DESC
             LIMIT 5
         """, (start_date, end_date, start_date, end_date))
         data["rare_sightings"] = [
@@ -136,7 +136,7 @@ class WeeklyReportGenerator:
             FROM bird_detections d1
             INNER JOIN bird_detections d2
                 ON d1.species = d2.species
-                AND d1.station_id != d2.station_id
+                AND d1.station != d2.station
                 AND ABS(EXTRACT(EPOCH FROM (d1.detection_timestamp - d2.detection_timestamp))) <= 5
             WHERE d1.detection_timestamp BETWEEN %s AND %s
         """, (start_date, end_date))
@@ -176,13 +176,13 @@ class WeeklyReportGenerator:
         # Weather correlation (if weather data available)
         cur.execute("""
             SELECT
-                CASE WHEN w.precipitation_mm > 0 THEN 'rainy' ELSE 'dry' END as weather,
+                CASE WHEN w.rain_rate > 0 THEN 'rainy' ELSE 'dry' END as weather,
                 COUNT(DISTINCT d.id) as detections
             FROM bird_detections d
             LEFT JOIN weather_data w
                 ON DATE_TRUNC('hour', d.detection_timestamp) = DATE_TRUNC('hour', w.measurement_timestamp)
             WHERE d.detection_timestamp BETWEEN %s AND %s
-            AND w.precipitation_mm IS NOT NULL
+            AND w.rain_rate IS NOT NULL
             GROUP BY weather
         """, (start_date, end_date))
         weather_data = dict(cur.fetchall())
@@ -285,7 +285,7 @@ TOON:
 
         try:
             message = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-sonnet-4-5-20250929",
                 max_tokens=2000,
                 messages=[
                     {"role": "user", "content": prompt}
