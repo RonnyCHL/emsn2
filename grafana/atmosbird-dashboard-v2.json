@@ -1,0 +1,327 @@
+{
+  "dashboard": {
+    "title": "AtmosBird - Sky Monitoring",
+    "tags": ["atmosbird", "sky", "astronomy"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 2,
+    "refresh": "5m",
+    "panels": [
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 1,
+        "title": "Latest Sky Capture Info",
+        "type": "table",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 6},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT observation_timestamp, sky_type, cloud_coverage as clouds_pct, ROUND(brightness::numeric, 1) as brightness, image_path FROM sky_observations ORDER BY observation_timestamp DESC LIMIT 1",
+          "format": "table",
+          "refId": "A"
+        }],
+        "options": {
+          "showHeader": true
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 2,
+        "title": "Total Sky Observations",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 0, "w": 4, "h": 3},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT COUNT(*) as value FROM sky_observations",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "blue"},
+                {"value": 100, "color": "green"},
+                {"value": 1000, "color": "yellow"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 3,
+        "title": "Observations Today",
+        "type": "stat",
+        "gridPos": {"x": 16, "y": 0, "w": 4, "h": 3},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT COUNT(*) as value FROM sky_observations WHERE observation_timestamp >= CURRENT_DATE",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 50, "color": "yellow"},
+                {"value": 100, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 4,
+        "title": "Total Timelapses",
+        "type": "stat",
+        "gridPos": {"x": 20, "y": 0, "w": 4, "h": 3},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT COUNT(*) as value FROM timelapses",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "grey"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 5,
+        "title": "Disk Usage %",
+        "type": "gauge",
+        "gridPos": {"x": 12, "y": 3, "w": 6, "h": 3},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT ROUND(disk_usage_percent::numeric, 1) as value FROM atmosbird_health ORDER BY measurement_timestamp DESC LIMIT 1",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 100,
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 70, "color": "yellow"},
+                {"value": 90, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 6,
+        "title": "Photos Today",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 3, "w": 6, "h": 3},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT photos_captured_today as value FROM atmosbird_health ORDER BY measurement_timestamp DESC LIMIT 1",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"}
+          }
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 7,
+        "title": "Cloud Coverage Trend (7 days)",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 6, "w": 12, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT observation_timestamp as time, cloud_coverage as value FROM sky_observations WHERE $__timeFilter(observation_timestamp) ORDER BY observation_timestamp",
+          "format": "time_series",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 30,
+              "axisPlacement": "auto"
+            },
+            "min": 0,
+            "max": 100,
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 8,
+        "title": "Sky Brightness Trend (7 days)",
+        "type": "timeseries",
+        "gridPos": {"x": 12, "y": 6, "w": 12, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT observation_timestamp as time, brightness::numeric as value FROM sky_observations WHERE $__timeFilter(observation_timestamp) ORDER BY observation_timestamp",
+          "format": "time_series",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "continuous-BlYlRd"},
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 30,
+              "axisPlacement": "auto"
+            }
+          }
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 9,
+        "title": "Sky Type Distribution (24h)",
+        "type": "piechart",
+        "gridPos": {"x": 0, "y": 14, "w": 8, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT sky_type, COUNT(*) as count FROM sky_observations WHERE observation_timestamp > NOW() - INTERVAL '24 hours' GROUP BY sky_type",
+          "format": "table",
+          "refId": "A"
+        }],
+        "options": {
+          "legend": {"displayMode": "list", "placement": "right"},
+          "pieType": "pie",
+          "reduceOptions": {"values": true, "calcs": ["lastNotNull"]},
+          "tooltip": {"mode": "single"}
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 10,
+        "title": "Moon Phase Progress",
+        "type": "table",
+        "gridPos": {"x": 8, "y": 14, "w": 8, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT phase_name, ROUND(illumination_percent::numeric, 1) as illumination, age_days, observation_timestamp FROM moon_observations ORDER BY observation_timestamp DESC LIMIT 10",
+          "format": "table",
+          "refId": "A"
+        }]
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 11,
+        "title": "Star Observations (Nighttime)",
+        "type": "table",
+        "gridPos": {"x": 16, "y": 14, "w": 8, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT observation_timestamp, star_count, bortle_scale_estimate, ROUND(sky_background_brightness::numeric, 1) as sky_bg FROM star_brightness ORDER BY observation_timestamp DESC LIMIT 10",
+          "format": "table",
+          "refId": "A"
+        }]
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 12,
+        "title": "Meteor Detections",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 22, "w": 6, "h": 4},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT COUNT(*) as value FROM meteor_detections",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "grey"},
+                {"value": 1, "color": "orange"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 13,
+        "title": "Meteor Detection Details",
+        "type": "table",
+        "gridPos": {"x": 6, "y": 22, "w": 18, "h": 4},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT detection_timestamp, ROUND(confidence_score::numeric, 1) as confidence, streak_length_pixels, ROUND(brightness_delta::numeric, 1) as brightness_increase FROM meteor_detections ORDER BY detection_timestamp DESC LIMIT 10",
+          "format": "table",
+          "refId": "A"
+        }]
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 14,
+        "title": "Recent Timelapses",
+        "type": "table",
+        "gridPos": {"x": 0, "y": 26, "w": 24, "h": 6},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT created_timestamp, timelapse_type, start_time, end_time, frame_count, ROUND(duration_seconds::numeric, 1) as duration_sec, ROUND((file_size_bytes/1024/1024)::numeric, 2) as size_mb, video_path FROM timelapses ORDER BY created_timestamp DESC LIMIT 10",
+          "format": "table",
+          "refId": "A"
+        }]
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 15,
+        "title": "Observations per Hour (24h)",
+        "type": "barchart",
+        "gridPos": {"x": 0, "y": 32, "w": 12, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT DATE_TRUNC('hour', observation_timestamp) as time, COUNT(*) as value FROM sky_observations WHERE observation_timestamp > NOW() - INTERVAL '24 hours' GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A"
+        }]
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 16,
+        "title": "System Health",
+        "type": "table",
+        "gridPos": {"x": 12, "y": 32, "w": 12, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT measurement_timestamp, photos_captured_today, ROUND(disk_usage_percent::numeric, 1) as disk_pct, last_capture_success FROM atmosbird_health ORDER BY measurement_timestamp DESC LIMIT 20",
+          "format": "table",
+          "refId": "A"
+        }]
+      }
+    ],
+    "time": {"from": "now-7d", "to": "now"},
+    "timepicker": {},
+    "fiscalYearStartMonth": 0
+  },
+  "overwrite": true
+}
