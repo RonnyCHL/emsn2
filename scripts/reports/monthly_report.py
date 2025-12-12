@@ -202,7 +202,7 @@ class MonthlyReportGenerator:
                     ELSE 'dry'
                 END as weather,
                 COUNT(DISTINCT d.id) as detections,
-                AVG(w.temperature_c) as avg_temp
+                AVG(w.temp_outdoor) as avg_temp
             FROM bird_detections d
             LEFT JOIN weather_data w
                 ON DATE_TRUNC('hour', d.detection_timestamp) = DATE_TRUNC('hour', w.measurement_timestamp)
@@ -217,6 +217,309 @@ class MonthlyReportGenerator:
                 "avg_temp": float(row[2]) if row[2] else None
             }
         data["weather_trends"] = weather_data
+
+        # Extended weather analysis
+
+        # 1. Temperature statistics (this month vs previous month)
+        cur.execute("""
+            SELECT
+                MIN(temp_outdoor) as min_temp,
+                MAX(temp_outdoor) as max_temp,
+                AVG(temp_outdoor) as avg_temp,
+                DATE(measurement_timestamp) as day
+            FROM weather_data
+            WHERE measurement_timestamp BETWEEN %s AND %s
+            AND temp_outdoor IS NOT NULL
+            GROUP BY day
+            ORDER BY day
+        """, (start_date, end_date))
+
+        daily_temps = []
+        for row in cur.fetchall():
+            daily_temps.append({
+                "day": row[3].strftime('%Y-%m-%d'),
+                "min": float(row[0]) if row[0] else None,
+                "max": float(row[1]) if row[1] else None,
+                "avg": float(row[2]) if row[2] else None
+            })
+
+        # Overall month stats
+        if daily_temps:
+            month_min = min(d["min"] for d in daily_temps if d["min"] is not None)
+            month_max = max(d["max"] for d in daily_temps if d["max"] is not None)
+            month_avg = sum(d["avg"] for d in daily_temps if d["avg"] is not None) / len([d for d in daily_temps if d["avg"] is not None])
+
+            # Find warmest and coldest day
+            warmest_day = max(daily_temps, key=lambda x: x["max"] if x["max"] else -999)
+            coldest_day = min(daily_temps, key=lambda x: x["min"] if x["min"] else 999)
+        else:
+            month_min = month_max = month_avg = None
+            warmest_day = coldest_day = None
+
+        # Previous month temperature for comparison
+        # Calculate previous month dates (go back one month from start_date)
+        if start_date.month == 1:
+            prev_month_year = start_date.year - 1
+            prev_month_num = 12
+        else:
+            prev_month_year = start_date.year
+            prev_month_num = start_date.month - 1
+        prev_start = datetime(prev_month_year, prev_month_num, 1)
+        # Last day of previous month
+        if prev_month_num == 12:
+            next_month_first = datetime(prev_month_year + 1, 1, 1)
+        else:
+            next_month_first = datetime(prev_month_year, prev_month_num + 1, 1)
+        prev_end = next_month_first - timedelta(seconds=1)
+
+        cur.execute("""
+            SELECT AVG(temp_outdoor)
+            FROM weather_data
+            WHERE measurement_timestamp BETWEEN %s AND %s
+            AND temp_outdoor IS NOT NULL
+        """, (prev_start, prev_end))
+        prev_month_avg_temp = cur.fetchone()[0]
+
+        temp_comparison = None
+        temp_comparison_value = None
+        if month_avg and prev_month_avg_temp:
+            temp_diff = month_avg - float(prev_month_avg_temp)
+            temp_comparison = f"{'kouder' if temp_diff < 0 else 'warmer'}"
+            temp_comparison_value = abs(temp_diff)
+
+        # Weekly temperature variation
+        cur.execute("""
+            SELECT
+                EXTRACT(WEEK FROM measurement_timestamp) as week,
+                AVG(temp_outdoor) as avg_temp
+            FROM weather_data
+            WHERE measurement_timestamp BETWEEN %s AND %s
+            AND temp_outdoor IS NOT NULL
+            GROUP BY week
+            ORDER BY week
+        """, (start_date, end_date))
+
+        weekly_temps = []
+        for row in cur.fetchall():
+            weekly_temps.append({
+                "week": int(row[0]),
+                "avg_temp": round(float(row[1]), 1) if row[1] else None
+            })
+
+        data["temperature_stats"] = {
+            "month_min": round(month_min, 1) if month_min else None,
+            "month_max": round(month_max, 1) if month_max else None,
+            "month_avg": round(month_avg, 1) if month_avg else None,
+            "warmest_day": warmest_day["day"] if warmest_day else None,
+            "warmest_temp": warmest_day["max"] if warmest_day else None,
+            "coldest_day": coldest_day["day"] if coldest_day else None,
+            "coldest_temp": coldest_day["min"] if coldest_day else None,
+            "comparison_prev_month": temp_comparison,
+            "temp_diff": round(temp_comparison_value, 1) if temp_comparison_value else None,
+            "weekly_temps": weekly_temps,
+            "daily_temps": daily_temps
+        }
+
+        # 2. Optimal conditions analysis - bird activity by temperature
+        cur.execute("""
+            SELECT
+                CASE
+                    WHEN w.temp_outdoor < 0 THEN '<0°C'
+                    WHEN w.temp_outdoor >= 0 AND w.temp_outdoor < 5 THEN '0-5°C'
+                    WHEN w.temp_outdoor >= 5 AND w.temp_outdoor < 10 THEN '5-10°C'
+                    WHEN w.temp_outdoor >= 10 AND w.temp_outdoor < 15 THEN '10-15°C'
+                    WHEN w.temp_outdoor >= 15 AND w.temp_outdoor < 20 THEN '15-20°C'
+                    WHEN w.temp_outdoor >= 20 THEN '≥20°C'
+                END as temp_bracket,
+                COUNT(DISTINCT d.id) as detections,
+                AVG(w.temp_outdoor) as avg_temp_in_bracket
+            FROM bird_detections d
+            LEFT JOIN weather_data w
+                ON DATE_TRUNC('hour', d.detection_timestamp) = DATE_TRUNC('hour', w.measurement_timestamp)
+            WHERE d.detection_timestamp BETWEEN %s AND %s
+            AND w.temp_outdoor IS NOT NULL
+            GROUP BY temp_bracket
+            ORDER BY detections DESC
+        """, (start_date, end_date))
+
+        temp_activity = []
+        for row in cur.fetchall():
+            temp_activity.append({
+                "bracket": row[0],
+                "detections": row[1],
+                "avg_temp": round(float(row[2]), 1) if row[2] else None
+            })
+
+        optimal_temp_bracket = temp_activity[0] if temp_activity else None
+
+        data["optimal_conditions"] = {
+            "by_temperature": temp_activity,
+            "optimal_bracket": optimal_temp_bracket["bracket"] if optimal_temp_bracket else None,
+            "optimal_detections": optimal_temp_bracket["detections"] if optimal_temp_bracket else None
+        }
+
+        # 3. Wind analysis
+        cur.execute("""
+            SELECT
+                AVG(wind_speed) as avg_wind,
+                MAX(wind_gust_speed) as max_gust,
+                MIN(wind_speed) as min_wind
+            FROM weather_data
+            WHERE measurement_timestamp BETWEEN %s AND %s
+            AND wind_speed IS NOT NULL
+        """, (start_date, end_date))
+        result = cur.fetchone()
+        avg_wind = float(result[0]) if result[0] else None
+        max_gust = float(result[1]) if result[1] else None
+        min_wind = float(result[2]) if result[2] else None
+
+        # Bird activity on calm vs windy days
+        cur.execute("""
+            SELECT
+                CASE
+                    WHEN w.wind_speed < 2 THEN 'windstil'
+                    WHEN w.wind_speed >= 2 AND w.wind_speed < 5 THEN 'lichte wind'
+                    WHEN w.wind_speed >= 5 AND w.wind_speed < 10 THEN 'matige wind'
+                    WHEN w.wind_speed >= 10 THEN 'harde wind'
+                END as wind_category,
+                COUNT(DISTINCT d.id) as detections
+            FROM bird_detections d
+            LEFT JOIN weather_data w
+                ON DATE_TRUNC('hour', d.detection_timestamp) = DATE_TRUNC('hour', w.measurement_timestamp)
+            WHERE d.detection_timestamp BETWEEN %s AND %s
+            AND w.wind_speed IS NOT NULL
+            GROUP BY wind_category
+            ORDER BY detections DESC
+        """, (start_date, end_date))
+
+        wind_activity = []
+        for row in cur.fetchall():
+            wind_activity.append({
+                "category": row[0],
+                "detections": row[1]
+            })
+
+        # Wind by week
+        cur.execute("""
+            SELECT
+                EXTRACT(WEEK FROM measurement_timestamp) as week,
+                AVG(wind_speed) as avg_wind
+            FROM weather_data
+            WHERE measurement_timestamp BETWEEN %s AND %s
+            AND wind_speed IS NOT NULL
+            GROUP BY week
+            ORDER BY week
+        """, (start_date, end_date))
+
+        weekly_wind = []
+        for row in cur.fetchall():
+            weekly_wind.append({
+                "week": int(row[0]),
+                "avg_wind": round(float(row[1]), 1) if row[1] else None
+            })
+
+        data["wind_analysis"] = {
+            "avg_speed": round(avg_wind, 1) if avg_wind else None,
+            "max_gust": round(max_gust, 1) if max_gust else None,
+            "min_speed": round(min_wind, 1) if min_wind else None,
+            "activity_by_wind": wind_activity,
+            "weekly_wind": weekly_wind
+        }
+
+        # 4. Humidity & Pressure
+        cur.execute("""
+            SELECT
+                AVG(humidity_outdoor) as avg_humidity,
+                AVG(barometer) as avg_pressure,
+                MIN(barometer) as min_pressure,
+                MAX(barometer) as max_pressure,
+                MIN(humidity_outdoor) as min_humidity,
+                MAX(humidity_outdoor) as max_humidity
+            FROM weather_data
+            WHERE measurement_timestamp BETWEEN %s AND %s
+            AND humidity_outdoor IS NOT NULL
+            AND barometer IS NOT NULL
+        """, (start_date, end_date))
+        result = cur.fetchone()
+
+        data["humidity_pressure"] = {
+            "avg_humidity": int(result[0]) if result[0] else None,
+            "min_humidity": int(result[4]) if result[4] else None,
+            "max_humidity": int(result[5]) if result[5] else None,
+            "avg_pressure": round(float(result[1]), 1) if result[1] else None,
+            "min_pressure": round(float(result[2]), 1) if result[2] else None,
+            "max_pressure": round(float(result[3]), 1) if result[3] else None
+        }
+
+        # Bird activity by pressure (low vs high)
+        cur.execute("""
+            WITH pressure_avg AS (
+                SELECT AVG(barometer) as avg_p
+                FROM weather_data
+                WHERE measurement_timestamp BETWEEN %s AND %s
+                AND barometer IS NOT NULL
+            )
+            SELECT
+                CASE
+                    WHEN w.barometer < (SELECT avg_p FROM pressure_avg) THEN 'lage druk'
+                    ELSE 'hoge druk'
+                END as pressure_category,
+                COUNT(DISTINCT d.id) as detections
+            FROM bird_detections d
+            LEFT JOIN weather_data w
+                ON DATE_TRUNC('hour', d.detection_timestamp) = DATE_TRUNC('hour', w.measurement_timestamp)
+            WHERE d.detection_timestamp BETWEEN %s AND %s
+            AND w.barometer IS NOT NULL
+            GROUP BY pressure_category
+        """, (start_date, end_date, start_date, end_date))
+
+        pressure_activity = {}
+        for row in cur.fetchall():
+            pressure_activity[row[0]] = row[1]
+
+        data["humidity_pressure"]["activity_by_pressure"] = pressure_activity
+
+        # 5. Day/Night temperature difference
+        cur.execute("""
+            SELECT
+                AVG(CASE WHEN EXTRACT(HOUR FROM measurement_timestamp) BETWEEN 6 AND 20
+                    THEN temp_outdoor END) as day_temp,
+                AVG(CASE WHEN EXTRACT(HOUR FROM measurement_timestamp) NOT BETWEEN 6 AND 20
+                    THEN temp_outdoor END) as night_temp
+            FROM weather_data
+            WHERE measurement_timestamp BETWEEN %s AND %s
+            AND temp_outdoor IS NOT NULL
+        """, (start_date, end_date))
+        result = cur.fetchone()
+
+        day_temp = float(result[0]) if result[0] else None
+        night_temp = float(result[1]) if result[1] else None
+
+        data["day_night_temp"] = {
+            "day_avg": round(day_temp, 1) if day_temp else None,
+            "night_avg": round(night_temp, 1) if night_temp else None,
+            "difference": round(day_temp - night_temp, 1) if (day_temp and night_temp) else None
+        }
+
+        # 6. Rain statistics
+        cur.execute("""
+            SELECT
+                SUM(CASE WHEN rain_rate > 0 THEN 1 ELSE 0 END) as rainy_hours,
+                COUNT(*) as total_hours,
+                AVG(CASE WHEN rain_rate > 0 THEN rain_rate END) as avg_rain_rate,
+                MAX(rain_rate) as max_rain_rate
+            FROM weather_data
+            WHERE measurement_timestamp BETWEEN %s AND %s
+        """, (start_date, end_date))
+        result = cur.fetchone()
+
+        data["rain_stats"] = {
+            "rainy_hours": result[0] if result[0] else 0,
+            "total_hours": result[1] if result[1] else 0,
+            "rainy_percentage": round((result[0] / result[1] * 100), 1) if result[1] else 0,
+            "avg_rain_rate": round(float(result[2]), 2) if result[2] else 0,
+            "max_rain_rate": round(float(result[3]), 2) if result[3] else 0
+        }
 
         # Comparison with previous month
         prev_start = (start_date - timedelta(days=1)).replace(day=1)
@@ -297,28 +600,48 @@ RICHTLIJNEN:
 - Beschrijf de algemene trends en patronen
 - Highlight de top soorten en hun gedrag
 - Bespreek zeldzame waarnemingen in detail
-- Analyseer weersinvloeden op vogelactiviteit
+- Analyseer weersinvloeden op vogelactiviteit in detail
 - Vergelijk met vorige maand en zoek verklaringen
 - Eindig met vooruitblik naar volgende maand/seizoen
-- Maximaal 800 woorden
+- Maximaal 1000 woorden
 - Gebruik geen bullet points, schrijf vloeiende paragrafen
 - Maak het rijk aan detail en inzicht
 
 STRUCTUUR:
 1. Opening: Seizoensbeeld en algemene indruk van {data['month_name']}
-2. Hoogtepunten: Meest opvallende waarnemingen en momenten
-3. Patronen: Wekelijkse trends, drukste dagen, activiteitspatronen
-4. Soortbespreking: Top 5 soorten met context en gedrag
-5. Zeldzaamheden: Bijzondere waarnemingen in detail
-6. Weer & Activiteit: Invloed van weersomstandigheden
-7. Vergelijking: Trends t.o.v. vorige maand
+2. Weer & Vogels: Uitgebreide analyse van het weer en de invloed op vogelactiviteit
+   - Temperatuurverloop door de maand (per week, min/max, gemiddeld)
+   - Vergelijking met vorige maand
+   - Warmste en koudste dag
+   - Optimale temperaturen voor vogelactiviteit
+   - Wind patronen en invloed (gemiddeld, stoten, per week)
+   - Regenval statistieken en impact
+   - Luchtvochtigheid en luchtdruk trends
+   - Dag/nacht temperatuurverschillen
+3. Hoogtepunten: Meest opvallende waarnemingen en momenten
+4. Patronen: Wekelijkse trends, drukste dagen, activiteitspatronen
+5. Soortbespreking: Top 5 soorten met context en gedrag
+6. Zeldzaamheden: Bijzondere waarnemingen in detail
+7. Vergelijking: Trends t.o.v. vorige maand (zowel vogels als weer)
 8. Vooruitblik: Wat te verwachten komende maand
+
+WEER & VOGELS SECTIE - ZEER BELANGRIJK:
+Deze sectie moet uitgebreid en analytisch zijn, gebruik alle beschikbare weerdata:
+- Beschrijf het temperatuurverloop: "De maand {data['month_name']} kende een gemiddelde temperatuur van X°C,
+  variërend van Y°C op de koudste dag tot Z°C op de warmste dag"
+- Analyseer wekelijkse trends: "De eerste week was kouder met gemiddeld X°C, terwijl week drie..."
+- Leg verbanden: "Vogels waren het actiefst bij temperaturen tussen X en Y graden, met Z detecties"
+- Windanalyse: "Gemiddelde windsnelheid was X m/s met een maximum van Y m/s. Bij windstille momenten..."
+- Regenimpact: "Het regende X% van de tijd, met name in week Y. Op droge dagen zagen we Z% meer activiteit"
+- Luchtdruk: "Bij lage luchtdruk (X detecties) vs hoge luchtdruk (Y detecties)"
+- Dag/nacht: "Overdag was het gemiddeld X°C warmer dan 's nachts"
 
 TOON:
 - Enthousiast en betrokken
 - Analytisch maar toegankelijk
 - Persoonlijk en reflectief
 - Waardering voor natuurlijke processen en seizoenen
+- Focus op het samenspel tussen weer en vogelgedrag
 """
 
         try:
@@ -407,6 +730,84 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             markdown += f"- **Detecties:** {data['comparison_last_month']['detections_change']}\n"
             markdown += f"- **Soorten:** {data['comparison_last_month']['species_change']}\n"
 
+        # Weather statistics section
+        markdown += f"\n### 🌤️ Weerdata\n\n"
+
+        temp_stats = data.get('temperature_stats', {})
+        if temp_stats.get('month_avg'):
+            markdown += f"**Temperatuur:**\n"
+            markdown += f"- Gemiddeld: {temp_stats['month_avg']}°C\n"
+            markdown += f"- Min/Max: {temp_stats['month_min']}°C / {temp_stats['month_max']}°C\n"
+            if temp_stats.get('warmest_day'):
+                markdown += f"- Warmste dag: {temp_stats['warmest_day']} ({temp_stats['warmest_temp']}°C)\n"
+            if temp_stats.get('coldest_day'):
+                markdown += f"- Koudste dag: {temp_stats['coldest_day']} ({temp_stats['coldest_temp']}°C)\n"
+            if temp_stats.get('comparison_prev_month'):
+                markdown += f"- T.o.v. vorige maand: {temp_stats['temp_diff']}°C {temp_stats['comparison_prev_month']}\n"
+
+            if temp_stats.get('weekly_temps'):
+                markdown += f"\n**Temperatuur per Week:**\n"
+                for week_temp in temp_stats['weekly_temps']:
+                    markdown += f"- Week {week_temp['week']}: {week_temp['avg_temp']}°C\n"
+            markdown += f"\n"
+
+        day_night = data.get('day_night_temp', {})
+        if day_night.get('day_avg'):
+            markdown += f"**Dag/Nacht:**\n"
+            markdown += f"- Overdag (6-20u): {day_night['day_avg']}°C\n"
+            markdown += f"- 's Nachts: {day_night['night_avg']}°C\n"
+            markdown += f"- Verschil: {day_night['difference']}°C\n\n"
+
+        optimal = data.get('optimal_conditions', {})
+        if optimal.get('optimal_bracket'):
+            markdown += f"**Optimale Temperatuur voor Vogels:**\n"
+            markdown += f"- Meeste activiteit: {optimal['optimal_bracket']} ({optimal['optimal_detections']:,} detecties)\n"
+            if optimal.get('by_temperature'):
+                markdown += f"\n**Activiteit per Temperatuur Bracket:**\n"
+                for temp_data in optimal['by_temperature']:
+                    markdown += f"- {temp_data['bracket']}: {temp_data['detections']:,} detecties (gem. {temp_data['avg_temp']}°C)\n"
+            markdown += f"\n"
+
+        wind = data.get('wind_analysis', {})
+        if wind.get('avg_speed') is not None:
+            markdown += f"**Wind:**\n"
+            markdown += f"- Gemiddelde snelheid: {wind['avg_speed']} m/s\n"
+            markdown += f"- Maximale windstoot: {wind['max_gust']} m/s\n"
+            markdown += f"- Minimale windsnelheid: {wind['min_speed']} m/s\n"
+
+            if wind.get('weekly_wind'):
+                markdown += f"\n**Wind per Week:**\n"
+                for week_wind in wind['weekly_wind']:
+                    markdown += f"- Week {week_wind['week']}: {week_wind['avg_wind']} m/s\n"
+
+            if wind.get('activity_by_wind'):
+                markdown += f"\n**Activiteit per Windsterkte:**\n"
+                for wind_data in wind['activity_by_wind']:
+                    markdown += f"- {wind_data['category'].capitalize()}: {wind_data['detections']:,} detecties\n"
+            markdown += f"\n"
+
+        rain = data.get('rain_stats', {})
+        if rain.get('total_hours'):
+            markdown += f"**Regenval:**\n"
+            markdown += f"- Percentage met regen: {rain['rainy_percentage']}%\n"
+            markdown += f"- Uren met regen: {rain['rainy_hours']} van {rain['total_hours']}\n"
+            if rain['avg_rain_rate'] > 0:
+                markdown += f"- Gemiddelde regenintensiteit: {rain['avg_rain_rate']} mm/u\n"
+                markdown += f"- Maximale regenintensiteit: {rain['max_rain_rate']} mm/u\n"
+            markdown += f"\n"
+
+        humidity = data.get('humidity_pressure', {})
+        if humidity.get('avg_humidity'):
+            markdown += f"**Luchtvochtigheid & Druk:**\n"
+            markdown += f"- Gemiddelde luchtvochtigheid: {humidity['avg_humidity']}%\n"
+            markdown += f"- Range luchtvochtigheid: {humidity['min_humidity']}% - {humidity['max_humidity']}%\n"
+            markdown += f"- Gemiddelde luchtdruk: {humidity['avg_pressure']} hPa\n"
+            markdown += f"- Range luchtdruk: {humidity['min_pressure']} - {humidity['max_pressure']} hPa\n"
+            if humidity.get('activity_by_pressure'):
+                markdown += f"\n**Activiteit per Luchtdruk:**\n"
+                markdown += f"- Bij lage druk: {humidity['activity_by_pressure'].get('lage druk', 0):,} detecties\n"
+                markdown += f"- Bij hoge druk: {humidity['activity_by_pressure'].get('hoge druk', 0):,} detecties\n"
+
         markdown += f"\n---\n\n*Automatisch gegenereerd door Claude AI*\n"
 
         # Write file
@@ -451,6 +852,16 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         # Save report
         print("💾 Opslaan rapport...")
         filepath = self.save_report(report, data)
+
+        # Update web index
+        print("🔄 Bijwerken web index...")
+        try:
+            subprocess.run([
+                '/home/ronny/emsn2/venv/bin/python3',
+                '/home/ronny/emsn2/reports-web/generate_index.py'
+            ], check=True, capture_output=True)
+        except Exception as e:
+            print(f"⚠️  Kon web index niet bijwerken: {e}")
 
         print("\n✅ Maandrapport succesvol gegenereerd!")
         print(f"📄 Bestand: {filepath}")

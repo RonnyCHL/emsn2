@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMSN Rapport</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .report-content {
+            max-width: 900px;
+            margin: 2rem auto;
+            background: var(--card-bg);
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            line-height: 1.8;
+        }
+
+        .report-content h1 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-size: 2.5rem;
+        }
+
+        .report-content h2 {
+            color: var(--primary);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            font-size: 1.8rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        .report-content h3 {
+            color: var(--primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            font-size: 1.3rem;
+        }
+
+        .report-content p {
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+
+        .report-content ul, .report-content ol {
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .report-content li {
+            margin-bottom: 0.5rem;
+        }
+
+        .report-content strong {
+            color: var(--primary);
+        }
+
+        .report-content hr {
+            border: none;
+            border-top: 2px solid var(--border);
+            margin: 2rem 0;
+        }
+
+        .back-button {
+            display: inline-block;
+            margin-bottom: 2rem;
+            padding: 0.75rem 1.5rem;
+            background: var(--primary);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .back-button:hover {
+            background: var(--secondary);
+            transform: translateX(-4px);
+        }
+
+        .download-pdf {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 2rem;
+            background: var(--accent);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            font-weight: 600;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .download-pdf:hover {
+            background: #38a169;
+            transform: scale(1.05);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-button">← Terug naar overzicht</a>
+
+        <div id="report-content" class="report-content">
+            <div class="loading">Rapport laden...</div>
+        </div>
+
+        <a id="download-link" href="#" class="download-pdf" style="display: none;">
+            📥 Download als PDF
+        </a>
+    </div>
+
+    <script>
+        // Get report filename from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const reportFile = urlParams.get('report');
+
+        if (!reportFile) {
+            document.getElementById('report-content').innerHTML = '<div class="error">Geen rapport geselecteerd</div>';
+        } else {
+            loadReport(reportFile);
+        }
+
+        async function loadReport(filename) {
+            try {
+                // Load the markdown file
+                const response = await fetch(`reports/${filename}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load report');
+                }
+
+                let markdown = await response.text();
+
+                // Remove YAML frontmatter
+                markdown = markdown.replace(/^---\n[\s\S]*?\n---\n/, '');
+
+                // Convert markdown to HTML using marked.js
+                const html = marked.parse(markdown);
+
+                // Display the report
+                document.getElementById('report-content').innerHTML = html;
+
+                // Show download button
+                const downloadLink = document.getElementById('download-link');
+                downloadLink.href = `api/pdf?file=${encodeURIComponent(filename)}`;
+                downloadLink.style.display = 'block';
+
+            } catch (error) {
+                console.error('Error loading report:', error);
+                document.getElementById('report-content').innerHTML = '<div class="error">Kon rapport niet laden</div>';
+            }
+        }
+    </script>
+</body>
+</html>

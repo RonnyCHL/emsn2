@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMSN Rapporten</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🐦 EMSN Vogelrapporten</h1>
+            <p class="subtitle">Automatisch gegenereerde rapporten over vogelactiviteit</p>
+        </header>
+
+        <div class="filters">
+            <button class="filter-btn active" data-filter="all">Alle</button>
+            <button class="filter-btn" data-filter="week">Wekelijks</button>
+            <button class="filter-btn" data-filter="month">Maandelijks</button>
+        </div>
+
+        <div id="reports-list" class="reports-grid">
+            <div class="loading">Laden...</div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
