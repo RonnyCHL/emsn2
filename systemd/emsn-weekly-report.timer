@@ -1,0 +1,12 @@
+[Unit]
+Description=EMSN Weekly Report Generator Timer
+Requires=emsn-weekly-report.service
+
+[Timer]
+# Run every Monday at 07:00
+OnCalendar=Mon *-*-* 07:00:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
