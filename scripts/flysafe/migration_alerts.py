@@ -29,6 +29,9 @@ ALERT_THRESHOLDS = {
     'very_high': 90  # Red notification with animation
 }
 
+# State file to track daily alerts
+STATE_FILE = Path("/mnt/usb/logs/migration_alert_state.json")
+
 # Logging
 LOGS_DIR = Path("/mnt/usb/logs")
 logging.basicConfig(
@@ -48,6 +51,41 @@ class MigrationAlertSystem:
     def __init__(self):
         self.last_alert_level = None
         self.last_alert_time = None
+        self._load_state()
+
+    def _load_state(self):
+        """Load alert state from file"""
+        try:
+            if STATE_FILE.exists():
+                with open(STATE_FILE, 'r') as f:
+                    state = json.load(f)
+                    self.last_alert_date = state.get('last_alert_date')
+                    self.last_alert_level = state.get('last_alert_level')
+            else:
+                self.last_alert_date = None
+        except Exception as e:
+            logger.warning(f"Could not load state: {e}")
+            self.last_alert_date = None
+
+    def _save_state(self):
+        """Save alert state to file"""
+        try:
+            state = {
+                'last_alert_date': self.last_alert_date,
+                'last_alert_level': self.last_alert_level,
+                'updated_at': datetime.now().isoformat()
+            }
+            with open(STATE_FILE, 'w') as f:
+                json.dump(state, f)
+        except Exception as e:
+            logger.warning(f"Could not save state: {e}")
+
+    def _already_alerted_today(self):
+        """Check if we already sent an alert today"""
+        if not self.last_alert_date:
+            return False
+        today = datetime.now().strftime('%Y-%m-%d')
+        return self.last_alert_date == today
 
     def get_alert_color(self, intensity):
         """Get color based on intensity level"""
@@ -159,7 +197,7 @@ class MigrationAlertSystem:
     def check_and_alert(self, intensity, bird_detections=0, force=False):
         """
         Check if alert should be sent based on intensity
-        Only alerts if intensity increased significantly or is high
+        Only sends ONE alert per day (first high intensity detection)
         """
         current_level = None
 
@@ -170,25 +208,29 @@ class MigrationAlertSystem:
                 current_level = level
                 break
 
-        # Always update custom app
-        self.send_ulanzi_custom_app(intensity, bird_detections)
-
         # Check if we should send notification
         should_notify = False
+        today = datetime.now().strftime('%Y-%m-%d')
 
         if force:
+            # Force flag bypasses daily limit (for testing)
             should_notify = True
+            logger.info(f"Force alert requested: {intensity}%")
+        elif self._already_alerted_today():
+            # Already alerted today, skip
+            logger.debug(f"Already alerted today, skipping ({intensity}%)")
+            should_notify = False
         elif intensity >= ALERT_THRESHOLDS['high']:
-            # Always notify for high intensity
+            # First high intensity of the day
             should_notify = True
-        elif current_level and current_level != self.last_alert_level:
-            # Notify when level changes
-            should_notify = True
+            logger.info(f"First high intensity alert of the day: {intensity}%")
 
-        if should_notify and intensity >= ALERT_THRESHOLDS['moderate']:
+        if should_notify:
             self.send_ulanzi_alert(intensity)
             self.last_alert_level = current_level
             self.last_alert_time = datetime.now()
+            self.last_alert_date = today
+            self._save_state()
 
         return should_notify
 
