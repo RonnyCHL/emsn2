@@ -1,0 +1,11 @@
+[Unit]
+Description=Run EMSN Baseline Learning weekly on Sunday at 03:00
+Requires=anomaly-baseline-learn.service
+
+[Timer]
+OnCalendar=Sun *-*-* 03:00:00
+Persistent=true
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target
