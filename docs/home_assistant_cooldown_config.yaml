@@ -1,0 +1,70 @@
+# Home Assistant Configuration voor EMSN Cooldown Tracking
+#
+# Voeg dit toe aan je configuration.yaml of sensor configuratie
+
+# MQTT Sensor voor cooldown data
+mqtt:
+  - sensor:
+      - name: "Bird Detection Cooldowns"
+        unique_id: emsn_bird_cooldowns
+        state_topic: "emsn2/ulanzi/cooldowns"
+        value_template: "{{ value_json.total_active }}"
+        json_attributes_topic: "emsn2/ulanzi/cooldowns"
+        json_attributes_template: "{{ value_json | tojson }}"
+        unit_of_measurement: "actief"
+        icon: mdi:clock-outline
+
+# Template sensors voor individuele cooldowns
+template:
+  - sensor:
+      - name: "Bird Cooldowns List"
+        unique_id: emsn_bird_cooldowns_list
+        state: >
+          {% set cooldowns = state_attr('sensor.bird_detection_cooldowns', 'cooldowns') %}
+          {% if cooldowns %}
+            {{ cooldowns | length }} soorten in cooldown
+          {% else %}
+            Geen actieve cooldowns
+          {% endif %}
+        attributes:
+          cooldowns: >
+            {% set cooldowns = state_attr('sensor.bird_detection_cooldowns', 'cooldowns') %}
+            {% if cooldowns %}
+              {% set ns = namespace(list=[]) %}
+              {% for cd in cooldowns %}
+                {% set ns.list = ns.list + [cd.species ~ ': ' ~ cd.remaining_formatted] %}
+              {% endfor %}
+              {{ ns.list | join(', ') }}
+            {% else %}
+              Geen
+            {% endif %}
+
+# Markdown card voor dashboard (voeg toe aan je Lovelace UI)
+#
+# type: markdown
+# content: |
+#   ## 🕐 Actieve Cooldowns
+#   {% set cooldowns = state_attr('sensor.bird_detection_cooldowns', 'cooldowns') %}
+#   {% if cooldowns %}
+#   {% for cd in cooldowns %}
+#   - **{{ cd.species }}**: {{ cd.remaining_formatted }} ({{ cd.tier }})
+#   {% endfor %}
+#
+#   _Totaal: {{ states('sensor.bird_detection_cooldowns') }} soorten_
+#   {% else %}
+#   Geen actieve cooldowns op dit moment
+#   {% endif %}
+#
+#   _Laatste update: {{ relative_time(states.sensor.bird_detection_cooldowns.last_changed) }}_
+
+# Of gebruik een entities card:
+#
+# type: entities
+# title: Bird Detection Cooldowns
+# entities:
+#   - entity: sensor.bird_detection_cooldowns
+#     name: Aantal actieve cooldowns
+#   - type: attribute
+#     entity: sensor.bird_detection_cooldowns
+#     attribute: cooldowns
+#     name: Details

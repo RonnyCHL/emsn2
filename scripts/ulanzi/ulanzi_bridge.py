@@ -307,14 +307,26 @@ class CooldownManager:
 
     def __init__(self):
         self.last_notification = {}
+        self.anti_spam_seconds = 30  # Minimum 30 seconds between identical species (burst protection)
+        self.burst_detection_seconds = 5  # Detect bursts within 5 seconds
+        self.last_received = {}  # Track when detection was received (not shown)
+
+    def is_burst_detection(self, common_name):
+        """Check if this is a burst detection (same species within 5 seconds)"""
+        last_received = self.last_received.get(common_name)
+        if not last_received:
+            return False
+
+        elapsed = (datetime.now() - last_received).total_seconds()
+        return elapsed < self.burst_detection_seconds
+
+    def record_received(self, common_name):
+        """Record that a detection was received (not necessarily shown)"""
+        self.last_received[common_name] = datetime.now()
 
     def can_notify(self, common_name, tier_config, is_special=False):
         """Check if notification is allowed based on cooldown"""
         if is_special:
-            return True
-
-        cooldown = tier_config['cooldown_seconds']
-        if cooldown == 0:
             return True
 
         last_time = self.last_notification.get(common_name)
@@ -322,11 +334,40 @@ class CooldownManager:
             return True
 
         elapsed = (datetime.now() - last_time).total_seconds()
+
+        # First check anti-spam filter (burst protection)
+        if elapsed < self.anti_spam_seconds:
+            return False
+
+        # Then check tier-specific cooldown
+        cooldown = tier_config['cooldown_seconds']
+        if cooldown == 0:
+            return True
+
         return elapsed >= cooldown
 
     def record_notification(self, common_name):
         """Record that a notification was sent"""
         self.last_notification[common_name] = datetime.now()
+
+    def get_cooldowns(self):
+        """Get all active cooldowns with remaining time"""
+        now = datetime.now()
+        cooldowns = []
+
+        for species, last_time in self.last_notification.items():
+            elapsed = (now - last_time).total_seconds()
+            # Only show cooldowns that are still active (within 2 hours max)
+            if elapsed < 7200:  # 2 hours = max cooldown for 'abundant' tier
+                cooldowns.append({
+                    'species': species,
+                    'elapsed_seconds': int(elapsed),
+                    'notified_at': last_time
+                })
+
+        # Sort by most recent first
+        cooldowns.sort(key=lambda x: x['elapsed_seconds'])
+        return cooldowns
 
 
 class UlanziNotifier:
@@ -449,22 +490,27 @@ class UlanziBridge:
         self.running = False
         self.presence_home = True  # Default: assume home
 
+        # Track last dual detection to prevent burst duplicates
+        self.last_dual_detection = {}  # species -> (timestamp, confidence)
+        self.dual_burst_window = 10  # 10 seconds window for dual detection bursts
+
     def parse_apprise_message(self, payload):
         """Parse Apprise notification message to extract detection info"""
         # Apprise body format from body.txt:
         # "A $comname ($sciname) was just detected with a confidence of $confidence ($reason)"
+        # May have "New BirdNET-Pi Detection" header line
 
         try:
             text = payload.decode('utf-8') if isinstance(payload, bytes) else payload
 
-            # Try to parse the standard format
+            # Try to parse the standard format (with re.DOTALL to handle multiline)
             # Example: "A Eurasian Magpie (Pica pica) was just detected with a confidence of 0.87 (detection)"
-            pattern = r"A (.+?) \((.+?)\) was just detected with a confidence of ([\d.]+)"
-            match = re.search(pattern, text)
+            pattern = r"A (.+?) \((.+?)\)\s+was just detected with a confidence of ([\d.]+)"
+            match = re.search(pattern, text, re.DOTALL)
 
             if match:
-                common_name = match.group(1)
-                scientific_name = match.group(2)
+                common_name = match.group(1).strip()
+                scientific_name = match.group(2).strip()
                 confidence = float(match.group(3))
 
                 return {
@@ -542,6 +588,15 @@ class UlanziBridge:
             dutch_name = detection['common_name']
             self.logger.warning(f"No Dutch name for {detection['scientific_name']}, using: {dutch_name}")
 
+        # Check for burst detection (duplicate within 5 seconds)
+        if self.cooldown.is_burst_detection(dutch_name):
+            self.logger.info(f"Skipping (burst detection): {dutch_name} - duplicate within 5 seconds")
+            self.log_notification(dutch_name, detection['confidence'], station, 'burst', False, 'burst_duplicate')
+            return
+
+        # Record that we received this detection
+        self.cooldown.record_received(dutch_name)
+
         # Check if this is the first detection of this species this year
         is_first_of_year = self.first_of_year.is_first_of_year(dutch_name)
 
@@ -559,7 +614,15 @@ class UlanziBridge:
 
         # Check cooldown (skip for first-of-year - special event)
         if not is_first_of_year and not self.cooldown.can_notify(dutch_name, tier_config):
-            self.logger.info(f"Skipping (cooldown): {dutch_name}")
+            last_time = self.cooldown.last_notification.get(dutch_name)
+            if last_time:
+                elapsed = (datetime.now() - last_time).total_seconds()
+                if elapsed < self.cooldown.anti_spam_seconds:
+                    self.logger.info(f"Skipping (anti-spam): {dutch_name} (within {int(elapsed)}s)")
+                    self.log_notification(dutch_name, detection['confidence'], station, tier, False, 'anti_spam')
+                else:
+                    self.logger.info(f"Skipping (cooldown): {dutch_name} (within {int(elapsed)}s)")
+                    self.log_notification(dutch_name, detection['confidence'], station, tier, False, 'cooldown')
             return
 
         # Format and send notification with Dutch name
@@ -652,6 +715,22 @@ class UlanziBridge:
             if avg_confidence < CONFIDENCE_THRESHOLDS['min_display']:
                 self.logger.info(f"Skipping dual (low confidence): {common_name} ({avg_confidence:.0%})")
                 return
+
+            # Check for burst detection - same species within 10 seconds
+            # Only show the FIRST detection, skip all others in the burst window
+            now = datetime.now()
+            if common_name in self.last_dual_detection:
+                last_time, last_confidence = self.last_dual_detection[common_name]
+                elapsed = (now - last_time).total_seconds()
+
+                if elapsed < self.dual_burst_window:
+                    # Within burst window - skip ALL duplicates (don't show any after first)
+                    self.logger.info(f"Skipping dual burst: {common_name} ({avg_confidence:.0%}) within {int(elapsed)}s of first detection")
+                    self.log_notification(common_name, avg_confidence, 'dual', 'special', False, 'dual_burst_duplicate', notification_type='dual')
+                    return
+
+            # Record this as the FIRST dual detection of this species (start of burst window)
+            self.last_dual_detection[common_name] = (now, avg_confidence)
 
             # Dual detections always show (ignore cooldown) - special event
             # Format message for dual detection
