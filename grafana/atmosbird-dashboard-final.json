@@ -142,13 +142,13 @@
         "targets": [
           {
             "datasource": {"type": "postgres", "uid": "emsn_postgres"},
-            "rawSql": "SELECT observation_timestamp as time, cloud_coverage as value, 'Cloud Coverage %' as metric FROM sky_observations WHERE $__timeFilter(observation_timestamp) ORDER BY observation_timestamp",
+            "rawSql": "SELECT observation_timestamp as time, cloud_coverage as value, 'Cloud Coverage %' as metric FROM sky_observations WHERE observation_timestamp >= NOW() - INTERVAL '24 hours' ORDER BY observation_timestamp",
             "format": "time_series",
             "refId": "A"
           },
           {
             "datasource": {"type": "postgres", "uid": "emsn_postgres"},
-            "rawSql": "SELECT observation_timestamp as time, brightness::numeric as value, 'Brightness' as metric FROM sky_observations WHERE $__timeFilter(observation_timestamp) ORDER BY observation_timestamp",
+            "rawSql": "SELECT observation_timestamp as time, brightness::numeric as value, 'Brightness' as metric FROM sky_observations WHERE observation_timestamp >= NOW() - INTERVAL '24 hours' ORDER BY observation_timestamp",
             "format": "time_series",
             "refId": "B"
           }
