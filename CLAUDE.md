@@ -26,6 +26,17 @@ Eigenaar: Ronny Hullegie
 - Actieve sync scripts: /home/ronny/sync/
 - Nieuwste sync code: /home/ronny/emsn2/scripts/sync/
 - BirdNET-Pi database: /home/ronny/BirdNET-Pi/scripts/birds.db
+- AI Rapporten: /mnt/nas-reports (NAS share)
+- Reports API: http://192.168.1.178:8081
+
+## Netwerk
+- **Pi (emsn2-zolder):** 192.168.1.178 - BirdNET-Pi, API server
+- **NAS (DS224Plus):** 192.168.1.25 - Opslag, PostgreSQL, reverse proxy
+- **NAS Shares:**
+  - //192.168.1.25/docker → /mnt/nas-docker
+  - //192.168.1.25/emsn-AIRapporten → /mnt/nas-reports
+- **Credentials:** /etc/nas-reports-credentials (ronny/REDACTED_DB_PASS)
+- **Let op:** NAS proxy blokkeert POST requests - gebruik directe Pi IP voor API calls
 
 ## Commit Stijl
 - feat: nieuwe functionaliteit
