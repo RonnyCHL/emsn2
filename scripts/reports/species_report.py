@@ -153,11 +153,11 @@ class SpeciesReportGenerator(ReportBase):
         cur.execute("""
             SELECT
                 CASE
-                    WHEN confidence >= 0.9 THEN '90-100%'
-                    WHEN confidence >= 0.8 THEN '80-90%'
-                    WHEN confidence >= 0.7 THEN '70-80%'
-                    WHEN confidence >= 0.6 THEN '60-70%'
-                    ELSE '<60%'
+                    WHEN confidence >= 0.9 THEN '90-100%%'
+                    WHEN confidence >= 0.8 THEN '80-90%%'
+                    WHEN confidence >= 0.7 THEN '70-80%%'
+                    WHEN confidence >= 0.6 THEN '60-70%%'
+                    ELSE '<60%%'
                 END as confidence_range,
                 COUNT(*) as count
             FROM bird_detections
@@ -396,10 +396,17 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             for day in data['peak_days']:
                 markdown += f"| {day['date']} | {day['count']:,} |\n"
 
+        year = datetime.now().year
         markdown += f"""
 ---
 
-*Automatisch gegenereerd door EMSN 2.0 met Claude AI*
+*Geschreven door Ecologisch Monitoring Systeem Nijverdal - Ronny Hullegie*
+*Meetlocatie: Nijverdal, Overijssel (52.36°N, 6.46°E)*
+
+**Contact:** emsn@ronnyhullegie.nl | **Website:** www.ronnyhullegie.nl
+
+© {year} Ronny Hullegie. Alle rechten voorbehouden.
+Licentie: CC BY-NC 4.0 (gebruik toegestaan met bronvermelding, niet commercieel)
 """
 
         with open(filepath, 'w', encoding='utf-8') as f:

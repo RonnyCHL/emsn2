@@ -589,7 +589,17 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                 markdown += f"- Activiteit bij lage druk: {humidity['activity_by_pressure'].get('lage druk', 0):,} detecties\n"
                 markdown += f"- Activiteit bij hoge druk: {humidity['activity_by_pressure'].get('hoge druk', 0):,} detecties\n"
 
-        markdown += f"\n---\n\n*Automatisch gegenereerd door Claude AI*\n"
+        markdown += f"""
+---
+
+*Geschreven door Ecologisch Monitoring Systeem Nijverdal - Ronny Hullegie*
+*Meetlocatie: Nijverdal, Overijssel (52.36°N, 6.46°E)*
+
+**Contact:** emsn@ronnyhullegie.nl | **Website:** www.ronnyhullegie.nl
+
+© {data['year']} Ronny Hullegie. Alle rechten voorbehouden.
+Licentie: CC BY-NC 4.0 (gebruik toegestaan met bronvermelding, niet commercieel)
+"""
 
         # Write file
         with open(filepath, 'w', encoding='utf-8') as f:

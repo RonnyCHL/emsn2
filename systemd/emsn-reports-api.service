@@ -8,6 +8,8 @@ Type=simple
 User=ronny
 WorkingDirectory=/home/ronny/emsn2/reports-web
 Environment="FLASK_APP=api.py"
+Environment="ANTHROPIC_API_KEY=REDACTED_API_KEY"
+Environment="EMSN_DB_PASSWORD=REDACTED_DB_PASS"
 ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/reports-web/api.py
 Restart=always
 RestartSec=10

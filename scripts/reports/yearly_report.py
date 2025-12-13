@@ -631,7 +631,13 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         markdown += f"""
 ---
 
-*Automatisch gegenereerd door EMSN 2.0 door Ronny Hullegie met behulp van Claude AI*
+*Geschreven door Ecologisch Monitoring Systeem Nijverdal - Ronny Hullegie*
+*Meetlocatie: Nijverdal, Overijssel (52.36°N, 6.46°E)*
+
+**Contact:** emsn@ronnyhullegie.nl | **Website:** www.ronnyhullegie.nl
+
+© {data['year']} Ronny Hullegie. Alle rechten voorbehouden.
+Licentie: CC BY-NC 4.0 (gebruik toegestaan met bronvermelding, niet commercieel)
 """
 
         with open(filepath, 'w', encoding='utf-8') as f:
