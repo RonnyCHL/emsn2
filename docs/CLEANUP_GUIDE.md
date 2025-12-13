@@ -1,7 +1,7 @@
 # EMSN 2.0 Opschoon Handleiding
 
 **Datum:** 13 december 2025
-**Status:** Voorstel - nog niet uitgevoerd
+**Status:** ✅ Uitgevoerd (commit 69a24e5)
 
 ---
 
@@ -88,14 +88,14 @@ ln -s /home/ronny/emsn2/scripts/sync /home/ronny/sync
 ## 3. Te Verwijderen Bestanden
 
 ### Zeker verwijderen:
-- [ ] `/home/ronny/emsn2/sync/` - Duplicaat van scripts/sync (verouderd)
-- [ ] `/home/ronny/emsn2/services/` - Duplicaat van systemd/ (verouderd)
+- [x] `/home/ronny/emsn2/sync/` - ✅ Verwijderd (backup in `/backups/cleanup-2025-12-13/sync-backup.tar.gz`)
+- [x] `/home/ronny/emsn2/services/` - ✅ Verwijderd (backup in `/backups/cleanup-2025-12-13/services-backup.tar.gz`)
 
 ### Na consolidatie verwijderen:
-- [ ] `/home/ronny/sync/` - Als scripts naar emsn2 verplaatst zijn
+- [x] `/home/ronny/sync/` - ✅ Verwijderd (was symlink/duplicate)
 
 ### Te behouden:
-- [x] `/home/ronny/emsn2/scripts/sync/` - Nieuwste code
+- [x] `/home/ronny/emsn2/scripts/sync/` - Nieuwste code (nu actief)
 - [x] `/home/ronny/emsn2/systemd/` - Alle service files
 
 ---
@@ -151,38 +151,54 @@ ANTHROPIC_API_KEY=sk-ant-...
 ## 6. Checklist voor Opschonen
 
 ### Stap 1: Backup (VERPLICHT)
-- [ ] `cp -r /home/ronny/sync /home/ronny/sync.backup`
-- [ ] `cd /home/ronny/emsn2 && git stash` (indien uncommitted changes)
+- [x] ✅ Backups gemaakt in `/backups/cleanup-2025-12-13/`
 
 ### Stap 2: Verwijder Duplicaten
-- [ ] `rm -rf /home/ronny/emsn2/sync/`
-- [ ] `rm -rf /home/ronny/emsn2/services/`
+- [x] ✅ `/home/ronny/emsn2/sync/` verwijderd
+- [x] ✅ `/home/ronny/emsn2/services/` verwijderd
+- [x] ✅ `weather_sync.py` verplaatst naar `scripts/sync/`
 
 ### Stap 3: Update Systemd Services
-- [ ] Update `lifetime-sync.service` pad
-- [ ] Update `hardware-monitor.service` pad
-- [ ] `sudo systemctl daemon-reload`
+- [x] ✅ Services verwijzen nu naar `/home/ronny/emsn2/scripts/sync/`
+- [x] ✅ `sudo systemctl daemon-reload` uitgevoerd
 
 ### Stap 4: Test Services
-- [ ] `sudo systemctl restart lifetime-sync && journalctl -u lifetime-sync -f`
-- [ ] `sudo systemctl restart hardware-monitor && journalctl -u hardware-monitor -f`
+- [x] ✅ Services getest en werkend
 
 ### Stap 5: Verwijder oude /home/ronny/sync
-- [ ] `rm -rf /home/ronny/sync/` (na succesvolle test)
+- [x] ✅ `/home/ronny/sync/` verwijderd
 
 ### Stap 6: Git Commit
-- [ ] `git add -A && git commit -m "chore: Cleanup duplicate sync and services folders"`
+- [x] ✅ Commit 69a24e5: "chore: cleanup duplicate folders and disable unused service"
+
+### Extra: emsn-reports-api.service
+- [x] ✅ Service disabled (port conflict, niet in gebruik)
 
 ---
 
 ## 7. Risico's
 
-| Risico | Impact | Mitigatie |
-|--------|--------|-----------|
-| Service stopt met werken | Hoog | Backup + test per service |
-| Verkeerde versie actief | Medium | Diff check voor consolidatie |
-| Git history verloren | Laag | Git mv gebruiken ipv rm/cp |
+| Risico | Impact | Mitigatie | Status |
+|--------|--------|-----------|--------|
+| Service stopt met werken | Hoog | Backup + test per service | ✅ Geen issues |
+| Verkeerde versie actief | Medium | Diff check voor consolidatie | ✅ Nieuwste code actief |
+| Git history verloren | Laag | Git mv gebruiken ipv rm/cp | ✅ History behouden |
+
+---
+
+## 8. Samenvatting
+
+De cleanup is succesvol uitgevoerd op 13 december 2025:
+
+- **Verwijderd:** 2 duplicate mappen (`sync/`, `services/`)
+- **Verplaatst:** `weather_sync.py` naar `scripts/sync/`
+- **Backups:** `/backups/cleanup-2025-12-13/`
+- **Disabled:** `emsn-reports-api.service` (niet in gebruik)
+- **Commit:** 69a24e5
+
+De codebase is nu geconsolideerd met één centrale locatie voor sync scripts (`/home/ronny/emsn2/scripts/sync/`).
 
 ---
 
 *Gegenereerd door Claude Code - 13 december 2025*
+*Laatst bijgewerkt: 13 december 2025*
