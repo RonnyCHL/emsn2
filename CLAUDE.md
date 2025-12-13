@@ -37,6 +37,7 @@ Eigenaar: Ronny Hullegie
   - //192.168.1.25/emsn-AIRapporten → /mnt/nas-reports
 - **Credentials:** /etc/nas-reports-credentials (ronny/REDACTED_DB_PASS)
 - **Let op:** NAS proxy blokkeert POST requests - gebruik directe Pi IP voor API calls
+- **Grafana:** http://192.168.1.25:3000 (admin/emsn2024)
 
 ## Commit Stijl
 - feat: nieuwe functionaliteit
