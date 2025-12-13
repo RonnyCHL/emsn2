@@ -56,27 +56,29 @@
 Nieuw dashboard aangemaakt: **EMSN - Soorten Overzicht**
 - URL: http://192.168.1.25:3000/d/emsn-species-overview/emsn-soorten-overzicht
 - Config: `/home/ronny/emsn2/config/grafana-species-overview-dashboard.json`
+- Homer: Toegevoegd aan homepage onder "Monitoring"
 
 **Panels (14 totaal):**
-1. 🐦 Laatst Gehoorde Soort - stat panel
-2. ⏰ Tijd Laatste Detectie - stat panel
-3. 📊 Soorten Vandaag - stat panel
-4. 📈 Detecties Vandaag - stat panel
-5. 🏠 Laatste 15 Soorten - Zolder - tabel
-6. 🏚️ Laatste 15 Soorten - Berging - tabel
-7. 🏆 Top 10 Soorten Vandaag - bar chart
-8. ⭐ Zeldzame Soorten (Deze Week) - tabel met rarity kleuren
-9. 📅 Nieuwe Soorten Deze Maand - tabel
-10. 🕐 Activiteit per Uur (Vandaag) - time series bars
-11. 🔄 Dual Detecties Vandaag - stat panel
-12. 📊 Gemiddelde Confidence Vandaag - gauge
-13. 🌅 Piek Uur Vandaag - stat panel
-14. 📈 Soorten Deze Week vs Vorige Week - vergelijking
+1. Laatst Gehoorde Soort - table (single value)
+2. Tijd Laatste Detectie - table (timestamp)
+3. Soorten Vandaag - stat panel
+4. Detecties Vandaag - stat panel
+5. Laatste 15 Soorten - Zolder - tabel
+6. Laatste 15 Soorten - Berging - tabel
+7. Top 10 Soorten Vandaag - bar chart
+8. Top 15 Soorten (Deze Week) - tabel met detecties, laatste detectie, gem. confidence
+9. Nieuwe Soorten Deze Maand - tabel
+10. Activiteit per Uur (Vandaag) - time series bars per station
+11. Dual Detecties Vandaag - stat panel
+12. Gemiddelde Confidence Vandaag - gauge
+13. Piek Uur Vandaag - table (single value)
+14. Week vs Vorige Week - table (vergelijking)
 
-**Features:**
-- Station filter (zolder/berging/alle)
-- Auto-refresh elke 5 minuten
-- Rarity tier kleuren (uncommon=geel, rare=oranje, very_rare=rood)
+**Geleerde lessen Grafana:**
+- Stat panels met `LIMIT 1` queries werken slecht - gebruik table panels met `showHeader: false` en `cellHeight: lg`
+- Station filter variabele `$station = '$__all'` werkt niet in PostgreSQL - vermijd of gebruik simpele queries
+- `rarity_tier` kolom is leeg in database - panel vervangen door "Top 15 Soorten"
+- Timestamps: gebruik echte timestamp kolom, niet `to_char()` - Grafana formatteert zelf met `dateTimeAsLocal` unit
 
 ## Commits
 - `23e12b2` - feat: store reports on NAS instead of local SD card

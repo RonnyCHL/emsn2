@@ -25,6 +25,17 @@
     {
       "type": "species",
       "year": 2025,
+      "species": "Roerdomp",
+      "title": "Roerdomp",
+      "filename": "Soort-Roerdomp.md",
+      "filesize": 6391,
+      "modified": "2025-12-13T19:07:53.482105",
+      "total_detections": 18,
+      "generated": "2025-12-13 19:07:53"
+    },
+    {
+      "type": "species",
+      "year": 2025,
       "species": "Merel",
       "title": "Merel",
       "filename": "Soort-Merel.md",
@@ -85,13 +96,13 @@
       "season": "Herfst",
       "title": "Herfst 2025",
       "filename": "2025-Herfst-Seizoensrapport.md",
-      "filesize": 9818,
-      "modified": "2025-12-13T18:50:01.246467",
+      "filesize": 9876,
+      "modified": "2025-12-13T18:55:55.568776",
       "total_detections": 10929,
       "unique_species": 82,
-      "generated": "2025-12-13 13:58:55"
+      "generated": "2025-12-13 18:55:55"
     }
   ],
-  "generated": "2025-12-13T18:50:51.276355",
-  "total_reports": 8
+  "generated": "2025-12-13T19:07:53.755679",
+  "total_reports": 9
 }

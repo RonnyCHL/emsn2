@@ -10,38 +10,13 @@
       "list": []
     },
     "templating": {
-      "list": [
-        {
-          "current": {
-            "selected": true,
-            "text": "All",
-            "value": "$__all"
-          },
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "emsn_postgres"
-          },
-          "definition": "SELECT DISTINCT station FROM bird_detections ORDER BY station",
-          "hide": 0,
-          "includeAll": true,
-          "label": "Station",
-          "multi": true,
-          "name": "station",
-          "options": [],
-          "query": "SELECT DISTINCT station FROM bird_detections ORDER BY station",
-          "refresh": 1,
-          "regex": "",
-          "skipUrlSync": false,
-          "sort": 1,
-          "type": "query"
-        }
-      ]
+      "list": []
     },
     "panels": [
       {
         "id": 1,
-        "title": "🐦 Laatst Gehoorde Soort",
-        "type": "stat",
+        "title": "Laatst Gehoorde Soort",
+        "type": "table",
         "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -50,6 +25,11 @@
         "fieldConfig": {
           "defaults": {
             "color": { "mode": "thresholds" },
+            "custom": {
+              "align": "center",
+              "cellOptions": { "type": "color-text" },
+              "inspect": false
+            },
             "thresholds": {
               "mode": "absolute",
               "steps": [{ "color": "green", "value": null }]
@@ -59,16 +39,9 @@
           "overrides": []
         },
         "options": {
-          "reduceOptions": {
-            "values": false,
-            "calcs": ["lastNotNull"],
-            "fields": ""
-          },
-          "orientation": "horizontal",
-          "textMode": "value",
-          "colorMode": "value",
-          "graphMode": "none",
-          "justifyMode": "auto"
+          "showHeader": false,
+          "cellHeight": "lg",
+          "footer": { "show": false }
         },
         "targets": [{
           "datasource": {
@@ -78,14 +51,14 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT common_name as \"Soort\" FROM bird_detections WHERE ($station = '$__all' OR station IN ($station)) ORDER BY detection_timestamp DESC LIMIT 1",
+          "rawSql": "SELECT common_name as \"Laatst Gehoord\" FROM bird_detections ORDER BY detection_timestamp DESC LIMIT 1",
           "refId": "A"
         }]
       },
       {
         "id": 2,
-        "title": "⏰ Tijd Laatste Detectie",
-        "type": "stat",
+        "title": "Tijd Laatste Detectie",
+        "type": "table",
         "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -94,26 +67,28 @@
         "fieldConfig": {
           "defaults": {
             "color": { "mode": "thresholds" },
+            "custom": {
+              "align": "center",
+              "cellOptions": { "type": "color-text" },
+              "inspect": false
+            },
             "thresholds": {
               "mode": "absolute",
               "steps": [{ "color": "blue", "value": null }]
             },
-            "unit": "dateTimeAsLocal",
             "mappings": []
           },
-          "overrides": []
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "Tijd" },
+              "properties": [{ "id": "unit", "value": "dateTimeAsLocal" }]
+            }
+          ]
         },
         "options": {
-          "reduceOptions": {
-            "values": false,
-            "calcs": ["lastNotNull"],
-            "fields": ""
-          },
-          "orientation": "horizontal",
-          "textMode": "value",
-          "colorMode": "value",
-          "graphMode": "none",
-          "justifyMode": "auto"
+          "showHeader": false,
+          "cellHeight": "lg",
+          "footer": { "show": false }
         },
         "targets": [{
           "datasource": {
@@ -123,13 +98,13 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT detection_timestamp as \"Tijd\" FROM bird_detections WHERE ($station = '$__all' OR station IN ($station)) ORDER BY detection_timestamp DESC LIMIT 1",
+          "rawSql": "SELECT detection_timestamp as \"Tijd\" FROM bird_detections ORDER BY detection_timestamp DESC LIMIT 1",
           "refId": "A"
         }]
       },
       {
         "id": 3,
-        "title": "📊 Soorten Vandaag",
+        "title": "Soorten Vandaag",
         "type": "stat",
         "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
         "datasource": {
@@ -171,13 +146,13 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT COUNT(DISTINCT common_name) as \"Aantal\" FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE AND ($station = '$__all' OR station IN ($station))",
+          "rawSql": "SELECT COUNT(DISTINCT common_name) as \"Aantal\" FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE",
           "refId": "A"
         }]
       },
       {
         "id": 4,
-        "title": "📈 Detecties Vandaag",
+        "title": "Detecties Vandaag",
         "type": "stat",
         "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
         "datasource": {
@@ -219,13 +194,13 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT COUNT(*) as \"Detecties\" FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE AND ($station = '$__all' OR station IN ($station))",
+          "rawSql": "SELECT COUNT(*) as \"Detecties\" FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE",
           "refId": "A"
         }]
       },
       {
         "id": 5,
-        "title": "🏠 Laatste 15 Soorten - Zolder",
+        "title": "Laatste 15 Soorten - Zolder",
         "type": "table",
         "gridPos": { "h": 10, "w": 12, "x": 0, "y": 4 },
         "datasource": {
@@ -276,7 +251,7 @@
       },
       {
         "id": 6,
-        "title": "🏚️ Laatste 15 Soorten - Berging",
+        "title": "Laatste 15 Soorten - Berging",
         "type": "table",
         "gridPos": { "h": 10, "w": 12, "x": 12, "y": 4 },
         "datasource": {
@@ -327,7 +302,7 @@
       },
       {
         "id": 7,
-        "title": "🏆 Top 10 Soorten Vandaag",
+        "title": "Top 10 Soorten Vandaag",
         "type": "barchart",
         "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
         "datasource": {
@@ -379,13 +354,13 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT common_name as \"Soort\", COUNT(*) as \"Detecties\" FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE AND ($station = '$__all' OR station IN ($station)) GROUP BY common_name ORDER BY \"Detecties\" DESC LIMIT 10",
+          "rawSql": "SELECT common_name as \"Soort\", COUNT(*) as \"Detecties\" FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE GROUP BY common_name ORDER BY \"Detecties\" DESC LIMIT 10",
           "refId": "A"
         }]
       },
       {
         "id": 8,
-        "title": "⭐ Zeldzame Soorten (Deze Week)",
+        "title": "Top 15 Soorten (Deze Week)",
         "type": "table",
         "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
         "datasource": {
@@ -410,16 +385,6 @@
             {
               "matcher": { "id": "byName", "options": "Laatste Detectie" },
               "properties": [{ "id": "unit", "value": "dateTimeAsLocal" }]
-            },
-            {
-              "matcher": { "id": "byName", "options": "Rarity" },
-              "properties": [
-                { "id": "mappings", "value": [
-                  { "options": { "uncommon": { "color": "yellow", "index": 0, "text": "Ongewoon" } }, "type": "value" },
-                  { "options": { "rare": { "color": "orange", "index": 1, "text": "Zeldzaam" } }, "type": "value" },
-                  { "options": { "very_rare": { "color": "red", "index": 2, "text": "Zeer Zeldzaam" } }, "type": "value" }
-                ]}
-              ]
             }
           ]
         },
@@ -436,13 +401,13 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT common_name as \"Soort\", rarity_tier as \"Rarity\", MAX(detection_timestamp) as \"Laatste Detectie\", COUNT(*) as \"Detecties\" FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE - INTERVAL '7 days' AND rarity_tier IS NOT NULL AND rarity_tier != 'common' AND ($station = '$__all' OR station IN ($station)) GROUP BY common_name, rarity_tier ORDER BY CASE rarity_tier WHEN 'very_rare' THEN 1 WHEN 'rare' THEN 2 WHEN 'uncommon' THEN 3 ELSE 4 END, \"Detecties\" DESC LIMIT 15",
+          "rawSql": "SELECT common_name as \"Soort\", COUNT(*) as \"Detecties\", MAX(detection_timestamp) as \"Laatste Detectie\", ROUND(AVG(confidence) * 100) as \"Gem. Conf %\" FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE - INTERVAL '7 days' GROUP BY common_name ORDER BY \"Detecties\" DESC LIMIT 15",
           "refId": "A"
         }]
       },
       {
         "id": 9,
-        "title": "📅 Nieuwe Soorten Deze Maand",
+        "title": "Nieuwe Soorten Deze Maand",
         "type": "table",
         "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
         "datasource": {
@@ -483,13 +448,13 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH first_detections AS (SELECT common_name, MIN(detection_timestamp) as first_seen FROM bird_detections GROUP BY common_name) SELECT fd.common_name as \"Soort\", fd.first_seen as \"Eerste Detectie\", COUNT(*) as \"Totaal Detecties\" FROM first_detections fd JOIN bird_detections bd ON fd.common_name = bd.common_name WHERE fd.first_seen >= date_trunc('month', CURRENT_DATE) AND ($station = '$__all' OR bd.station IN ($station)) GROUP BY fd.common_name, fd.first_seen ORDER BY fd.first_seen DESC LIMIT 10",
+          "rawSql": "WITH first_detections AS (SELECT common_name, MIN(detection_timestamp) as first_seen FROM bird_detections GROUP BY common_name) SELECT fd.common_name as \"Soort\", fd.first_seen as \"Eerste Detectie\", (SELECT COUNT(*) FROM bird_detections bd WHERE bd.common_name = fd.common_name) as \"Totaal Detecties\" FROM first_detections fd WHERE fd.first_seen >= date_trunc('month', CURRENT_DATE) ORDER BY fd.first_seen DESC LIMIT 10",
           "refId": "A"
         }]
       },
       {
         "id": 10,
-        "title": "🕐 Activiteit per Uur (Vandaag)",
+        "title": "Activiteit per Uur (Vandaag)",
         "type": "timeseries",
         "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
         "datasource": {
@@ -540,13 +505,13 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT date_trunc('hour', detection_timestamp) as time, station, COUNT(*) as detecties FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE AND ($station = '$__all' OR station IN ($station)) GROUP BY 1, station ORDER BY 1",
+          "rawSql": "SELECT date_trunc('hour', detection_timestamp) as time, station, COUNT(*) as detecties FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE GROUP BY 1, station ORDER BY 1",
           "refId": "A"
         }]
       },
       {
         "id": 11,
-        "title": "🔄 Dual Detecties Vandaag",
+        "title": "Dual Detecties Vandaag",
         "type": "stat",
         "gridPos": { "h": 4, "w": 6, "x": 0, "y": 30 },
         "datasource": {
@@ -593,7 +558,7 @@
       },
       {
         "id": 12,
-        "title": "📊 Gemiddelde Confidence Vandaag",
+        "title": "Gemiddelde Confidence Vandaag",
         "type": "gauge",
         "gridPos": { "h": 4, "w": 6, "x": 6, "y": 30 },
         "datasource": {
@@ -636,14 +601,14 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ROUND(AVG(confidence) * 100, 1) as \"Confidence\" FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE AND ($station = '$__all' OR station IN ($station))",
+          "rawSql": "SELECT ROUND(AVG(confidence) * 100, 1) as \"Confidence\" FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE",
           "refId": "A"
         }]
       },
       {
         "id": 13,
-        "title": "🌅 Piek Uur Vandaag",
-        "type": "stat",
+        "title": "Piek Uur Vandaag",
+        "type": "table",
         "gridPos": { "h": 4, "w": 6, "x": 12, "y": 30 },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -652,6 +617,11 @@
         "fieldConfig": {
           "defaults": {
             "color": { "mode": "thresholds" },
+            "custom": {
+              "align": "center",
+              "cellOptions": { "type": "color-text" },
+              "inspect": false
+            },
             "thresholds": {
               "mode": "absolute",
               "steps": [{ "color": "orange", "value": null }]
@@ -661,16 +631,9 @@
           "overrides": []
         },
         "options": {
-          "reduceOptions": {
-            "values": false,
-            "calcs": ["lastNotNull"],
-            "fields": ""
-          },
-          "orientation": "horizontal",
-          "textMode": "value",
-          "colorMode": "value",
-          "graphMode": "none",
-          "justifyMode": "auto"
+          "showHeader": false,
+          "cellHeight": "lg",
+          "footer": { "show": false }
         },
         "targets": [{
           "datasource": {
@@ -680,14 +643,14 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT EXTRACT(HOUR FROM detection_timestamp)::text || ':00' as \"Piek Uur\" FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE AND ($station = '$__all' OR station IN ($station)) GROUP BY EXTRACT(HOUR FROM detection_timestamp) ORDER BY COUNT(*) DESC LIMIT 1",
+          "rawSql": "SELECT LPAD(EXTRACT(HOUR FROM detection_timestamp)::text, 2, '0') || ':00 uur' as \"Piek\" FROM bird_detections WHERE detection_timestamp >= CURRENT_DATE GROUP BY EXTRACT(HOUR FROM detection_timestamp) ORDER BY COUNT(*) DESC LIMIT 1",
           "refId": "A"
         }]
       },
       {
         "id": 14,
-        "title": "📈 Soorten Deze Week vs Vorige Week",
-        "type": "stat",
+        "title": "Week vs Vorige Week",
+        "type": "table",
         "gridPos": { "h": 4, "w": 6, "x": 18, "y": 30 },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -696,29 +659,23 @@
         "fieldConfig": {
           "defaults": {
             "color": { "mode": "thresholds" },
+            "custom": {
+              "align": "center",
+              "cellOptions": { "type": "color-text" },
+              "inspect": false
+            },
             "thresholds": {
               "mode": "absolute",
-              "steps": [
-                { "color": "red", "value": null },
-                { "color": "yellow", "value": 0 },
-                { "color": "green", "value": 5 }
-              ]
+              "steps": [{ "color": "green", "value": null }]
             },
             "mappings": []
           },
           "overrides": []
         },
         "options": {
-          "reduceOptions": {
-            "values": false,
-            "calcs": ["lastNotNull"],
-            "fields": ""
-          },
-          "orientation": "horizontal",
-          "textMode": "value",
-          "colorMode": "value",
-          "graphMode": "none",
-          "justifyMode": "auto"
+          "showHeader": false,
+          "cellHeight": "lg",
+          "footer": { "show": false }
         },
         "targets": [{
           "datasource": {
@@ -728,7 +685,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH this_week AS (SELECT COUNT(DISTINCT common_name) as cnt FROM bird_detections WHERE detection_timestamp >= date_trunc('week', CURRENT_DATE) AND ($station = '$__all' OR station IN ($station))), last_week AS (SELECT COUNT(DISTINCT common_name) as cnt FROM bird_detections WHERE detection_timestamp >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days' AND detection_timestamp < date_trunc('week', CURRENT_DATE) AND ($station = '$__all' OR station IN ($station))) SELECT (tw.cnt - lw.cnt)::text || ' soorten' as \"Verschil\" FROM this_week tw, last_week lw",
+          "rawSql": "WITH this_week AS (SELECT COUNT(DISTINCT common_name) as cnt FROM bird_detections WHERE detection_timestamp >= date_trunc('week', CURRENT_DATE)), last_week AS (SELECT COUNT(DISTINCT common_name) as cnt FROM bird_detections WHERE detection_timestamp >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days' AND detection_timestamp < date_trunc('week', CURRENT_DATE)) SELECT CASE WHEN tw.cnt > lw.cnt THEN '+' ELSE '' END || (tw.cnt - lw.cnt)::text || ' soorten' as \"Verschil\" FROM this_week tw, last_week lw",
           "refId": "A"
         }]
       }
