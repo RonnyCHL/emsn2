@@ -19,7 +19,7 @@ from report_base import get_available_styles
 app = Flask(__name__)
 CORS(app)
 
-REPORTS_DIR = Path("/home/ronny/emsn2/reports")
+REPORTS_DIR = Path("/mnt/nas-reports")
 WEB_DIR = Path("/home/ronny/emsn2/reports-web")
 SCRIPTS_DIR = Path("/home/ronny/emsn2/scripts/reports")
 VENV_PYTHON = "/home/ronny/emsn2/venv/bin/python3"

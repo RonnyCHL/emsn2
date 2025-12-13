@@ -22,7 +22,7 @@ DB_PASSWORD = os.getenv("EMSN_DB_PASSWORD", "REDACTED_DB_PASS")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-REPORTS_PATH = Path("/home/ronny/emsn2/reports")
+REPORTS_PATH = Path("/mnt/nas-reports")
 CONFIG_PATH = Path("/home/ronny/emsn2/config")
 STYLES_FILE = CONFIG_PATH / "report_styles.yaml"
 

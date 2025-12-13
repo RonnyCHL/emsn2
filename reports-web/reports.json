@@ -1,17 +1,83 @@
 {
   "reports": [
     {
+      "type": "species",
+      "year": 2025,
+      "species": "Staartmees",
+      "title": "Staartmees",
+      "filename": "Soort-Staartmees.md",
+      "filesize": 6155,
+      "modified": "2025-12-13T18:50:01.244855",
+      "total_detections": 354,
+      "generated": "2025-12-13 16:37:03"
+    },
+    {
+      "type": "species",
+      "year": 2025,
+      "species": "Roodborst",
+      "title": "Roodborst",
+      "filename": "Soort-Roodborst.md",
+      "filesize": 6778,
+      "modified": "2025-12-13T18:50:01.245495",
+      "total_detections": 5777,
+      "generated": "2025-12-13 16:28:23"
+    },
+    {
+      "type": "species",
+      "year": 2025,
+      "species": "Merel",
+      "title": "Merel",
+      "filename": "Soort-Merel.md",
+      "filesize": 6881,
+      "modified": "2025-12-13T18:50:01.245682",
+      "total_detections": 495,
+      "generated": "2025-12-13 16:53:50"
+    },
+    {
+      "type": "species",
+      "year": 2025,
+      "species": "Kolgans",
+      "title": "Kolgans",
+      "filename": "Soort-Kolgans.md",
+      "filesize": 6352,
+      "modified": "2025-12-13T18:50:01.245877",
+      "total_detections": 1718,
+      "generated": "2025-12-13 16:29:52"
+    },
+    {
+      "type": "species",
+      "year": 2025,
+      "species": "Ekster",
+      "title": "Ekster",
+      "filename": "Soort-Ekster.md",
+      "filesize": 6236,
+      "modified": "2025-12-13T18:50:01.246097",
+      "total_detections": 13767,
+      "generated": "2025-12-13 16:27:11"
+    },
+    {
       "type": "week",
       "year": 2025,
       "week": 50,
       "title": "Week 50",
       "filename": "2025-W50-Weekrapport.md",
-      "filesize": 5828,
-      "modified": "2025-12-12T15:25:48.102518",
+      "filesize": 5908,
+      "modified": "2025-12-13T18:50:01.246226",
       "period": "2025-12-08 tot 2025-12-14",
-      "total_detections": 12854,
-      "unique_species": 95,
-      "generated": "2025-12-12 15:25:48"
+      "total_detections": 15965,
+      "unique_species": 102,
+      "generated": "2025-12-13 17:37:53"
+    },
+    {
+      "type": "year",
+      "year": 2025,
+      "title": "Jaaroverzicht 2025",
+      "filename": "2025-Jaaroverzicht.md",
+      "filesize": 22185,
+      "modified": "2025-12-13T18:50:01.246349",
+      "total_detections": 40853,
+      "unique_species": 132,
+      "generated": "2025-12-13 17:48:25"
     },
     {
       "type": "season",
@@ -20,12 +86,12 @@
       "title": "Herfst 2025",
       "filename": "2025-Herfst-Seizoensrapport.md",
       "filesize": 9818,
-      "modified": "2025-12-13T13:58:55.409620",
+      "modified": "2025-12-13T18:50:01.246467",
       "total_detections": 10929,
       "unique_species": 82,
       "generated": "2025-12-13 13:58:55"
     }
   ],
-  "generated": "2025-12-13T14:16:09.809035",
-  "total_reports": 2
+  "generated": "2025-12-13T18:50:51.276355",
+  "total_reports": 8
 }

@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from datetime import datetime
 
-REPORTS_DIR = Path("/home/ronny/emsn2/reports")
+REPORTS_DIR = Path("/mnt/nas-reports")
 OUTPUT_FILE = Path("/home/ronny/emsn2/reports-web/reports.json")
 
 def parse_report_filename(filename):
