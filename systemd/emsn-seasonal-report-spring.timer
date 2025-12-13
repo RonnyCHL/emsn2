@@ -4,6 +4,7 @@ Description=EMSN Spring Report Generator Timer (runs June 1st)
 [Timer]
 OnCalendar=*-06-01 07:00:00
 Persistent=true
+Unit=emsn-seasonal-report.service
 
 [Install]
 WantedBy=timers.target
