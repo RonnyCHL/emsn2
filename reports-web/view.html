@@ -148,9 +148,20 @@
                 downloadLink.href = `api/pdf?file=${encodeURIComponent(filename)}`;
                 downloadLink.style.display = 'block';
 
+                // Mark report as read
+                markAsRead(filename);
+
             } catch (error) {
                 console.error('Error loading report:', error);
                 document.getElementById('report-content').innerHTML = '<div class="error">Kon rapport niet laden</div>';
+            }
+        }
+
+        function markAsRead(filename) {
+            const readReports = JSON.parse(localStorage.getItem('readReports') || '[]');
+            if (!readReports.includes(filename)) {
+                readReports.push(filename);
+                localStorage.setItem('readReports', JSON.stringify(readReports));
             }
         }
     </script>

@@ -148,8 +148,10 @@ function createReportCard(report) {
         year: 'numeric'
     }) : '';
 
-    // Check if report is new (less than 24 hours old)
-    const isNew = genDate && (Date.now() - genDate.getTime()) < 24 * 60 * 60 * 1000;
+    // Check if report is new (less than 24 hours old AND not yet read)
+    const readReports = JSON.parse(localStorage.getItem('readReports') || '[]');
+    const isUnread = !readReports.includes(report.filename);
+    const isNew = genDate && (Date.now() - genDate.getTime()) < 24 * 60 * 60 * 1000 && isUnread;
 
     return `
         <div class="report-card" data-type="${report.type}">
