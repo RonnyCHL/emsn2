@@ -1,0 +1,9 @@
+[Unit]
+Description=EMSN Winter Report Generator Timer (runs March 1st)
+
+[Timer]
+OnCalendar=*-03-01 07:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
