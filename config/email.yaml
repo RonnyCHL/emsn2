@@ -1,0 +1,38 @@
+# EMSN Email Configuration
+# Configuratie voor het verzenden van rapporten via email
+
+# SMTP server instellingen
+smtp:
+  host: "smtp.gmail.com"
+  port: 587
+  use_tls: true
+  # Zet username en password in environment variables:
+  # EMSN_SMTP_USER en EMSN_SMTP_PASSWORD
+  # Of gebruik een app-specifiek wachtwoord voor Gmail
+
+# Email instellingen
+email:
+  from_name: "EMSN Vogelmonitoring"
+  from_address: ""  # Zet via EMSN_EMAIL_FROM
+
+# Ontvangers
+recipients:
+  # Voeg hier email adressen toe
+  # - ronny@example.com
+  # - andere@example.com
+
+# Rapport instellingen
+reports:
+  # Welke rapporten automatisch mailen
+  auto_send:
+    weekly: false
+    monthly: false
+    seasonal: false
+    yearly: false
+
+  # Onderwerp templates
+  subjects:
+    weekly: "EMSN Weekrapport {week} - {year}"
+    monthly: "EMSN Maandrapport {month} {year}"
+    seasonal: "EMSN Seizoensrapport {season} {year}"
+    yearly: "EMSN Jaaroverzicht {year}"

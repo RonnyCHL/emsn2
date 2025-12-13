@@ -10,45 +10,18 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 import psycopg2
-from anthropic import Anthropic
 
-# Configuration
-DB_HOST = "192.168.1.25"
-DB_PORT = 5433
-DB_NAME = "emsn"
-DB_USER = "birdpi_zolder"
-DB_PASSWORD = os.getenv("EMSN_DB_PASSWORD", "REDACTED_DB_PASS")
-
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-if not ANTHROPIC_API_KEY:
-    print("❌ ANTHROPIC_API_KEY environment variable not set")
-    sys.exit(1)
-
-OBSIDIAN_PATH = Path("/home/ronny/emsn2/reports")
-LOG_DIR = Path("/mnt/usb/logs")
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+from report_base import ReportBase, REPORTS_PATH
 
 
-class WeeklyReportGenerator:
+class WeeklyReportGenerator(ReportBase):
     """Generate weekly narrative bird activity reports"""
 
-    def __init__(self):
-        self.client = Anthropic(api_key=ANTHROPIC_API_KEY)
-        self.conn = None
-
-    def connect_db(self):
-        """Connect to PostgreSQL database"""
-        try:
-            self.conn = psycopg2.connect(
-                host=DB_HOST,
-                port=DB_PORT,
-                database=DB_NAME,
-                user=DB_USER,
-                password=DB_PASSWORD
-            )
-            return True
-        except Exception as e:
-            print(f"❌ Database connection failed: {e}")
-            return False
+    def __init__(self, style=None):
+        super().__init__()
+        self.get_style(style)
 
     def get_week_dates(self):
         """Get start and end dates for last week"""
@@ -472,23 +445,14 @@ class WeeklyReportGenerator:
     def generate_report(self, data):
         """Use Claude API to generate narrative report"""
 
-        prompt = f"""Je bent een natuurjournalist die schrijft voor een vogelmonitoring project
-in Nijverdal, Nederland. Schrijf een warme, verhalende samenvatting van
-de vogelactiviteit van de afgelopen week.
+        style_prompt = self.get_style_prompt()
+
+        prompt = f"""{style_prompt}
+
+Je schrijft een weekrapport voor het EMSN vogelmonitoringsproject in Nijverdal, Overijssel.
 
 DATA:
 {json.dumps(data, indent=2, ensure_ascii=False)}
-
-RICHTLIJNEN:
-- Schrijf in het Nederlands
-- Begin met een pakkende opening over het seizoen of weer
-- Noem specifieke tijden en soorten (gebruik Nederlandse namen)
-- Highlight zeldzame waarnemingen en bijzonderheden
-- Maak het persoonlijk en levendig, alsof je een dagboek schrijft
-- Vermeld dual detections (vogels die op beide stations tegelijk gehoord werden)
-- Eindig met een vooruitblik of seizoensgebonden observatie
-- Maximaal 600 woorden
-- Gebruik geen bullet points, schrijf vloeiende paragrafen
 
 STRUCTUUR:
 1. Opening (weerbeeld, seizoen, gevoel van de week)
@@ -503,45 +467,21 @@ STRUCTUUR:
 6. Vergelijking met vorige week (zowel vogels als weer)
 7. Vooruitblik
 
-WEER & VOGELS SECTIE:
-- Beschrijf het weerbeeld van de week (temperatuur, wind, neerslag)
-- Leg verbanden tussen weer en vogelgedrag
-- Gebruik de temperature_stats, optimal_conditions, wind_analysis en humidity_pressure data
-- Bespreek bijvoorbeeld: "Deze week was het gemiddeld X graden, met als koudste punt Y graden op dag Z"
-- Analyseer: "Vogels waren het actiefst bij temperaturen tussen X en Y graden"
-- Vermeld opvallende weerpatronen zoals harde wind, veel regen, of extreme druk
-
-TOON:
-- Enthousiast maar niet overdreven
-- Persoonlijk, alsof je tegen een vriend praat
-- Informatief zonder technisch jargon
-- Waardering voor de natuur en het samenspel tussen weer en vogels
+LENGTE: 400-600 woorden
+Gebruik geen bullet points, schrijf vloeiende paragrafen.
 """
 
-        try:
-            message = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
-                max_tokens=2000,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
-
-            return message.content[0].text
-
-        except Exception as e:
-            print(f"❌ Claude API error: {e}")
-            return None
+        return self.generate_with_claude(prompt, max_tokens=2000)
 
     def save_report(self, report_text, data):
         """Save report as markdown file"""
 
-        # Create Obsidian directory if it doesn't exist
-        OBSIDIAN_PATH.mkdir(parents=True, exist_ok=True)
+        # Create reports directory if it doesn't exist
+        REPORTS_PATH.mkdir(parents=True, exist_ok=True)
 
         # Filename: 2025-W50-Weekrapport.md
         filename = f"{data['year']}-W{data['week_number']:02d}-Weekrapport.md"
-        filepath = OBSIDIAN_PATH / filename
+        filepath = REPORTS_PATH / filename
 
         # Create markdown with frontmatter
         markdown = f"""---
@@ -655,60 +595,76 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(markdown)
 
-        print(f"✅ Rapport opgeslagen: {filepath}")
+        print(f"Rapport opgeslagen: {filepath}")
         return filepath
 
     def run(self):
         """Main execution"""
-        print("🐦 EMSN Weekly Report Generator")
+        print("EMSN Weekly Report Generator")
         print("=" * 60)
 
         # Get week dates
         start_date, end_date = self.get_week_dates()
-        print(f"📅 Periode: {start_date.strftime('%Y-%m-%d')} tot {end_date.strftime('%Y-%m-%d')}")
+        print(f"Periode: {start_date.strftime('%Y-%m-%d')} tot {end_date.strftime('%Y-%m-%d')}")
 
         # Connect to database
         if not self.connect_db():
             return False
 
-        print("📊 Verzamelen data...")
+        print("Verzamelen data...")
         data = self.collect_data(start_date, end_date)
         print(f"   - {data['total_detections']:,} detecties")
         print(f"   - {data['unique_species']} soorten")
         print(f"   - {data['dual_detections']:,} dual detections")
 
         # Generate report with Claude
-        print("🤖 Genereren rapport met Claude AI...")
+        print("Genereren rapport met Claude AI...")
         report = self.generate_report(data)
 
         if not report:
-            print("❌ Rapport generatie mislukt")
+            print("ERROR: Rapport generatie mislukt")
             return False
 
         print(f"   - {len(report)} karakters gegenereerd")
 
         # Save report
-        print("💾 Opslaan rapport...")
+        print("Opslaan rapport...")
         filepath = self.save_report(report, data)
 
         # Update web index
-        print("🔄 Bijwerken web index...")
-        try:
-            subprocess.run([
-                '/home/ronny/emsn2/venv/bin/python3',
-                '/home/ronny/emsn2/reports-web/generate_index.py'
-            ], check=True, capture_output=True)
-        except Exception as e:
-            print(f"⚠️  Kon web index niet bijwerken: {e}")
+        print("Bijwerken web index...")
+        self.update_web_index()
 
-        print("\n✅ Weekrapport succesvol gegenereerd!")
-        print(f"📄 Bestand: {filepath}")
+        print(f"\nWeekrapport succesvol gegenereerd")
+        print(f"Bestand: {filepath}")
 
-        self.conn.close()
+        self.close_db()
         return True
 
 
-if __name__ == "__main__":
-    generator = WeeklyReportGenerator()
+def main():
+    import argparse
+    from report_base import get_available_styles
+
+    parser = argparse.ArgumentParser(description='Generate EMSN weekly bird report')
+    parser.add_argument('--style', type=str, default=None,
+                        help='Writing style (default: wetenschappelijk)')
+    parser.add_argument('--list-styles', action='store_true',
+                        help='List available writing styles and exit')
+
+    args = parser.parse_args()
+
+    if args.list_styles:
+        styles = get_available_styles()
+        print("Beschikbare schrijfstijlen:")
+        for name, info in styles.items():
+            print(f"  {name}: {info['description']}")
+        sys.exit(0)
+
+    generator = WeeklyReportGenerator(style=args.style)
     success = generator.run()
     sys.exit(0 if success else 1)
+
+
+if __name__ == "__main__":
+    main()

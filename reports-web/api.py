@@ -4,17 +4,28 @@ EMSN Reports API - Flask server for serving reports and generating PDFs
 """
 
 import os
+import sys
 import subprocess
+import threading
 from pathlib import Path
 from flask import Flask, send_file, request, jsonify, send_from_directory
 from flask_cors import CORS
 import tempfile
+
+# Add scripts path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts' / 'reports'))
+from report_base import get_available_styles
 
 app = Flask(__name__)
 CORS(app)
 
 REPORTS_DIR = Path("/home/ronny/emsn2/reports")
 WEB_DIR = Path("/home/ronny/emsn2/reports-web")
+SCRIPTS_DIR = Path("/home/ronny/emsn2/scripts/reports")
+VENV_PYTHON = "/home/ronny/emsn2/venv/bin/python3"
+
+# Track running report generations
+running_jobs = {}
 
 @app.route('/')
 def index():
@@ -108,6 +119,244 @@ def generate_pdf():
         if pdf_path.exists():
             pdf_path.unlink()
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/styles')
+def get_styles():
+    """Get available writing styles"""
+    try:
+        styles = get_available_styles()
+        return jsonify({
+            'styles': [
+                {
+                    'id': name,
+                    'name': info['name'],
+                    'description': info['description']
+                }
+                for name, info in styles.items()
+            ],
+            'default': 'wetenschappelijk'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/generate', methods=['POST'])
+def generate_report():
+    """Generate a report on demand"""
+    data = request.json
+
+    report_type = data.get('type')  # week, month, season, year, species, comparison
+    style = data.get('style', 'wetenschappelijk')
+
+    if not report_type:
+        return jsonify({'error': 'Report type required'}), 400
+
+    # Build command based on report type
+    env = os.environ.copy()
+    env['ANTHROPIC_API_KEY'] = os.getenv('ANTHROPIC_API_KEY', '')
+    env['EMSN_DB_PASSWORD'] = os.getenv('EMSN_DB_PASSWORD', 'REDACTED_DB_PASS')
+
+    if report_type == 'week':
+        script = SCRIPTS_DIR / 'weekly_report.py'
+        cmd = [VENV_PYTHON, str(script), '--style', style]
+
+    elif report_type == 'month':
+        script = SCRIPTS_DIR / 'monthly_report.py'
+        month = data.get('month')
+        year = data.get('year')
+        cmd = [VENV_PYTHON, str(script), '--style', style]
+        if month:
+            cmd.extend(['--month', str(month)])
+        if year:
+            cmd.extend(['--year', str(year)])
+
+    elif report_type == 'season':
+        script = SCRIPTS_DIR / 'seasonal_report.py'
+        season = data.get('season')
+        year = data.get('year')
+        cmd = [VENV_PYTHON, str(script), '--style', style]
+        if season:
+            cmd.extend(['--season', season])
+        if year:
+            cmd.extend(['--year', str(year)])
+
+    elif report_type == 'year':
+        script = SCRIPTS_DIR / 'yearly_report.py'
+        year = data.get('year')
+        cmd = [VENV_PYTHON, str(script), '--style', style]
+        if year:
+            cmd.extend(['--year', str(year)])
+
+    elif report_type == 'species':
+        script = SCRIPTS_DIR / 'species_report.py'
+        species = data.get('species')
+        if not species:
+            return jsonify({'error': 'Species name required'}), 400
+        cmd = [VENV_PYTHON, str(script), '--species', species, '--style', style]
+
+    elif report_type == 'comparison':
+        script = SCRIPTS_DIR / 'comparison_report.py'
+        period1 = data.get('period1')
+        period2 = data.get('period2')
+        if not period1 or not period2:
+            return jsonify({'error': 'Both periods required'}), 400
+        cmd = [VENV_PYTHON, str(script), '--period1', period1, '--period2', period2, '--style', style]
+
+    else:
+        return jsonify({'error': f'Unknown report type: {report_type}'}), 400
+
+    # Check if script exists
+    if not script.exists():
+        return jsonify({'error': f'Report script not found: {script.name}'}), 404
+
+    # Run the report generation
+    try:
+        result = subprocess.run(
+            cmd,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minute timeout
+        )
+
+        if result.returncode == 0:
+            # Refresh the reports index
+            subprocess.run([
+                VENV_PYTHON,
+                str(WEB_DIR / 'generate_index.py')
+            ], capture_output=True)
+
+            return jsonify({
+                'success': True,
+                'message': 'Report generated successfully',
+                'output': result.stdout
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Report generation failed',
+                'output': result.stdout,
+                'stderr': result.stderr
+            }), 500
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Report generation timed out'}), 504
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/species')
+def get_species():
+    """Get list of all species for species report selection"""
+    try:
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host="192.168.1.25",
+            port=5433,
+            database="emsn",
+            user="birdpi_zolder",
+            password=os.getenv("EMSN_DB_PASSWORD", "REDACTED_DB_PASS")
+        )
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT
+                common_name,
+                species,
+                COUNT(*) as total
+            FROM bird_detections
+            WHERE common_name IS NOT NULL
+            GROUP BY common_name, species
+            ORDER BY total DESC
+        """)
+
+        species_list = [
+            {
+                'common_name': row[0],
+                'scientific_name': row[1],
+                'total_detections': row[2]
+            }
+            for row in cur.fetchall()
+        ]
+
+        cur.close()
+        conn.close()
+
+        return jsonify({'species': species_list})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/periods')
+def get_periods():
+    """Get available periods for comparison reports"""
+    try:
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host="192.168.1.25",
+            port=5433,
+            database="emsn",
+            user="birdpi_zolder",
+            password=os.getenv("EMSN_DB_PASSWORD", "REDACTED_DB_PASS")
+        )
+        cur = conn.cursor()
+
+        # Get available weeks
+        cur.execute("""
+            SELECT DISTINCT
+                EXTRACT(YEAR FROM detection_timestamp)::int as year,
+                EXTRACT(WEEK FROM detection_timestamp)::int as week
+            FROM bird_detections
+            ORDER BY year DESC, week DESC
+            LIMIT 52
+        """)
+        weeks = [{'year': row[0], 'week': row[1], 'label': f'{row[0]}-W{row[1]:02d}'} for row in cur.fetchall()]
+
+        # Get available months
+        cur.execute("""
+            SELECT DISTINCT
+                EXTRACT(YEAR FROM detection_timestamp)::int as year,
+                EXTRACT(MONTH FROM detection_timestamp)::int as month
+            FROM bird_detections
+            ORDER BY year DESC, month DESC
+            LIMIT 24
+        """)
+        month_names = ['Jan', 'Feb', 'Mrt', 'Apr', 'Mei', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec']
+        months = [{'year': row[0], 'month': row[1], 'label': f'{month_names[row[1]-1]} {row[0]}'} for row in cur.fetchall()]
+
+        # Get available seasons
+        cur.execute("""
+            SELECT DISTINCT EXTRACT(YEAR FROM detection_timestamp)::int as year
+            FROM bird_detections
+            ORDER BY year DESC
+        """)
+        years = [row[0] for row in cur.fetchall()]
+        seasons = []
+        season_names = [('winter', 'Winter'), ('spring', 'Voorjaar'), ('summer', 'Zomer'), ('autumn', 'Herfst')]
+        for year in years:
+            for season_id, season_name in season_names:
+                seasons.append({
+                    'year': year,
+                    'season': season_id,
+                    'label': f'{season_name} {year}'
+                })
+
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            'weeks': weeks,
+            'months': months,
+            'seasons': seasons,
+            'years': years
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     # Run development server

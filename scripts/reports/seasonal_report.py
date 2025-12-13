@@ -13,26 +13,13 @@ Seasons:
 import sys
 import os
 import json
-import subprocess
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 from pathlib import Path
 import psycopg2
-from anthropic import Anthropic
 
-# Configuration
-DB_HOST = "192.168.1.25"
-DB_PORT = 5433
-DB_NAME = "emsn"
-DB_USER = "birdpi_zolder"
-DB_PASSWORD = os.getenv("EMSN_DB_PASSWORD", "REDACTED_DB_PASS")
-
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-if not ANTHROPIC_API_KEY:
-    print("ERROR: ANTHROPIC_API_KEY environment variable not set")
-    sys.exit(1)
-
-REPORTS_PATH = Path("/home/ronny/emsn2/reports")
-LOG_DIR = Path("/mnt/usb/logs")
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+from report_base import ReportBase, REPORTS_PATH
 
 # Season definitions
 SEASONS = {
@@ -43,27 +30,12 @@ SEASONS = {
 }
 
 
-class SeasonalReportGenerator:
+class SeasonalReportGenerator(ReportBase):
     """Generate seasonal narrative bird activity reports"""
 
-    def __init__(self):
-        self.client = Anthropic(api_key=ANTHROPIC_API_KEY)
-        self.conn = None
-
-    def connect_db(self):
-        """Connect to PostgreSQL database"""
-        try:
-            self.conn = psycopg2.connect(
-                host=DB_HOST,
-                port=DB_PORT,
-                database=DB_NAME,
-                user=DB_USER,
-                password=DB_PASSWORD
-            )
-            return True
-        except Exception as e:
-            print(f"ERROR: Database connection failed: {e}")
-            return False
+    def __init__(self, style=None):
+        super().__init__()
+        self.get_style(style)
 
     def get_season_dates(self, season=None, year=None):
         """Get start and end dates for a season
@@ -441,19 +413,14 @@ class SeasonalReportGenerator:
     def generate_report(self, data):
         """Use Claude API to generate narrative report"""
 
-        prompt = f"""Je bent een ervaren veldbioloog die een seizoensrapport opstelt voor collega's
-van het EMSN vogelmonitoringsproject in Nijverdal, Overijssel.
+        style_prompt = self.get_style_prompt()
+
+        prompt = f"""{style_prompt}
+
+Je schrijft een seizoensrapport voor het EMSN vogelmonitoringsproject in Nijverdal, Overijssel.
 
 DATA:
 {json.dumps(data, indent=2, ensure_ascii=False)}
-
-SCHRIJFSTIJL:
-- Wetenschappelijk gefundeerd, data-gedreven
-- Ruimte voor observaties die de cijfers tot leven brengen
-- Humor is welkom, maar subtiel en droog
-- NOOIT verkleinwoorden, GEEN uitroeptekens, GEEN "gevleugelde vrienden"
-- Laat verwondering blijken uit WAT je beschrijft, niet uit hoe enthousiast je klinkt
-- Vogelsoorten met Hoofdletter, gevolgd door wetenschappelijke naam cursief: Ekster (*Pica pica*)
 
 STRUCTUUR (gebruik markdown headers):
 
@@ -492,24 +459,11 @@ STRUCTUUR (gebruik markdown headers):
 - Wat vertelt dit seizoen ons over de lokale vogelpopulatie?
 
 LENGTE: 800-1200 woorden
-TOON: Professioneel maar toegankelijk, alsof je rapporteert aan collega-onderzoekers
 
 Genereer ALLEEN de inhoud, zonder de titel/header - die wordt automatisch toegevoegd.
 """
 
-        try:
-            message = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
-                max_tokens=4000,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
-            return message.content[0].text
-
-        except Exception as e:
-            print(f"ERROR: Claude API error: {e}")
-            return None
+        return self.generate_with_claude(prompt, max_tokens=4000)
 
     def save_report(self, report_text, data):
         """Save report as markdown file"""
@@ -685,33 +639,39 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
         # Update web index
         print("Bijwerken web index...")
-        try:
-            subprocess.run([
-                '/home/ronny/emsn2/venv/bin/python3',
-                '/home/ronny/emsn2/reports-web/generate_index.py'
-            ], check=True, capture_output=True)
-        except Exception as e:
-            print(f"WAARSCHUWING: Kon web index niet bijwerken: {e}")
+        self.update_web_index()
 
         print(f"\nSeizoenrapport succesvol gegenereerd")
         print(f"Bestand: {filepath}")
 
-        self.conn.close()
+        self.close_db()
         return True
 
 
 def main():
     import argparse
+    from report_base import get_available_styles
 
     parser = argparse.ArgumentParser(description='Generate EMSN seasonal bird report')
     parser.add_argument('--season', choices=['winter', 'spring', 'summer', 'autumn'],
                         help='Season to report on (default: most recent completed)')
     parser.add_argument('--year', type=int,
                         help='Year for the season (default: current/previous year)')
+    parser.add_argument('--style', type=str, default=None,
+                        help='Writing style (default: wetenschappelijk)')
+    parser.add_argument('--list-styles', action='store_true',
+                        help='List available writing styles and exit')
 
     args = parser.parse_args()
 
-    generator = SeasonalReportGenerator()
+    if args.list_styles:
+        styles = get_available_styles()
+        print("Beschikbare schrijfstijlen:")
+        for name, info in styles.items():
+            print(f"  {name}: {info['description']}")
+        sys.exit(0)
+
+    generator = SeasonalReportGenerator(style=args.style)
     success = generator.run(season=args.season, year=args.year)
     sys.exit(0 if success else 1)
 

@@ -68,6 +68,29 @@ def parse_report_filename(filename):
             'filename': filename
         }
 
+    # Species: Soort-Merel.md
+    species_match = re.match(r'Soort-(.+)\.md', filename)
+    if species_match:
+        species_name = species_match.group(1).replace('-', ' ')
+        return {
+            'type': 'species',
+            'year': datetime.now().year,
+            'species': species_name,
+            'title': species_name,
+            'filename': filename
+        }
+
+    # Comparison: Vergelijking-Week-1-2025-vs-Week-2-2025.md
+    comparison_match = re.match(r'Vergelijking-(.+)\.md', filename)
+    if comparison_match:
+        comparison_title = comparison_match.group(1).replace('-', ' ')
+        return {
+            'type': 'comparison',
+            'year': datetime.now().year,
+            'title': comparison_title,
+            'filename': filename
+        }
+
     return None
 
 def parse_report_frontmatter(filepath):

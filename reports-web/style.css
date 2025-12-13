@@ -216,6 +216,190 @@ h1 {
     font-size: 1.1rem;
 }
 
+/* Report type badges for season and year */
+.report-type.season {
+    background: #fed7aa;
+    color: #c05621;
+}
+
+.report-type.year {
+    background: #e9d8fd;
+    color: #6b46c1;
+}
+
+/* Main tabs */
+.main-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid var(--border);
+}
+
+.main-tab {
+    padding: 1rem 2rem;
+    border: none;
+    background: transparent;
+    color: var(--text-light);
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.3s ease;
+}
+
+.main-tab:hover {
+    color: var(--primary);
+}
+
+.main-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+/* Tab content */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Generator styles */
+.generator-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem;
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+}
+
+.generator-container h2 {
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+}
+
+.generator-intro {
+    color: var(--text-light);
+    margin-bottom: 2rem;
+}
+
+.generator-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.form-group select,
+.form-group input {
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    background: white;
+    transition: border-color 0.3s ease;
+}
+
+.form-group select:focus,
+.form-group input:focus {
+    outline: none;
+    border-color: var(--secondary);
+}
+
+.style-description {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    font-style: italic;
+    margin-top: 0.25rem;
+}
+
+.btn-large {
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Progress indicator */
+.progress-container {
+    text-align: center;
+    padding: 2rem;
+}
+
+.progress-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.progress-text {
+    font-size: 1.1rem;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+}
+
+.progress-subtext {
+    font-size: 0.9rem;
+    color: var(--text-light);
+}
+
+/* Result container */
+.result-container {
+    text-align: center;
+    padding: 2rem;
+}
+
+.result-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.result-container.success .result-icon::before {
+    content: "✓";
+    color: var(--accent);
+}
+
+.result-container.error .result-icon::before {
+    content: "✗";
+    color: #e53e3e;
+}
+
+.result-message {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.result-container.success .result-message {
+    color: var(--accent);
+}
+
+.result-container.error .result-message {
+    color: #e53e3e;
+}
+
 @media (max-width: 768px) {
     .container {
         padding: 1rem;
@@ -227,5 +411,27 @@ h1 {
 
     .reports-grid {
         grid-template-columns: 1fr;
+    }
+
+    .main-tabs {
+        flex-direction: column;
+    }
+
+    .main-tab {
+        border-bottom: none;
+        border-left: 3px solid transparent;
+    }
+
+    .main-tab.active {
+        border-left-color: var(--primary);
+        border-bottom-color: transparent;
+    }
+
+    .generator-container {
+        padding: 1rem;
+    }
+
+    .filters {
+        flex-wrap: wrap;
     }
 }

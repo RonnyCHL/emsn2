@@ -9,18 +9,107 @@
 <body>
     <div class="container">
         <header>
-            <h1>🐦 EMSN Vogelrapporten</h1>
-            <p class="subtitle">Automatisch gegenereerde rapporten over vogelactiviteit</p>
+            <h1>EMSN Vogelrapporten</h1>
+            <p class="subtitle">Automatisch gegenereerde rapporten over vogelactiviteit in Nijverdal</p>
         </header>
 
-        <div class="filters">
-            <button class="filter-btn active" data-filter="all">Alle</button>
-            <button class="filter-btn" data-filter="week">Wekelijks</button>
-            <button class="filter-btn" data-filter="month">Maandelijks</button>
+        <!-- Main tabs -->
+        <div class="main-tabs">
+            <button class="main-tab active" data-tab="reports">Rapporten bekijken</button>
+            <button class="main-tab" data-tab="generate">Rapport genereren</button>
         </div>
 
-        <div id="reports-list" class="reports-grid">
-            <div class="loading">Laden...</div>
+        <!-- Reports view tab -->
+        <div id="reports-tab" class="tab-content active">
+            <div class="filters">
+                <button class="filter-btn active" data-filter="all">Alle</button>
+                <button class="filter-btn" data-filter="week">Wekelijks</button>
+                <button class="filter-btn" data-filter="month">Maandelijks</button>
+                <button class="filter-btn" data-filter="season">Seizoen</button>
+                <button class="filter-btn" data-filter="year">Jaarlijks</button>
+            </div>
+
+            <div id="reports-list" class="reports-grid">
+                <div class="loading">Laden...</div>
+            </div>
+        </div>
+
+        <!-- Generate report tab -->
+        <div id="generate-tab" class="tab-content">
+            <div class="generator-container">
+                <h2>Nieuw Rapport Genereren</h2>
+                <p class="generator-intro">Genereer een rapport met AI in de gewenste schrijfstijl.</p>
+
+                <form id="generate-form" class="generator-form">
+                    <!-- Report type selection -->
+                    <div class="form-group">
+                        <label for="report-type">Type rapport</label>
+                        <select id="report-type" required>
+                            <option value="">Selecteer type...</option>
+                            <option value="week">Weekrapport (vorige week)</option>
+                            <option value="season">Seizoensrapport</option>
+                            <option value="year">Jaaroverzicht</option>
+                            <option value="species">Soort-specifiek rapport</option>
+                        </select>
+                    </div>
+
+                    <!-- Season options (shown when season selected) -->
+                    <div id="season-options" class="form-group hidden">
+                        <label for="season-select">Seizoen</label>
+                        <select id="season-select">
+                            <option value="">Meest recente seizoen</option>
+                            <option value="winter">Winter (dec-feb)</option>
+                            <option value="spring">Voorjaar (mrt-mei)</option>
+                            <option value="summer">Zomer (jun-aug)</option>
+                            <option value="autumn">Herfst (sep-nov)</option>
+                        </select>
+                        <label for="season-year">Jaar</label>
+                        <input type="number" id="season-year" placeholder="bijv. 2025" min="2020" max="2030">
+                    </div>
+
+                    <!-- Year options (shown when year selected) -->
+                    <div id="year-options" class="form-group hidden">
+                        <label for="year-select">Jaar</label>
+                        <input type="number" id="year-select" placeholder="bijv. 2024" min="2020" max="2030">
+                    </div>
+
+                    <!-- Species options (shown when species selected) -->
+                    <div id="species-options" class="form-group hidden">
+                        <label for="species-select">Vogelsoort</label>
+                        <select id="species-select">
+                            <option value="">Laden...</option>
+                        </select>
+                    </div>
+
+                    <!-- Style selection -->
+                    <div class="form-group">
+                        <label for="style-select">Schrijfstijl</label>
+                        <select id="style-select" required>
+                            <option value="">Laden...</option>
+                        </select>
+                        <p id="style-description" class="style-description"></p>
+                    </div>
+
+                    <!-- Submit button -->
+                    <button type="submit" id="generate-btn" class="btn btn-primary btn-large">
+                        Genereer Rapport
+                    </button>
+                </form>
+
+                <!-- Progress indicator -->
+                <div id="generation-progress" class="progress-container hidden">
+                    <div class="progress-spinner"></div>
+                    <p class="progress-text">Rapport wordt gegenereerd met Claude AI...</p>
+                    <p class="progress-subtext">Dit kan 30-60 seconden duren</p>
+                </div>
+
+                <!-- Result message -->
+                <div id="generation-result" class="result-container hidden">
+                    <div class="result-icon"></div>
+                    <p class="result-message"></p>
+                    <a href="#" id="result-link" class="btn btn-secondary hidden">Bekijk rapport</a>
+                </div>
+            </div>
         </div>
     </div>
 
