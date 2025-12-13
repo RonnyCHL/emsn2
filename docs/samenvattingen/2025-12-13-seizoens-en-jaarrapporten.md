@@ -85,26 +85,35 @@ Gewijzigd van populaire naar wetenschappelijke stijl:
 ### Gewijzigd
 - `/home/ronny/emsn2/docs/CLEANUP_GUIDE.md`
 
-## Nog te doen (handmatig)
-1. Systemd timers installeren:
-```bash
-sudo cp /home/ronny/emsn2/systemd/emsn-seasonal-report.service /etc/systemd/system/
-sudo cp /home/ronny/emsn2/systemd/emsn-seasonal-report-*.timer /etc/systemd/system/
-sudo cp /home/ronny/emsn2/systemd/emsn-yearly-report.service /etc/systemd/system/
-sudo cp /home/ronny/emsn2/systemd/emsn-yearly-report.timer /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable emsn-seasonal-report-{spring,summer,autumn,winter}.timer
-sudo systemctl enable emsn-yearly-report.timer
-sudo systemctl start emsn-seasonal-report-{spring,summer,autumn,winter}.timer
-sudo systemctl start emsn-yearly-report.timer
-```
+### 6. Systemd timers geïnstalleerd
+- Services en timers gekopieerd naar `/etc/systemd/system/`
+- Timer fix toegepast: `Unit=emsn-seasonal-report.service` toegevoegd aan alle seizoen timers
+- Alle timers enabled en gestart
 
-2. Weekrapport prompt aanpassen naar nieuwe stijl (optioneel)
+**Actieve timers:**
+| Timer | Volgende run |
+|-------|--------------|
+| Weekrapport | Maandag 15 dec 2025, 07:00 |
+| Maandrapport | 1 januari 2026, 08:00 |
+| Jaaroverzicht | 2 januari 2026, 08:00 |
+| Winterrapport | 1 maart 2026, 07:00 |
+| Voorjaarsrapport | 1 juni 2026, 07:00 |
+| Zomerrapport | 1 september 2026, 07:00 |
+| Herfstrapport | 1 december 2026, 07:00 |
+
+## Optioneel nog te doen
+- Weekrapport prompt aanpassen naar nieuwe wetenschappelijke stijl
 
 ## Kosten inschatting
 - Seizoensrapport: ~$0.02-0.03 per rapport
 - Jaaroverzicht: ~$0.04-0.05 per rapport
 - Extra jaarlijkse kosten: ~$0.25
+
+## Git commits
+- `c7236e8` - docs: add CLAUDE.md project instructions
+- `e27963b` - docs: update CLEANUP_GUIDE.md - mark cleanup as completed
+- `33f9424` - feat: add seasonal and yearly report generators
+- `d5c21dd` - fix: add Unit= directive to seasonal report timers
 
 ---
 *Sessie uitgevoerd door Claude Opus 4.5*
