@@ -65,6 +65,7 @@ function setupFilters() {
 
 function filterReports() {
     const cards = document.querySelectorAll('.report-card');
+    const sections = document.querySelectorAll('.report-section');
 
     cards.forEach(card => {
         const type = card.dataset.type;
@@ -74,6 +75,12 @@ function filterReports() {
         } else {
             card.classList.add('hidden');
         }
+    });
+
+    // Hide empty sections
+    sections.forEach(section => {
+        const visibleCards = section.querySelectorAll('.report-card:not(.hidden)');
+        section.style.display = visibleCards.length === 0 ? 'none' : 'block';
     });
 }
 
@@ -85,28 +92,64 @@ function displayReports(reports) {
         return;
     }
 
-    // Sort reports: newest first (by generated date, fallback to modified)
-    const sortedReports = [...reports].sort((a, b) => {
+    // Group reports by category
+    const periodieke = reports.filter(r => ['week', 'month', 'season', 'year'].includes(r.type));
+    const soorten = reports.filter(r => r.type === 'species');
+
+    // Sort each group by generated date (newest first)
+    const sortByDate = (a, b) => {
         const dateA = new Date(a.generated || a.modified);
         const dateB = new Date(b.generated || b.modified);
         return dateB - dateA;
-    });
+    };
 
-    container.innerHTML = sortedReports.map(report => createReportCard(report)).join('');
+    periodieke.sort(sortByDate);
+    soorten.sort(sortByDate);
+
+    // Build HTML with section headers
+    let html = '';
+
+    if (periodieke.length > 0) {
+        html += '<div class="report-section"><h3 class="section-header">Periodieke Rapporten</h3>';
+        html += '<div class="reports-grid">';
+        html += periodieke.map(report => createReportCard(report)).join('');
+        html += '</div></div>';
+    }
+
+    if (soorten.length > 0) {
+        html += '<div class="report-section"><h3 class="section-header">Soort Rapporten</h3>';
+        html += '<div class="reports-grid">';
+        html += soorten.map(report => createReportCard(report)).join('');
+        html += '</div></div>';
+    }
+
+    container.innerHTML = html;
 }
 
 function createReportCard(report) {
     const detections = report.total_detections ? report.total_detections.toLocaleString('nl-NL') : 'N/A';
     const species = report.unique_species || 'N/A';
-    const period = report.period || 'Onbekend';
+    const period = report.period || '';
 
     const typeLabels = {
         'week': 'Wekelijks',
         'month': 'Maandelijks',
         'season': 'Seizoen',
-        'year': 'Jaarlijks'
+        'year': 'Jaarlijks',
+        'species': 'Soort'
     };
     const typeLabel = typeLabels[report.type] || report.type;
+
+    // Format generated date
+    const genDate = report.generated ? new Date(report.generated) : null;
+    const dateStr = genDate ? genDate.toLocaleDateString('nl-NL', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+    }) : '';
+
+    // Check if report is new (less than 24 hours old)
+    const isNew = genDate && (Date.now() - genDate.getTime()) < 24 * 60 * 60 * 1000;
 
     return `
         <div class="report-card" data-type="${report.type}">
@@ -114,13 +157,14 @@ function createReportCard(report) {
                 <span class="report-type ${report.type}">
                     ${typeLabel}
                 </span>
+                ${isNew ? '<span class="badge-new">Nieuw</span>' : ''}
             </div>
 
             <h2 class="report-title">
                 ${report.year} - ${report.title}
             </h2>
 
-            <p class="report-period">${period}</p>
+            <p class="report-period">${period || dateStr}</p>
 
             <div class="report-stats">
                 <div class="stat">
