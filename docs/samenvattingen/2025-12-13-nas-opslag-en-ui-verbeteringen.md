@@ -52,6 +52,32 @@
 - `//192.168.1.25/docker` → `/mnt/nas-docker` (bestaand)
 - `//192.168.1.25/emsn-AIRapporten` → `/mnt/nas-reports` (nieuw)
 
+### Grafana Dashboard: Soorten Overzicht
+Nieuw dashboard aangemaakt: **EMSN - Soorten Overzicht**
+- URL: http://192.168.1.25:3000/d/emsn-species-overview/emsn-soorten-overzicht
+- Config: `/home/ronny/emsn2/config/grafana-species-overview-dashboard.json`
+
+**Panels (14 totaal):**
+1. 🐦 Laatst Gehoorde Soort - stat panel
+2. ⏰ Tijd Laatste Detectie - stat panel
+3. 📊 Soorten Vandaag - stat panel
+4. 📈 Detecties Vandaag - stat panel
+5. 🏠 Laatste 15 Soorten - Zolder - tabel
+6. 🏚️ Laatste 15 Soorten - Berging - tabel
+7. 🏆 Top 10 Soorten Vandaag - bar chart
+8. ⭐ Zeldzame Soorten (Deze Week) - tabel met rarity kleuren
+9. 📅 Nieuwe Soorten Deze Maand - tabel
+10. 🕐 Activiteit per Uur (Vandaag) - time series bars
+11. 🔄 Dual Detecties Vandaag - stat panel
+12. 📊 Gemiddelde Confidence Vandaag - gauge
+13. 🌅 Piek Uur Vandaag - stat panel
+14. 📈 Soorten Deze Week vs Vorige Week - vergelijking
+
+**Features:**
+- Station filter (zolder/berging/alle)
+- Auto-refresh elke 5 minuten
+- Rarity tier kleuren (uncommon=geel, rare=oranje, very_rare=rood)
+
 ## Commits
 - `23e12b2` - feat: store reports on NAS instead of local SD card
 - `0dae0b0` - fix: improve report display - table spacing and sort order
