@@ -3,6 +3,24 @@ let allReports = [];
 let currentFilter = 'all';
 let availableStyles = [];
 
+// API configuration - direct connection to Pi for POST requests (NAS proxy blocks POST)
+const PI_API_BASE = 'http://192.168.1.178:8081';
+
+// Detect if we're accessing via the NAS proxy
+function isViaProxy() {
+    return window.location.hostname === '192.168.1.25';
+}
+
+// Get the correct API URL - use direct Pi connection for POST-requiring endpoints
+function getApiUrl(endpoint, requiresPost = false) {
+    if (requiresPost && isViaProxy()) {
+        // NAS proxy blocks POST, so go directly to Pi
+        return `${PI_API_BASE}/${endpoint}`;
+    }
+    // Use relative URL (works for both direct and proxy access)
+    return endpoint;
+}
+
 // Load reports on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadReports();
@@ -277,7 +295,7 @@ async function generateReport() {
     generateBtn.disabled = true;
 
     try {
-        const response = await fetch('api/generate', {
+        const response = await fetch(getApiUrl('api/generate', true), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
