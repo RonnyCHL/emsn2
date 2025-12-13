@@ -12,8 +12,20 @@
       "total_detections": 12854,
       "unique_species": 95,
       "generated": "2025-12-12 15:25:48"
+    },
+    {
+      "type": "season",
+      "year": "2025",
+      "season": "Herfst",
+      "title": "Herfst 2025",
+      "filename": "2025-Herfst-Seizoensrapport.md",
+      "filesize": 9818,
+      "modified": "2025-12-13T13:58:55.409620",
+      "total_detections": 10929,
+      "unique_species": 82,
+      "generated": "2025-12-13 13:58:55"
     }
   ],
-  "generated": "2025-12-13T13:58:55.456345",
-  "total_reports": 1
+  "generated": "2025-12-13T14:16:09.809035",
+  "total_reports": 2
 }

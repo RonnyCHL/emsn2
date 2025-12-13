@@ -15,6 +15,8 @@ def parse_report_filename(filename):
     """Parse report filename to extract metadata"""
     # Weekly: 2025-W50-Weekrapport.md
     # Monthly: 2025-12-Maandrapport.md
+    # Seasonal: 2025-Herfst-Seizoensrapport.md
+    # Yearly: 2025-Jaaroverzicht.md
 
     week_match = re.match(r'(\d{4})-W(\d{2})-Weekrapport\.md', filename)
     if week_match:
@@ -39,6 +41,30 @@ def parse_report_filename(filename):
             'year': year,
             'month': month,
             'title': month_names[month - 1].capitalize(),
+            'filename': filename
+        }
+
+    # Seasonal: 2025-Herfst-Seizoensrapport.md or 2025/2026-Winter-Seizoensrapport.md
+    season_match = re.match(r'(\d{4}(?:/\d{4})?)-(\w+)-Seizoensrapport\.md', filename)
+    if season_match:
+        year = season_match.group(1)
+        season = season_match.group(2)
+        return {
+            'type': 'season',
+            'year': year,
+            'season': season,
+            'title': f'{season} {year}',
+            'filename': filename
+        }
+
+    # Yearly: 2025-Jaaroverzicht.md
+    year_match = re.match(r'(\d{4})-Jaaroverzicht\.md', filename)
+    if year_match:
+        year = int(year_match.group(1))
+        return {
+            'type': 'year',
+            'year': year,
+            'title': f'Jaaroverzicht {year}',
             'filename': filename
         }
 
