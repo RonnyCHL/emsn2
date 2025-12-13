@@ -85,9 +85,11 @@ function displayReports(reports) {
         return;
     }
 
-    // Sort reports: newest first (by modified date)
+    // Sort reports: newest first (by generated date, fallback to modified)
     const sortedReports = [...reports].sort((a, b) => {
-        return new Date(b.modified) - new Date(a.modified);
+        const dateA = new Date(a.generated || a.modified);
+        const dateB = new Date(b.generated || b.modified);
+        return dateB - dateA;
     });
 
     container.innerHTML = sortedReports.map(report => createReportCard(report)).join('');
