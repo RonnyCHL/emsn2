@@ -400,6 +400,37 @@ h1 {
     color: #e53e3e;
 }
 
+/* Report content tables */
+.report-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+.report-content th,
+.report-content td {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    text-align: left;
+}
+
+.report-content th {
+    background: var(--bg);
+    font-weight: 600;
+}
+
+/* Confidence column center-aligned */
+.report-content td:nth-child(5),
+.report-content th:nth-child(5) {
+    text-align: center;
+}
+
+/* Totaal column right-aligned */
+.report-content td:nth-child(6),
+.report-content th:nth-child(6) {
+    text-align: right;
+}
+
 @media (max-width: 768px) {
     .container {
         padding: 1rem;
