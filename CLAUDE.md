@@ -33,6 +33,21 @@ Eigenaar: Ronny Hullegie
 - **Pi Zolder (emsn2-zolder):** 192.168.1.178 - BirdNET-Pi, MQTT broker (hoofd), API server
 - **Pi Berging (emsn2-berging):** 192.168.1.87 - BirdNET-Pi, AtmosBird (Pi Camera NoIR), MQTT bridge
 - **NAS (DS224Plus):** 192.168.1.25 - Opslag, PostgreSQL, Grafana, Homer
+- **Ulanzi TC001:** 192.168.1.11 - AWTRIX Light LED matrix display
+
+## Ulanzi Display
+- **IP:** 192.168.1.11
+- **API:** http://192.168.1.11/api (AWTRIX Light)
+- **Endpoints:**
+  - /api/notify - Notificaties sturen
+  - /api/screen - Screenshot (32x8 pixel array)
+  - /api/stats - Device status
+- **Services:**
+  - ulanzi-bridge.service - MQTT → Display notificaties
+  - ulanzi-screenshot.service - Automatische screenshots
+- **Config:** /home/ronny/emsn2/config/ulanzi_config.py
+- **Screenshots:** /mnt/nas-reports/ulanzi-screenshots/
+- **Dashboard:** http://192.168.1.25:3000/d/emsn-ulanzi-notifications/
 
 ## MQTT
 - **Hoofdbroker:** Zolder (192.168.1.178:1883)
