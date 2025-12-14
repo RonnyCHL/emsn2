@@ -608,6 +608,129 @@
       ],
       "title": "Notificaties Trend (30 dagen)",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgresql",
+        "uid": "emsn_postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "custom": {"align": "auto", "cellOptions": {"type": "auto"}, "inspect": false},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        },
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Resterende tijd"}, "properties": [{"id": "custom.cellOptions", "value": {"mode": "lcd", "type": "gauge", "valueDisplayMode": "text"}}]},
+          {"matcher": {"id": "byName", "options": "rarity_tier"}, "properties": [{"id": "mappings", "value": [{"options": {"abundant": {"color": "dark-blue", "text": "Abundant"}, "common": {"color": "blue", "text": "Common"}, "legendary": {"color": "yellow", "text": "Legendary"}, "rare": {"color": "orange", "text": "Rare"}, "uncommon": {"color": "green", "text": "Uncommon"}}, "type": "value"}]}]}
+        ]
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+      "id": 11,
+      "options": {"cellHeight": "sm", "footer": {"reducer": ["sum"], "show": false}, "showHeader": true},
+      "targets": [
+        {
+          "datasource": {"type": "postgresql", "uid": "emsn_postgres"},
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT species_nl as \"Soort\", rarity_tier as \"Rarity\", cooldown_seconds as \"Cooldown (sec)\", last_notified as \"Laatste notificatie\", EXTRACT(EPOCH FROM (expires_at - NOW()))::integer as \"Resterende tijd (sec)\", expires_at as \"Verloopt op\" FROM ulanzi_cooldown_status WHERE expires_at > NOW() ORDER BY expires_at ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "Actieve Cooldowns",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "postgresql",
+        "uid": "emsn_postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 32},
+      "id": 12,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [
+        {
+          "datasource": {"type": "postgresql", "uid": "emsn_postgres"},
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) FROM ulanzi_cooldown_status WHERE expires_at > NOW()",
+          "refId": "A"
+        }
+      ],
+      "title": "Soorten in Cooldown",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgresql",
+        "uid": "emsn_postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 32},
+      "id": 13,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [
+        {
+          "datasource": {"type": "postgresql", "uid": "emsn_postgres"},
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) FROM ulanzi_screenshots WHERE timestamp >= NOW() - INTERVAL '24 hours'",
+          "refId": "A"
+        }
+      ],
+      "title": "Screenshots Vandaag",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgresql",
+        "uid": "emsn_postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "custom": {"align": "auto", "cellOptions": {"type": "auto"}, "inspect": false},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        },
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "filepath"}, "properties": [{"id": "links", "value": [{"title": "Open Screenshot", "url": "http://192.168.1.25/rapporten/ulanzi-screenshots/${__data.fields.filename}"}]}]}
+        ]
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 36},
+      "id": 14,
+      "options": {"cellHeight": "sm", "footer": {"reducer": ["sum"], "show": false}, "showHeader": true},
+      "targets": [
+        {
+          "datasource": {"type": "postgresql", "uid": "emsn_postgres"},
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp as \"Tijd\", species_nl as \"Soort\", filename as \"Bestand\", trigger_type as \"Type\" FROM ulanzi_screenshots ORDER BY timestamp DESC LIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "title": "Recente Screenshots",
+      "type": "table"
     }
   ],
   "refresh": "30s",

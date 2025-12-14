@@ -305,11 +305,18 @@ class RarityCache:
 class CooldownManager:
     """Manages notification cooldowns per species"""
 
-    def __init__(self):
+    def __init__(self, logger=None):
+        self.logger = logger
         self.last_notification = {}
         self.anti_spam_seconds = 30  # Minimum 30 seconds between identical species (burst protection)
         self.burst_detection_seconds = 5  # Detect bursts within 5 seconds
         self.last_received = {}  # Track when detection was received (not shown)
+        self.species_tiers = {}  # species -> tier info for remaining time calculation
+        self.pg_conn = None
+
+    def connect(self, pg_conn):
+        """Use existing database connection for cooldown persistence"""
+        self.pg_conn = pg_conn
 
     def is_burst_detection(self, common_name):
         """Check if this is a burst detection (same species within 5 seconds)"""
@@ -346,9 +353,64 @@ class CooldownManager:
 
         return elapsed >= cooldown
 
-    def record_notification(self, common_name):
+    def record_notification(self, common_name, tier=None, tier_config=None):
         """Record that a notification was sent"""
-        self.last_notification[common_name] = datetime.now()
+        now = datetime.now()
+        self.last_notification[common_name] = now
+
+        # Store tier info for remaining time calculation
+        if tier and tier_config:
+            self.species_tiers[common_name] = {
+                'tier': tier,
+                'cooldown_seconds': tier_config.get('cooldown_seconds', 3600)
+            }
+
+        # Persist to database
+        self.update_cooldown_db(common_name, tier, tier_config)
+
+    def update_cooldown_db(self, species_nl, tier=None, tier_config=None):
+        """Update cooldown status in database"""
+        if not self.pg_conn:
+            return
+
+        try:
+            now = datetime.now()
+            cooldown_sec = tier_config.get('cooldown_seconds', 3600) if tier_config else 3600
+            expires_at = now + timedelta(seconds=cooldown_sec)
+
+            cursor = self.pg_conn.cursor()
+            cursor.execute("""
+                INSERT INTO ulanzi_cooldown_status
+                (species_nl, rarity_tier, cooldown_seconds, last_notified, expires_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (species_nl) DO UPDATE SET
+                    rarity_tier = EXCLUDED.rarity_tier,
+                    cooldown_seconds = EXCLUDED.cooldown_seconds,
+                    last_notified = EXCLUDED.last_notified,
+                    expires_at = EXCLUDED.expires_at,
+                    updated_at = EXCLUDED.updated_at
+            """, (species_nl, tier, cooldown_sec, now, expires_at, now))
+            self.pg_conn.commit()
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to update cooldown DB: {e}")
+            try:
+                self.pg_conn.rollback()
+            except:
+                pass
+
+    def cleanup_expired_cooldowns(self):
+        """Remove expired cooldowns from database"""
+        if not self.pg_conn:
+            return
+
+        try:
+            cursor = self.pg_conn.cursor()
+            cursor.execute("DELETE FROM ulanzi_cooldown_status WHERE expires_at < NOW()")
+            self.pg_conn.commit()
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to cleanup cooldowns: {e}")
 
     def get_cooldowns(self):
         """Get all active cooldowns with remaining time"""
@@ -484,7 +546,7 @@ class UlanziBridge:
         self.species_names = SpeciesNameCache(self.logger)
         self.first_of_year = FirstOfYearCache(self.logger)
         self.milestones = MilestoneTracker(self.logger)
-        self.cooldown = CooldownManager()
+        self.cooldown = CooldownManager(self.logger)
         self.notifier = UlanziNotifier(self.logger)
         self.mqtt_client = None
         self.running = False
@@ -493,6 +555,9 @@ class UlanziBridge:
         # Track last dual detection to prevent burst duplicates
         self.last_dual_detection = {}  # species -> (timestamp, confidence)
         self.dual_burst_window = 10  # 10 seconds window for dual detection bursts
+
+        # Last notification ID for screenshot linking
+        self.last_notification_id = None
 
     def parse_apprise_message(self, payload):
         """Parse Apprise notification message to extract detection info"""
@@ -648,7 +713,7 @@ class UlanziBridge:
         duration_sec = self.notifier.calculate_duration(message, tier_duration)
 
         if self.notifier.send_notification(message, color, sound, duration_sec):
-            self.cooldown.record_notification(dutch_name)
+            self.cooldown.record_notification(dutch_name, tier=tier, tier_config=tier_config)
 
             # Mark as seen this year
             if is_first_of_year:
@@ -656,7 +721,7 @@ class UlanziBridge:
                 self.logger.success(f"FIRST OF YEAR: {dutch_name}")
 
             # Log to database (with Dutch name)
-            self.log_notification(dutch_name, detection['confidence'], station, species_info['tier'], True, notification_type=notification_type)
+            self.log_notification(dutch_name, detection['confidence'], station, tier, True, notification_type=notification_type)
 
             # Check for milestones
             self.check_and_notify_milestones(dutch_name, detection['confidence'], is_first_of_year)
@@ -762,7 +827,8 @@ class UlanziBridge:
             self.logger.error(f"Error handling dual detection: {e}")
 
     def log_notification(self, dutch_name, confidence, station, tier, was_shown, skip_reason=None, notification_type='standard'):
-        """Log notification to database"""
+        """Log notification to database and return the ID"""
+        notification_id = None
         try:
             if not self.rarity_cache.pg_conn:
                 self.rarity_cache.connect()
@@ -772,6 +838,7 @@ class UlanziBridge:
                 INSERT INTO ulanzi_notification_log
                 (species_nl, station, confidence, rarity_tier, was_shown, skip_reason, notification_type)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
             """, (
                 dutch_name,
                 station.lower(),
@@ -781,9 +848,30 @@ class UlanziBridge:
                 skip_reason,
                 notification_type
             ))
+            notification_id = cursor.fetchone()[0]
             self.rarity_cache.pg_conn.commit()
+
+            # If notification was shown, trigger screenshot
+            if was_shown and self.mqtt_client:
+                self.trigger_screenshot(dutch_name, notification_id)
+
         except Exception as e:
             self.logger.error(f"Error logging notification: {e}")
+
+        return notification_id
+
+    def trigger_screenshot(self, species_nl, detection_id):
+        """Trigger screenshot service via MQTT"""
+        try:
+            payload = json.dumps({
+                'species_nl': species_nl,
+                'detection_id': detection_id,
+                'timestamp': datetime.now().isoformat()
+            })
+            self.mqtt_client.publish('emsn2/ulanzi/screenshot/trigger', payload)
+            self.logger.info(f"Screenshot triggered for {species_nl}")
+        except Exception as e:
+            self.logger.error(f"Failed to trigger screenshot: {e}")
 
     def start(self):
         """Start the bridge service"""
@@ -805,6 +893,10 @@ class UlanziBridge:
         # Initialize milestone tracker
         self.milestones.connect(self.rarity_cache.pg_conn)
         self.milestones.refresh()
+
+        # Initialize cooldown manager with DB connection
+        self.cooldown.connect(self.rarity_cache.pg_conn)
+        self.cooldown.cleanup_expired_cooldowns()
 
         # Setup MQTT client
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)

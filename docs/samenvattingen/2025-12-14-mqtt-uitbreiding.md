@@ -185,4 +185,64 @@ Dashboard toegevoegd aan Homer onder "Monitoring" sectie:
 - **URL:** http://192.168.1.25:3000/d/emsn-ulanzi-notifications/emsn-ulanzi-notificaties
 
 ---
+
+## Update: Cooldown Tracking & Screenshots
+
+### Nieuwe Database Tabellen
+
+**ulanzi_cooldown_status** - Realtime cooldown tracking per soort:
+- `species_nl` - Soortnaam (uniek)
+- `rarity_tier` - Rarity classificatie
+- `cooldown_seconds` - Cooldown duur in seconden
+- `last_notified` - Laatste notificatie tijdstip
+- `expires_at` - Cooldown verlooptijd
+
+**ulanzi_screenshots** - Screenshot archief:
+- `timestamp` - Tijdstip van screenshot
+- `detection_id` - Link naar notification log
+- `species_nl` - Soortnaam
+- `filename` - Bestandsnaam
+- `filepath` - Volledig pad
+- `trigger_type` - notification/manual/scheduled
+
+### Screenshot Service
+
+**Service:** `ulanzi-screenshot.service`
+- Maakt automatisch screenshots na elke notificatie
+- Slaat op naar `/mnt/nas-reports/ulanzi-screenshots/`
+- Organiseert per datum (YYYY-MM-DD subdirectories)
+- 10x vergroting van 32x8 pixel matrix voor leesbaarheid
+- MQTT triggers: `emsn2/ulanzi/screenshot/trigger`
+
+### Bridge Updates
+
+De Ulanzi Bridge is uitgebreid met:
+- Cooldown status persistentie in database
+- MQTT screenshot triggers na succesvolle notificaties
+- Automatische cleanup van verlopen cooldowns bij startup
+
+### Grafana Dashboard Updates
+
+Nieuwe panels toegevoegd:
+- **Actieve Cooldowns** - Tabel met soorten in cooldown en resterende tijd
+- **Soorten in Cooldown** - Aantal soorten momenteel in cooldown
+- **Screenshots Vandaag** - Aantal screenshots laatste 24 uur
+- **Recente Screenshots** - Tabel met laatste 20 screenshots
+
+### Verificatie
+
+```bash
+# Check services
+systemctl status ulanzi-screenshot
+systemctl status ulanzi-bridge
+
+# Check cooldowns
+PGPASSWORD='REDACTED_DB_PASS' psql -h 192.168.1.25 -p 5433 -U birdpi_zolder -d emsn \
+  -c "SELECT species_nl, rarity_tier, expires_at FROM ulanzi_cooldown_status WHERE expires_at > NOW();"
+
+# Check screenshots
+ls -la /mnt/nas-reports/ulanzi-screenshots/
+```
+
+---
 *Gegenereerd door Claude Code sessie*

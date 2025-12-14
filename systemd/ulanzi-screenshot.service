@@ -1,0 +1,18 @@
+[Unit]
+Description=EMSN Ulanzi Screenshot Service
+After=network.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2/scripts/ulanzi
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/ulanzi/ulanzi_screenshot.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/mnt/usb/logs/ulanzi-screenshot.log
+StandardError=append:/mnt/usb/logs/ulanzi-screenshot.error.log
+
+[Install]
+WantedBy=multi-user.target
