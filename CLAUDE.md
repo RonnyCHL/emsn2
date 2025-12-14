@@ -47,6 +47,7 @@ Eigenaar: Ronny Hullegie
   - ulanzi-screenshot.service - Automatische screenshots
 - **Config:** /home/ronny/emsn2/config/ulanzi_config.py
 - **Screenshots:** /mnt/nas-reports/ulanzi-screenshots/
+- **Screenshot Server:** http://192.168.1.178:8082 (serveert screenshots)
 - **Dashboard:** http://192.168.1.25:3000/d/emsn-ulanzi-notifications/
 
 ## MQTT

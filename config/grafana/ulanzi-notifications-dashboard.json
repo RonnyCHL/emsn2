@@ -635,7 +635,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT species_nl as \"Soort\", rarity_tier as \"Rarity\", cooldown_seconds as \"Cooldown (sec)\", last_notified as \"Laatste notificatie\", EXTRACT(EPOCH FROM (expires_at - NOW()))::integer as \"Resterende tijd (sec)\", expires_at as \"Verloopt op\" FROM ulanzi_cooldown_status WHERE expires_at > NOW() ORDER BY expires_at ASC",
+          "rawSql": "SELECT species_nl as \"Soort\", rarity_tier as \"Rarity\", TO_CHAR((cooldown_seconds || ' seconds')::interval, 'HH24:MI:SS') as \"Cooldown\", TO_CHAR(last_notified, 'HH24:MI:SS') as \"Getoond om\", TO_CHAR((expires_at - NOW()), 'HH24:MI:SS') as \"Resterende tijd\", TO_CHAR(expires_at, 'HH24:MI:SS') as \"Weer tonen om\" FROM ulanzi_cooldown_status WHERE expires_at > NOW() ORDER BY expires_at ASC",
           "refId": "A"
         }
       ],
@@ -713,7 +713,7 @@
           "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
         },
         "overrides": [
-          {"matcher": {"id": "byName", "options": "filepath"}, "properties": [{"id": "links", "value": [{"title": "Open Screenshot", "url": "http://192.168.1.25/rapporten/ulanzi-screenshots/${__data.fields.filename}"}]}]}
+          {"matcher": {"id": "byName", "options": "Link"}, "properties": [{"id": "links", "value": [{"title": "Open Screenshot", "url": "${__data.fields.Link}"}]}]}
         ]
       },
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 36},
@@ -725,7 +725,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT timestamp as \"Tijd\", species_nl as \"Soort\", filename as \"Bestand\", trigger_type as \"Type\" FROM ulanzi_screenshots ORDER BY timestamp DESC LIMIT 20",
+          "rawSql": "SELECT TO_CHAR(timestamp, 'HH24:MI:SS') as \"Tijd\", species_nl as \"Soort\", 'http://192.168.1.178:8082/' || TO_CHAR(timestamp, 'YYYY-MM-DD') || '/' || filename as \"Link\", trigger_type as \"Type\" FROM ulanzi_screenshots ORDER BY timestamp DESC LIMIT 20",
           "refId": "A"
         }
       ],
