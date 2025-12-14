@@ -1,0 +1,16 @@
+[Unit]
+Description=EMSN MQTT Failover Check
+After=network.target mosquitto.service
+
+[Service]
+Type=oneshot
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2/scripts/mqtt
+Environment="EMSN_SMTP_PASSWORD=REDACTED_SMTP_PASS"
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/mqtt/mqtt_failover.py
+StandardOutput=append:/mnt/usb/logs/mqtt-failover.log
+StandardError=append:/mnt/usb/logs/mqtt-failover.error.log
+
+[Install]
+WantedBy=multi-user.target

@@ -36,11 +36,20 @@ Eigenaar: Ronny Hullegie
 
 ## MQTT
 - **Hoofdbroker:** Zolder (192.168.1.178:1883)
-- **Bridge:** Berging bridget naar Zolder (emsn2/berging/# → Zolder)
+- **Bridges:** Bidirectioneel - Berging ↔ Zolder
 - **Credentials:** ecomonitor/REDACTED_DB_PASS
-- **Topics:** emsn2/{station}/# en birdnet/{station}/#
-- **Config:** /home/ronny/emsn2/config/mosquitto-bridge-berging.conf
-- **NAS Shares:**
+- **Topics:**
+  - emsn2/{station}/# - Systeem data
+  - birdnet/{station}/detection - Live detecties
+  - birdnet/{station}/stats - Statistieken
+  - emsn2/bridge/status - Bridge status
+- **Services:**
+  - mqtt-bridge-monitor.service - Continu monitoring
+  - birdnet-mqtt-publisher.service - BirdNET → MQTT
+  - mqtt-failover.timer - Health check (5 min)
+- **Config:** /home/ronny/emsn2/config/mosquitto-*.conf
+
+## NAS Shares
   - //192.168.1.25/docker → /mnt/nas-docker
   - //192.168.1.25/emsn-AIRapporten → /mnt/nas-reports
 - **Credentials:** /etc/nas-reports-credentials (ronny/REDACTED_DB_PASS)

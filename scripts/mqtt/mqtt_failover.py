@@ -1,0 +1,313 @@
+#!/usr/bin/env python3
+"""
+EMSN MQTT Failover Monitor
+Checks bridge health and takes corrective action if needed
+Run via timer every 5 minutes
+"""
+
+import os
+import sys
+import json
+import subprocess
+import logging
+import smtplib
+from datetime import datetime, timedelta
+from pathlib import Path
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import yaml
+
+# Configuration
+LOG_DIR = Path("/mnt/usb/logs")
+STATE_FILE = LOG_DIR / "mqtt_failover_state.json"
+CONFIG_PATH = Path("/home/ronny/emsn2/config")
+EMAIL_FILE = CONFIG_PATH / "email.yaml"
+SMTP_PASSWORD = os.getenv("EMSN_SMTP_PASSWORD")
+
+MQTT_USER = "ecomonitor"
+MQTT_PASS = "REDACTED_DB_PASS"
+
+# Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_DIR / "mqtt_failover.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+
+class MQTTFailover:
+    def __init__(self):
+        self.state = self.load_state()
+
+    def load_state(self):
+        """Load previous state"""
+        if STATE_FILE.exists():
+            try:
+                with open(STATE_FILE) as f:
+                    return json.load(f)
+            except:
+                pass
+        return {
+            "last_check": None,
+            "consecutive_failures": 0,
+            "last_restart": None,
+            "last_alert": None,
+        }
+
+    def save_state(self):
+        """Save state"""
+        self.state["last_check"] = datetime.now().isoformat()
+        with open(STATE_FILE, 'w') as f:
+            json.dump(self.state, f, indent=2)
+
+    def load_email_config(self):
+        """Load email configuration"""
+        if not EMAIL_FILE.exists():
+            return None
+        with open(EMAIL_FILE) as f:
+            return yaml.safe_load(f)
+
+    def send_alert(self, subject, body):
+        """Send email alert"""
+        config = self.load_email_config()
+        if not config or not SMTP_PASSWORD:
+            logger.warning("Email not configured")
+            return False
+
+        smtp_config = config.get('smtp', {})
+        email_config = config.get('email', {})
+        recipients = config.get('recipients', [])
+
+        if not recipients:
+            return False
+
+        try:
+            msg = MIMEMultipart()
+            msg['Subject'] = f"[EMSN MQTT] {subject}"
+            msg['From'] = f"{email_config.get('from_name')} <{email_config.get('from_address')}>"
+            msg['To'] = ', '.join(recipients)
+            msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+            server = smtplib.SMTP(smtp_config.get('host'), smtp_config.get('port', 587))
+            if smtp_config.get('use_tls', True):
+                server.starttls()
+            server.login(smtp_config.get('username'), SMTP_PASSWORD)
+            server.sendmail(email_config.get('from_address'), recipients, msg.as_string())
+            server.quit()
+
+            logger.info(f"Alert sent: {subject}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send alert: {e}")
+            return False
+
+    def check_mosquitto_status(self, host="localhost"):
+        """Check if Mosquitto is running"""
+        try:
+            if host == "localhost":
+                result = subprocess.run(
+                    ["systemctl", "is-active", "mosquitto"],
+                    capture_output=True, text=True, timeout=5
+                )
+                return result.stdout.strip() == "active"
+            else:
+                # Remote check via SSH
+                result = subprocess.run(
+                    ["ssh", "-o", "ConnectTimeout=5", f"ronny@{host}",
+                     "systemctl", "is-active", "mosquitto"],
+                    capture_output=True, text=True, timeout=10
+                )
+                return result.stdout.strip() == "active"
+        except Exception as e:
+            logger.error(f"Could not check Mosquitto status on {host}: {e}")
+            return False
+
+    def check_bridge_connected(self):
+        """Check if bridges are connected via MQTT notification topics"""
+        bridges = {
+            "berging-to-zolder": None,  # None = unknown, True = connected, False = disconnected
+            "zolder-to-berging": None,
+        }
+
+        try:
+            # Try to get bridge status from MQTT notification topics
+            # These are retained messages published by mosquitto when bridge connects/disconnects
+            result = subprocess.run(
+                ["mosquitto_sub", "-h", "localhost", "-u", MQTT_USER, "-P", MQTT_PASS,
+                 "-t", "emsn2/bridge/status", "-t", "emsn2/bridge/zolder-status",
+                 "-W", "2", "-v"],
+                capture_output=True, text=True, timeout=5
+            )
+
+            for line in result.stdout.strip().split('\n'):
+                if not line:
+                    continue
+                parts = line.split(' ', 1)
+                if len(parts) == 2:
+                    topic, payload = parts
+                    if "bridge/status" in topic and "zolder" not in topic:
+                        bridges["berging-to-zolder"] = payload.strip() == "1"
+                    elif "bridge/zolder-status" in topic:
+                        bridges["zolder-to-berging"] = payload.strip() == "1"
+
+        except Exception as e:
+            logger.warning(f"Could not check bridge status via MQTT: {e}")
+
+        # If MQTT check didn't work, fall back to log parsing
+        if all(v is None for v in bridges.values()):
+            try:
+                result = subprocess.run(
+                    ["sudo", "grep", "-E", "bridge.*(connected|New bridge)",
+                     "/var/log/mosquitto/mosquitto.log"],
+                    capture_output=True, text=True, timeout=5
+                )
+
+                # Check last few bridge events
+                lines = result.stdout.strip().split('\n')[-20:]
+                for line in lines:
+                    if "New bridge connected" in line or "bridge connected" in line.lower():
+                        if "bridge-to-zolder" in line:
+                            bridges["berging-to-zolder"] = True
+                        if "bridge-to-berging" in line:
+                            bridges["zolder-to-berging"] = True
+
+            except Exception as e:
+                logger.error(f"Could not check bridge status via logs: {e}")
+
+        return bridges
+
+    def restart_mosquitto(self, host="localhost"):
+        """Restart Mosquitto service"""
+        try:
+            if host == "localhost":
+                result = subprocess.run(
+                    ["sudo", "systemctl", "restart", "mosquitto"],
+                    capture_output=True, text=True, timeout=30
+                )
+            else:
+                result = subprocess.run(
+                    ["ssh", "-o", "ConnectTimeout=5", f"ronny@{host}",
+                     "sudo", "systemctl", "restart", "mosquitto"],
+                    capture_output=True, text=True, timeout=30
+                )
+
+            success = result.returncode == 0
+            if success:
+                logger.info(f"Mosquitto restarted on {host}")
+                self.state["last_restart"] = datetime.now().isoformat()
+            else:
+                logger.error(f"Failed to restart Mosquitto on {host}: {result.stderr}")
+
+            return success
+
+        except Exception as e:
+            logger.error(f"Could not restart Mosquitto on {host}: {e}")
+            return False
+
+    def should_alert(self):
+        """Check if we should send an alert (1 hour cooldown)"""
+        if not self.state.get("last_alert"):
+            return True
+        last = datetime.fromisoformat(self.state["last_alert"])
+        return datetime.now() - last > timedelta(hours=1)
+
+    def run(self):
+        """Main check routine"""
+        logger.info("Starting MQTT failover check")
+
+        issues = []
+        actions = []
+
+        # Check Zolder Mosquitto
+        zolder_ok = self.check_mosquitto_status("localhost")
+        logger.info(f"Zolder Mosquitto: {'OK' if zolder_ok else 'DOWN'}")
+        if not zolder_ok:
+            issues.append("Zolder Mosquitto is down")
+
+        # Check Berging Mosquitto
+        berging_ok = self.check_mosquitto_status("192.168.1.87")
+        logger.info(f"Berging Mosquitto: {'OK' if berging_ok else 'DOWN'}")
+        if not berging_ok:
+            issues.append("Berging Mosquitto is down")
+
+        # Check bridge connections
+        bridges = self.check_bridge_connected()
+        if bridges:
+            for name, connected in bridges.items():
+                status_str = "connected" if connected else ("disconnected" if connected is False else "unknown")
+                logger.info(f"Bridge {name}: {status_str}")
+                # Only report as issue if explicitly False (disconnected), not None (unknown)
+                if connected is False:
+                    issues.append(f"Bridge {name} is disconnected")
+
+        # Take action if there are issues
+        if issues:
+            self.state["consecutive_failures"] = self.state.get("consecutive_failures", 0) + 1
+            logger.warning(f"Issues found ({self.state['consecutive_failures']} consecutive): {issues}")
+
+            # After 3 consecutive failures, try to restart
+            if self.state["consecutive_failures"] >= 3:
+                logger.info("Attempting automatic recovery...")
+
+                # Check when last restart was
+                last_restart = self.state.get("last_restart")
+                can_restart = True
+                if last_restart:
+                    last = datetime.fromisoformat(last_restart)
+                    can_restart = datetime.now() - last > timedelta(minutes=15)
+
+                if can_restart:
+                    if not zolder_ok:
+                        if self.restart_mosquitto("localhost"):
+                            actions.append("Restarted Zolder Mosquitto")
+
+                    if not berging_ok:
+                        if self.restart_mosquitto("192.168.1.87"):
+                            actions.append("Restarted Berging Mosquitto")
+
+                    # If only bridges are down, restart both to re-establish
+                    if zolder_ok and berging_ok and bridges:
+                        if not all(bridges.values()):
+                            self.restart_mosquitto("localhost")
+                            self.restart_mosquitto("192.168.1.87")
+                            actions.append("Restarted both Mosquitto services to reconnect bridges")
+
+            # Send alert if needed
+            if self.should_alert():
+                body = f"""EMSN MQTT Systeem heeft problemen gedetecteerd.
+
+Tijdstip: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+Problemen:
+{chr(10).join('- ' + i for i in issues)}
+
+Ondernomen acties:
+{chr(10).join('- ' + a for a in actions) if actions else '- Geen (wachten op meer data)'}
+
+Opeenvolgende fouten: {self.state['consecutive_failures']}
+
+Controleer de MQTT services handmatig als dit probleem aanhoudt.
+"""
+                if self.send_alert("MQTT Problemen Gedetecteerd", body):
+                    self.state["last_alert"] = datetime.now().isoformat()
+
+        else:
+            # All good, reset failure counter
+            if self.state.get("consecutive_failures", 0) > 0:
+                logger.info("All issues resolved, resetting failure counter")
+            self.state["consecutive_failures"] = 0
+
+        self.save_state()
+        logger.info("Failover check completed")
+
+        return len(issues) == 0
+
+
+if __name__ == "__main__":
+    failover = MQTTFailover()
+    success = failover.run()
+    sys.exit(0 if success else 1)

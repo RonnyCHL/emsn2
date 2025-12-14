@@ -1,0 +1,10 @@
+[Unit]
+Description=EMSN MQTT Failover Check Timer
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

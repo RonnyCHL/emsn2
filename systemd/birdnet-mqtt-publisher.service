@@ -1,0 +1,19 @@
+[Unit]
+Description=EMSN BirdNET MQTT Publisher
+After=network.target mosquitto.service
+
+[Service]
+Type=simple
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2/scripts/mqtt
+Environment="EMSN_STATION=zolder"
+Environment="MQTT_BROKER=localhost"
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/mqtt/birdnet_mqtt_publisher.py
+Restart=always
+RestartSec=30
+StandardOutput=append:/mnt/usb/logs/birdnet-mqtt-publisher.log
+StandardError=append:/mnt/usb/logs/birdnet-mqtt-publisher.error.log
+
+[Install]
+WantedBy=multi-user.target
