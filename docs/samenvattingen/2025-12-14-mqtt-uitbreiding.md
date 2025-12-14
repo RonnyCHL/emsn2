@@ -177,5 +177,12 @@ Gebruikt bestaande `ulanzi_notification_log` tabel die al door de Ulanzi Bridge 
 | burst_duplicate | 45 |
 | anti_spam | 30 |
 
+### Homer Dashboard
+
+Dashboard toegevoegd aan Homer onder "Monitoring" sectie:
+- **Naam:** Ulanzi Notificaties
+- **Icon:** fas fa-bell
+- **URL:** http://192.168.1.25:3000/d/emsn-ulanzi-notifications/emsn-ulanzi-notificaties
+
 ---
 *Gegenereerd door Claude Code sessie*
