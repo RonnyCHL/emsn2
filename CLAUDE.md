@@ -30,9 +30,16 @@ Eigenaar: Ronny Hullegie
 - Reports API: http://192.168.1.178:8081
 
 ## Netwerk
-- **Pi Zolder (emsn2-zolder):** 192.168.1.178 - BirdNET-Pi, MQTT broker, API server
-- **Pi Berging (emsn2-berging):** 192.168.1.87 - BirdNET-Pi, AtmosBird (Pi Camera NoIR)
+- **Pi Zolder (emsn2-zolder):** 192.168.1.178 - BirdNET-Pi, MQTT broker (hoofd), API server
+- **Pi Berging (emsn2-berging):** 192.168.1.87 - BirdNET-Pi, AtmosBird (Pi Camera NoIR), MQTT bridge
 - **NAS (DS224Plus):** 192.168.1.25 - Opslag, PostgreSQL, Grafana, Homer
+
+## MQTT
+- **Hoofdbroker:** Zolder (192.168.1.178:1883)
+- **Bridge:** Berging bridget naar Zolder (emsn2/berging/# → Zolder)
+- **Credentials:** ecomonitor/REDACTED_DB_PASS
+- **Topics:** emsn2/{station}/# en birdnet/{station}/#
+- **Config:** /home/ronny/emsn2/config/mosquitto-bridge-berging.conf
 - **NAS Shares:**
   - //192.168.1.25/docker → /mnt/nas-docker
   - //192.168.1.25/emsn-AIRapporten → /mnt/nas-reports
