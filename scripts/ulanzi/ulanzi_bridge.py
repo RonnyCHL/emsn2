@@ -21,7 +21,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
 from ulanzi_config import (
     ULANZI, MQTT as MQTT_CONFIG, PG_CONFIG,
     RARITY_TIERS, CONFIDENCE_COLORS, CONFIDENCE_THRESHOLDS,
-    DISPLAY, SPECIAL_EVENTS, LOG_DIR, RTTTL_SOUNDS, MILESTONES
+    DISPLAY, SPECIAL_EVENTS, LOG_DIR, RTTTL_SOUNDS, MILESTONES,
+    SMART_COOLDOWN
 )
 
 
@@ -303,7 +304,7 @@ class RarityCache:
 
 
 class CooldownManager:
-    """Manages notification cooldowns per species"""
+    """Manages notification cooldowns per species with smart time/season adjustments"""
 
     def __init__(self, logger=None):
         self.logger = logger
@@ -313,10 +314,74 @@ class CooldownManager:
         self.last_received = {}  # Track when detection was received (not shown)
         self.species_tiers = {}  # species -> tier info for remaining time calculation
         self.pg_conn = None
+        self.smart_cooldown_enabled = True  # Can be disabled if needed
 
     def connect(self, pg_conn):
         """Use existing database connection for cooldown persistence"""
         self.pg_conn = pg_conn
+
+    def get_time_of_day(self):
+        """Determine current time period"""
+        hour = datetime.now().hour
+        if 5 <= hour < 8:
+            return 'dawn'
+        elif 8 <= hour < 12:
+            return 'morning'
+        elif 12 <= hour < 17:
+            return 'afternoon'
+        elif 17 <= hour < 20:
+            return 'evening'
+        else:
+            return 'night'
+
+    def get_season(self):
+        """Determine current season based on month"""
+        month = datetime.now().month
+        if month in (3, 4, 5):
+            return 'spring'
+        elif month in (6, 7, 8):
+            return 'summer'
+        elif month in (9, 10, 11):
+            return 'autumn'
+        else:
+            return 'winter'
+
+    def is_weekend(self):
+        """Check if today is a weekend"""
+        return datetime.now().weekday() >= 5  # 5=Saturday, 6=Sunday
+
+    def calculate_smart_cooldown(self, base_cooldown_seconds):
+        """Apply smart multipliers to base cooldown"""
+        if not self.smart_cooldown_enabled or base_cooldown_seconds == 0:
+            return base_cooldown_seconds
+
+        # Get multipliers
+        time_period = self.get_time_of_day()
+        season = self.get_season()
+
+        time_mult = SMART_COOLDOWN['time_multipliers'].get(time_period, 1.0)
+        season_mult = SMART_COOLDOWN['season_multipliers'].get(season, 1.0)
+
+        # Apply weekend multiplier if applicable
+        weekend_mult = SMART_COOLDOWN['weekend_multiplier'] if self.is_weekend() else 1.0
+
+        # Calculate final cooldown
+        adjusted = base_cooldown_seconds * time_mult * season_mult * weekend_mult
+
+        # Clamp to min/max
+        min_cd = SMART_COOLDOWN.get('min_cooldown_seconds', 60)
+        max_cd = SMART_COOLDOWN.get('max_cooldown_seconds', 14400)
+
+        final_cooldown = int(max(min_cd, min(max_cd, adjusted)))
+
+        if self.logger and final_cooldown != base_cooldown_seconds:
+            self.logger.info(
+                f"Smart cooldown: {base_cooldown_seconds}s -> {final_cooldown}s "
+                f"(time={time_period}:{time_mult}, season={season}:{season_mult}, "
+                f"weekend={self.is_weekend()}:{weekend_mult})"
+            )
+
+        return final_cooldown
 
     def is_burst_detection(self, common_name):
         """Check if this is a burst detection (same species within 5 seconds)"""
@@ -332,7 +397,7 @@ class CooldownManager:
         self.last_received[common_name] = datetime.now()
 
     def can_notify(self, common_name, tier_config, is_special=False):
-        """Check if notification is allowed based on cooldown"""
+        """Check if notification is allowed based on smart cooldown"""
         if is_special:
             return True
 
@@ -346,12 +411,13 @@ class CooldownManager:
         if elapsed < self.anti_spam_seconds:
             return False
 
-        # Then check tier-specific cooldown
-        cooldown = tier_config['cooldown_seconds']
-        if cooldown == 0:
+        # Get base cooldown and apply smart adjustments
+        base_cooldown = tier_config['cooldown_seconds']
+        if base_cooldown == 0:
             return True
 
-        return elapsed >= cooldown
+        smart_cooldown = self.calculate_smart_cooldown(base_cooldown)
+        return elapsed >= smart_cooldown
 
     def record_notification(self, common_name, tier=None, tier_config=None):
         """Record that a notification was sent"""
@@ -369,13 +435,15 @@ class CooldownManager:
         self.update_cooldown_db(common_name, tier, tier_config)
 
     def update_cooldown_db(self, species_nl, tier=None, tier_config=None):
-        """Update cooldown status in database"""
+        """Update cooldown status in database with smart cooldown"""
         if not self.pg_conn:
             return
 
         try:
             now = datetime.now()
-            cooldown_sec = tier_config.get('cooldown_seconds', 3600) if tier_config else 3600
+            base_cooldown = tier_config.get('cooldown_seconds', 3600) if tier_config else 3600
+            # Apply smart cooldown for database persistence
+            cooldown_sec = self.calculate_smart_cooldown(base_cooldown)
             expires_at = now + timedelta(seconds=cooldown_sec)
 
             cursor = self.pg_conn.cursor()

@@ -1,0 +1,79 @@
+# EMSN Ulanzi MQTT Sensors for Home Assistant
+# Add this to your configuration.yaml under "mqtt:" section
+# or include it as: mqtt: !include ulanzi_sensors.yaml
+
+mqtt:
+  sensor:
+    # Cooldown count sensor
+    - name: "Ulanzi Cooldowns Active"
+      state_topic: "emsn2/ulanzi/cooldowns/count"
+      icon: "mdi:timer-sand"
+      unit_of_measurement: "soorten"
+
+    # Today statistics sensors
+    - name: "Ulanzi Notifications Today"
+      state_topic: "emsn2/ulanzi/stats/today"
+      value_template: "{{ value_json.shown_24h }}"
+      icon: "mdi:bell-check"
+      unit_of_measurement: "notificaties"
+
+    - name: "Ulanzi Skipped Today"
+      state_topic: "emsn2/ulanzi/stats/today"
+      value_template: "{{ value_json.skipped_24h }}"
+      icon: "mdi:bell-off"
+      unit_of_measurement: "overgeslagen"
+
+    - name: "Ulanzi Species Today"
+      state_topic: "emsn2/ulanzi/stats/today"
+      value_template: "{{ value_json.unique_species_24h }}"
+      icon: "mdi:bird"
+      unit_of_measurement: "soorten"
+
+    - name: "Ulanzi Screenshots Today"
+      state_topic: "emsn2/ulanzi/stats/today"
+      value_template: "{{ value_json.screenshots_24h }}"
+      icon: "mdi:camera"
+      unit_of_measurement: "screenshots"
+
+    - name: "Ulanzi Show Ratio"
+      state_topic: "emsn2/ulanzi/stats/today"
+      value_template: "{{ (value_json.show_ratio * 100) | round(1) }}"
+      icon: "mdi:percent"
+      unit_of_measurement: "%"
+
+    - name: "Ulanzi Last Species"
+      state_topic: "emsn2/ulanzi/stats/today"
+      value_template: "{{ value_json.last_species }}"
+      icon: "mdi:bird"
+
+    - name: "Ulanzi Last Notification"
+      state_topic: "emsn2/ulanzi/stats/today"
+      value_template: "{{ value_json.last_notification[:19] | as_datetime | as_local }}"
+      device_class: "timestamp"
+      icon: "mdi:clock"
+
+    # Smart cooldown sensors
+    - name: "Ulanzi Time Period"
+      state_topic: "emsn2/ulanzi/smart_cooldown"
+      value_template: "{{ value_json.time_period }}"
+      icon: "mdi:clock-outline"
+
+    - name: "Ulanzi Season"
+      state_topic: "emsn2/ulanzi/smart_cooldown"
+      value_template: "{{ value_json.season }}"
+      icon: "mdi:weather-sunny"
+
+    - name: "Ulanzi Cooldown Multiplier"
+      state_topic: "emsn2/ulanzi/smart_cooldown"
+      value_template: "{{ value_json.total_multiplier }}"
+      icon: "mdi:multiplication"
+      unit_of_measurement: "x"
+
+    # Detailed cooldown status (JSON attribute sensor)
+    - name: "Ulanzi Cooldown Status"
+      state_topic: "emsn2/ulanzi/cooldowns/status"
+      value_template: "{{ value_json.count }}"
+      unit_of_measurement: "actief"
+      json_attributes_topic: "emsn2/ulanzi/cooldowns/status"
+      json_attributes_template: >-
+        {{ value_json | tojson }}

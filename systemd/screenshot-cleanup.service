@@ -1,0 +1,12 @@
+[Unit]
+Description=EMSN Screenshot Cleanup Service
+After=network.target mnt-nas\x2dreports.mount
+
+[Service]
+Type=oneshot
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2/scripts/ulanzi
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/ulanzi/screenshot_cleanup.py
+StandardOutput=append:/mnt/usb/logs/screenshot-cleanup.log
+StandardError=append:/mnt/usb/logs/screenshot-cleanup.log

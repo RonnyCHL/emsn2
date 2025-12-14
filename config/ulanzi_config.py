@@ -130,3 +130,29 @@ RARITY_LOOKBACK_DAYS = 30
 
 # Log directory
 LOG_DIR = '/mnt/usb/logs'
+
+# Smart Cooldown Settings
+# Multipliers for cooldown based on time of day and season
+SMART_COOLDOWN = {
+    # Tijd van de dag multipliers (lagere multiplier = kortere cooldown = meer notificaties)
+    'time_multipliers': {
+        'dawn': 0.5,      # 05:00-08:00 - Ochtendkoor, halve cooldown
+        'morning': 0.75,  # 08:00-12:00 - Actieve ochtend
+        'afternoon': 1.0, # 12:00-17:00 - Normale middag
+        'evening': 0.75,  # 17:00-20:00 - Avondactiviteit
+        'night': 1.5,     # 20:00-05:00 - Nacht, langere cooldown (uilen etc.)
+    },
+    # Seizoen multipliers (lagere = kortere cooldown)
+    'season_multipliers': {
+        'spring': 0.7,    # Maart-Mei: Veel activiteit, broedseizoen, trek
+        'summer': 0.9,    # Juni-Aug: Redelijk actief
+        'autumn': 0.7,    # Sept-Nov: Herfsttrek
+        'winter': 1.2,    # Dec-Feb: Minder activiteit
+    },
+    # Weekend/vakantie multiplier (meer tijd om te kijken)
+    'weekend_multiplier': 0.8,  # Weekenden: kortere cooldown
+
+    # Minimum en maximum cooldown (in seconden)
+    'min_cooldown_seconds': 60,    # Nooit korter dan 1 minuut
+    'max_cooldown_seconds': 14400, # Nooit langer dan 4 uur
+}
