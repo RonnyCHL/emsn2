@@ -30,14 +30,21 @@ Eigenaar: Ronny Hullegie
 - Reports API: http://192.168.1.178:8081
 
 ## Netwerk
-- **Pi (emsn2-zolder):** 192.168.1.178 - BirdNET-Pi, API server
-- **NAS (DS224Plus):** 192.168.1.25 - Opslag, PostgreSQL, reverse proxy
+- **Pi Zolder (emsn2-zolder):** 192.168.1.178 - BirdNET-Pi, MQTT broker, API server
+- **Pi Berging (emsn2-berging):** 192.168.1.87 - BirdNET-Pi, AtmosBird (Pi Camera NoIR)
+- **NAS (DS224Plus):** 192.168.1.25 - Opslag, PostgreSQL, Grafana, Homer
 - **NAS Shares:**
   - //192.168.1.25/docker → /mnt/nas-docker
   - //192.168.1.25/emsn-AIRapporten → /mnt/nas-reports
 - **Credentials:** /etc/nas-reports-credentials (ronny/REDACTED_DB_PASS)
 - **Let op:** NAS proxy blokkeert POST requests - gebruik directe Pi IP voor API calls
 - **Grafana:** http://192.168.1.25:3000 (admin/emsn2024)
+
+## Email (Rapporten)
+- **SMTP:** smtp.strato.de:587
+- **Account:** rapporten@ronnyhullegie.nl
+- **Wachtwoord:** REDACTED_SMTP_PASS
+- **Config:** /home/ronny/emsn2/config/email.yaml
 
 ## Commit Stijl
 - feat: nieuwe functionaliteit

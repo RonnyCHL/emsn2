@@ -102,9 +102,27 @@ Het EMSN systeem draait stabiel. Beide BirdNET-Pi stations zijn operationeel, al
 
 ## Volgende Stappen (Optioneel)
 
-1. **AtmosBird activeren** - Sky monitoring (indien gewenst)
-2. **Station imbalance onderzoeken** - Waarom detecteert Berging meer?
-3. **Documentatie bijwerken** - CLAUDE.md met correcte kolomnamen
+1. **Station imbalance onderzoeken** - Waarom detecteert Berging meer?
+
+---
+
+## Update: Email & AtmosBird (zelfde sessie)
+
+### Email Notificaties Ingesteld
+- **SMTP:** smtp.strato.de:587
+- **Account:** rapporten@ronnyhullegie.nl
+- **Test email:** Succesvol verzonden
+
+Rapporten worden automatisch gemaild:
+- Weekrapport → Maandag 07:00
+- Maandrapport → 1e van de maand
+- Seizoensrapport → Per seizoen
+- Jaaroverzicht → 2 januari
+
+### AtmosBird
+- Draait op **Berging** (192.168.1.87) met Pi Camera NoIR
+- Zolder heeft geen camera aangesloten
+- Service bestanden gecorrigeerd voor juiste paden
 
 ---
 *Gegenereerd door Claude Code sessie*
