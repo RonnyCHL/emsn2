@@ -22,7 +22,10 @@ from ulanzi_config import ULANZI, MQTT as MQTT_CONFIG, PG_CONFIG, LOG_DIR
 
 # Screenshot configuration
 SCREENSHOT_DIR = Path("/mnt/nas-reports/ulanzi-screenshots")
-SCREENSHOT_DELAY_MS = 500  # Wacht 500ms na notificatie voor screenshot
+# Delay moet lang genoeg zijn zodat de vogelnaam zichtbaar is
+# Tekst scrollt van rechts naar links, vogelnaam komt na station-prefix
+# Bij scroll_speed=80 duurt het ~3-5 seconden voordat vogelnaam in beeld komt
+SCREENSHOT_DELAY_SECONDS = 4.0  # Wacht 4 seconden zodat vogelnaam zichtbaar is
 MATRIX_WIDTH = 32
 MATRIX_HEIGHT = 8
 SCALE_FACTOR = 10  # Vergroot 10x voor leesbaarheid
@@ -210,8 +213,8 @@ class UlanziScreenshot:
                 species_nl = data.get('species_nl')
                 detection_id = data.get('detection_id')
 
-                # Wait a bit for the display to update
-                time.sleep(SCREENSHOT_DELAY_MS / 1000)
+                # Wait for the text to scroll so the species name is visible
+                time.sleep(SCREENSHOT_DELAY_SECONDS)
 
                 filepath = self.take_screenshot(
                     species_nl=species_nl,

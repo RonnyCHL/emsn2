@@ -31,6 +31,12 @@ Geleerde lessen en belangrijke observaties voor toekomstige sessies.
 - Gebruik `Image.NEAREST` bij resize voor pixel-perfect scaling
 - 10x schaling (320x80) is goed leesbaar
 
+### Screenshot Timing
+- Tekst scrollt van rechts naar links op de Ulanzi
+- Bij `scroll_speed=80` duurt het ~3-5 seconden voordat vogelnaam zichtbaar is
+- Screenshot delay moet minimaal 4 seconden zijn om vogelnaam te vangen
+- Te vroeg = je ziet alleen "BERGING-I" of "Zolder-" prefix
+
 ## Database (PostgreSQL)
 
 ### Cooldown Tabel Structuur
