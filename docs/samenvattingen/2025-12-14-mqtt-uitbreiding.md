@@ -145,4 +145,37 @@ systemctl list-timers mqtt-failover.timer
 - ✅ Email alerts worden verzonden
 
 ---
+
+## Update: Ulanzi Notificaties Dashboard
+
+### Grafana Dashboard Toegevoegd
+
+**URL:** http://192.168.1.25:3000/d/emsn-ulanzi-notifications/
+
+Het dashboard toont:
+- **Stat panels:** Notificaties vandaag, soorten getoond, overgeslagen, toon ratio
+- **Time series:** Notificaties per uur (24u), trend (30 dagen)
+- **Pie charts:** Skip redenen, rarity tiers
+- **Bar chart:** Top 15 soorten (7 dagen)
+- **Tabel:** Laatste 50 getoonde notificaties
+
+### Data Bron
+
+Gebruikt bestaande `ulanzi_notification_log` tabel die al door de Ulanzi Bridge wordt gevuld.
+
+**Statistieken (laatste 24u):**
+- 1666 totale detecties verwerkt
+- 219 notificaties getoond (13%)
+- 1447 overgeslagen (cooldown, duplicates, anti-spam)
+- 49 verschillende soorten getoond
+
+### Skip Redenen
+| Reden | Aantal |
+|-------|--------|
+| cooldown | 768 |
+| dual_burst_duplicate | 606 |
+| burst_duplicate | 45 |
+| anti_spam | 30 |
+
+---
 *Gegenereerd door Claude Code sessie*
