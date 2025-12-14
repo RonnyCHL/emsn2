@@ -94,6 +94,36 @@ cat dashboard.json | jq '{dashboard: ., overwrite: true}' | \
   -u "admin:password" -d @- "http://host:3000/api/dashboards/db"
 ```
 
+### Provisioned Dashboards
+- **Wat zijn ze?** Dashboards die automatisch uit JSON-bestanden geladen worden
+- **Locatie:** `/mnt/nas-docker/grafana/dashboards/` (bij ons)
+- **Probleem:** `"Cannot save provisioned dashboard"` bij API updates
+- **Oplossing:** JSON-bestanden direct aanpassen met `sudo`, dan herladen:
+```bash
+# Herlaad provisioned dashboards zonder restart
+curl -X POST -u "admin:password" \
+  "http://host:3000/api/admin/provisioning/dashboards/reload"
+```
+- **Voordeel:** Dashboards in versiebeheer, reproduceerbaar
+
+### Dashboard Vertalingen met Python
+Bij veel tekst-vervangingen is `sed` gevaarlijk (kan JSON breken).
+Gebruik Python voor veilige JSON-manipulatie:
+```python
+import json
+
+def translate_recursive(obj, translations):
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if key == 'title' and value in translations:
+                obj[key] = translations[value]
+            else:
+                translate_recursive(value, translations)
+    elif isinstance(obj, list):
+        for item in obj:
+            translate_recursive(item, translations)
+```
+
 ## MQTT
 
 ### Retained Messages
