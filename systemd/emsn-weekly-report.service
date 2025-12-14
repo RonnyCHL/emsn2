@@ -9,6 +9,7 @@ User=ronny
 WorkingDirectory=/home/ronny/emsn2/scripts/reports
 Environment="EMSN_DB_PASSWORD=REDACTED_DB_PASS"
 Environment="ANTHROPIC_API_KEY=REDACTED_API_KEY"
+Environment="EMSN_SMTP_PASSWORD=REDACTED_SMTP_PASS"
 ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/reports/weekly_report.py
 StandardOutput=append:/mnt/usb/logs/emsn-weekly-report.log
 StandardError=append:/mnt/usb/logs/emsn-weekly-report.error.log

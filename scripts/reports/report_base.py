@@ -8,6 +8,9 @@ import os
 import sys
 import yaml
 import subprocess
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from pathlib import Path
 from datetime import datetime
 import psycopg2
@@ -21,10 +24,12 @@ DB_USER = "birdpi_zolder"
 DB_PASSWORD = os.getenv("EMSN_DB_PASSWORD", "REDACTED_DB_PASS")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+SMTP_PASSWORD = os.getenv("EMSN_SMTP_PASSWORD")
 
 REPORTS_PATH = Path("/mnt/nas-reports")
 CONFIG_PATH = Path("/home/ronny/emsn2/config")
 STYLES_FILE = CONFIG_PATH / "report_styles.yaml"
+EMAIL_FILE = CONFIG_PATH / "email.yaml"
 
 
 class ReportBase:
@@ -153,6 +158,69 @@ Vogelsoorten met Hoofdletter + wetenschappelijke naam.'''
     def format_number(self, num):
         """Format number with thousand separators"""
         return f"{num:,}".replace(",", ".")
+
+    def load_email_config(self):
+        """Load email configuration from yaml file"""
+        if not EMAIL_FILE.exists():
+            print("WARNING: Email config file not found")
+            return None
+        with open(EMAIL_FILE, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f)
+
+    def send_email(self, subject, body, report_type="weekly"):
+        """Send report via email"""
+        config = self.load_email_config()
+        if not config:
+            print("WARNING: No email config, skipping email")
+            return False
+
+        # Check if auto_send is enabled for this report type
+        auto_send = config.get('reports', {}).get('auto_send', {})
+        if not auto_send.get(report_type, False):
+            print(f"INFO: Email disabled for {report_type} reports")
+            return False
+
+        if not SMTP_PASSWORD:
+            print("WARNING: EMSN_SMTP_PASSWORD not set, skipping email")
+            return False
+
+        smtp_config = config.get('smtp', {})
+        email_config = config.get('email', {})
+        recipients = config.get('recipients', [])
+
+        if not recipients:
+            print("WARNING: No recipients configured")
+            return False
+
+        try:
+            # Create message
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = f"{email_config.get('from_name', 'EMSN')} <{email_config.get('from_address')}>"
+            msg['To'] = ', '.join(recipients)
+
+            # Plain text version
+            text_part = MIMEText(body, 'plain', 'utf-8')
+            msg.attach(text_part)
+
+            # Connect and send
+            server = smtplib.SMTP(smtp_config.get('host'), smtp_config.get('port', 587))
+            if smtp_config.get('use_tls', True):
+                server.starttls()
+            server.login(smtp_config.get('username'), SMTP_PASSWORD)
+            server.sendmail(
+                email_config.get('from_address'),
+                recipients,
+                msg.as_string()
+            )
+            server.quit()
+
+            print(f"SUCCESS: Email sent to {', '.join(recipients)}")
+            return True
+
+        except Exception as e:
+            print(f"ERROR: Failed to send email: {e}")
+            return False
 
     def get_common_name(self, scientific_name):
         """Get Dutch common name for a species"""

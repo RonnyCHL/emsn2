@@ -5,8 +5,9 @@ After=network.target
 [Service]
 Type=oneshot
 User=ronny
-WorkingDirectory=/home/ronny
-ExecStart=/usr/bin/python3 /home/ronny/atmosbird_timelapse.py
+WorkingDirectory=/home/ronny/emsn2/scripts/atmosbird
+Environment="EMSN_DB_PASSWORD=REDACTED_DB_PASS"
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/atmosbird/atmosbird_timelapse.py
 StandardOutput=append:/mnt/usb/logs/atmosbird-timelapse.log
 StandardError=append:/mnt/usb/logs/atmosbird-timelapse.error.log
 

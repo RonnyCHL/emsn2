@@ -645,6 +645,30 @@ Licentie: CC BY-NC 4.0 (gebruik toegestaan met bronvermelding, niet commercieel)
         print("Bijwerken web index...")
         self.update_web_index()
 
+        # Send email notification
+        print("Versturen email...")
+        subject = f"EMSN Weekrapport Week {data['week_number']} - {data['year']}"
+        email_body = f"""Weekrapport Week {data['week_number']} ({data['period']})
+
+Samenvatting:
+- {data['total_detections']:,} detecties
+- {data['unique_species']} soorten
+- {data['dual_detections']:,} dual detections
+
+Top 3 soorten:
+"""
+        for i, species in enumerate(data['top_species'][:3], 1):
+            email_body += f"{i}. {species['name']}: {species['count']:,} detecties\n"
+
+        email_body += f"""
+Bekijk het volledige rapport op:
+http://192.168.1.25/rapporten/
+
+---
+EMSN Vogelmonitoring Nijverdal
+"""
+        self.send_email(subject, email_body, report_type="weekly")
+
         print(f"\nWeekrapport succesvol gegenereerd")
         print(f"Bestand: {filepath}")
 

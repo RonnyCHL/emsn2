@@ -5,8 +5,9 @@ After=network.target
 [Service]
 Type=oneshot
 User=ronny
-WorkingDirectory=/home/ronny
-ExecStart=/usr/bin/python3 /home/ronny/atmosbird_capture.py
+WorkingDirectory=/home/ronny/emsn2/scripts/atmosbird
+Environment="EMSN_DB_PASSWORD=REDACTED_DB_PASS"
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/atmosbird/atmosbird_capture.py
 StandardOutput=append:/mnt/usb/logs/atmosbird-capture.log
 StandardError=append:/mnt/usb/logs/atmosbird-capture.error.log
 

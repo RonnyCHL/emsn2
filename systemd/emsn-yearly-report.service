@@ -9,6 +9,7 @@ Group=ronny
 WorkingDirectory=/home/ronny/emsn2/scripts/reports
 Environment="ANTHROPIC_API_KEY=REDACTED_API_KEY"
 Environment="EMSN_DB_PASSWORD=REDACTED_DB_PASS"
+Environment="EMSN_SMTP_PASSWORD=REDACTED_SMTP_PASS"
 ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/reports/yearly_report.py
 StandardOutput=append:/mnt/usb/logs/emsn-yearly-report.log
 StandardError=append:/mnt/usb/logs/emsn-yearly-report.error.log

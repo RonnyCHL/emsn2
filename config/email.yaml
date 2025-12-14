@@ -1,34 +1,31 @@
 # EMSN Email Configuration
 # Configuratie voor het verzenden van rapporten via email
 
-# SMTP server instellingen
+# SMTP server instellingen (Strato)
 smtp:
-  host: "smtp.gmail.com"
+  host: "smtp.strato.de"
   port: 587
   use_tls: true
-  # Zet username en password in environment variables:
-  # EMSN_SMTP_USER en EMSN_SMTP_PASSWORD
-  # Of gebruik een app-specifiek wachtwoord voor Gmail
+  username: "rapporten@ronnyhullegie.nl"
+  # Password via environment variable EMSN_SMTP_PASSWORD
 
 # Email instellingen
 email:
   from_name: "EMSN Vogelmonitoring"
-  from_address: ""  # Zet via EMSN_EMAIL_FROM
+  from_address: "rapporten@ronnyhullegie.nl"
 
 # Ontvangers
 recipients:
-  # Voeg hier email adressen toe
-  # - ronny@example.com
-  # - andere@example.com
+  - rapporten@ronnyhullegie.nl
 
 # Rapport instellingen
 reports:
   # Welke rapporten automatisch mailen
   auto_send:
-    weekly: false
-    monthly: false
-    seasonal: false
-    yearly: false
+    weekly: true
+    monthly: true
+    seasonal: true
+    yearly: true
 
   # Onderwerp templates
   subjects:
