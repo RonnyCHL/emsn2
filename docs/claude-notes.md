@@ -33,9 +33,11 @@ Geleerde lessen en belangrijke observaties voor toekomstige sessies.
 
 ### Screenshot Timing
 - Tekst scrollt van rechts naar links op de Ulanzi
-- Bij `scroll_speed=80` duurt het ~3-5 seconden voordat vogelnaam zichtbaar is
-- Screenshot delay moet minimaal 4 seconden zijn om vogelnaam te vangen
-- Te vroeg = je ziet alleen "BERGING-I" of "Zolder-" prefix
+- Bij `scroll_speed=80` duurt het ~1.5-2 seconden voordat vogelnaam zichtbaar is
+- **Geteste delays:**
+  - 0.5s = te vroeg (alleen station-prefix zichtbaar: "BERGING-I")
+  - 4.0s = te laat (notificatie kan al voorbij zijn, toont klok)
+  - **2.5s = optimaal** - vogelnaam zichtbaar, notificatie nog actief
 
 ## Database (PostgreSQL)
 
@@ -54,10 +56,28 @@ TO_CHAR((seconds || ' seconds')::interval, 'HH24:MI:SS')
 
 ## Grafana
 
-### Dynamic Text Panel
-- Plugin: `marcusolsson-dynamictext-panel`
-- Kan HTML renderen inclusief `<img>` tags
-- Goed voor live preview met auto-refresh via dashboard refresh setting
+### Plugin Problemen Vermijden
+- **`marcusolsson-dynamictext-panel`** is vaak niet geïnstalleerd
+- Gebruik in plaats daarvan standaard `text` panel met `mode: "markdown"`
+- Markdown ondersteunt afbeeldingen: `[![alt](url)](url)`
+- Links werken gewoon: `[tekst](url)`
+
+### Tijdzone Correctie in Queries
+- Database slaat timestamps op in UTC
+- Voor lokale tijd in output: `timestamp AT TIME ZONE 'Europe/Amsterdam'`
+- Voorbeeld: `TO_CHAR(timestamp AT TIME ZONE 'Europe/Amsterdam', 'HH24:MI:SS')`
+
+### Nederlandse Labels in SQL
+- Gebruik `CASE WHEN` voor vertalingen:
+```sql
+CASE rarity_tier
+  WHEN 'abundant' THEN 'Algemeen'
+  WHEN 'common' THEN 'Gewoon'
+  WHEN 'uncommon' THEN 'Ongewoon'
+  WHEN 'rare' THEN 'Zeldzaam'
+  WHEN 'legendary' THEN 'Legendarisch'
+END as "Zeldzaamheid"
+```
 
 ### Image in Table
 - Gebruik `custom.cellOptions.type: "image"` voor inline afbeeldingen
@@ -66,6 +86,13 @@ TO_CHAR((seconds || ' seconds')::interval, 'HH24:MI:SS')
 ### Heatmap voor Tijdreeksen
 - Goede visualisatie voor activiteit per soort over tijd
 - Gebruik `date_trunc('hour', timestamp)` voor aggregatie
+
+### Dashboard API Update
+```bash
+cat dashboard.json | jq '{dashboard: ., overwrite: true}' | \
+  curl -s -X POST -H "Content-Type: application/json" \
+  -u "admin:password" -d @- "http://host:3000/api/dashboards/db"
+```
 
 ## MQTT
 

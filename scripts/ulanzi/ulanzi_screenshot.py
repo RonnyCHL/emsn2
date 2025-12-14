@@ -24,8 +24,10 @@ from ulanzi_config import ULANZI, MQTT as MQTT_CONFIG, PG_CONFIG, LOG_DIR
 SCREENSHOT_DIR = Path("/mnt/nas-reports/ulanzi-screenshots")
 # Delay moet lang genoeg zijn zodat de vogelnaam zichtbaar is
 # Tekst scrollt van rechts naar links, vogelnaam komt na station-prefix
-# Bij scroll_speed=80 duurt het ~3-5 seconden voordat vogelnaam in beeld komt
-SCREENSHOT_DELAY_SECONDS = 4.0  # Wacht 4 seconden zodat vogelnaam zichtbaar is
+# 0.5s = te vroeg (alleen prefix zichtbaar)
+# 4.0s = te laat (notificatie kan al voorbij zijn)
+# 2.5s = sweet spot voor meeste notificaties
+SCREENSHOT_DELAY_SECONDS = 2.5
 MATRIX_WIDTH = 32
 MATRIX_HEIGHT = 8
 SCALE_FACTOR = 10  # Vergroot 10x voor leesbaarheid
