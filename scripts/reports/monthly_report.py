@@ -681,6 +681,8 @@ unique_species: {data['unique_species']}
 generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 ---
 
+![EMSN Logo](logo.png)
+
 # {data['month_name'].capitalize()} {data['year']} - Vogelactiviteit
 
 **Periode:** {data['period']}

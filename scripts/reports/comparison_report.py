@@ -237,6 +237,8 @@ period2: {data['period2']['label']}
 generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 ---
 
+![EMSN Logo](logo.png)
+
 # Vergelijking: {data['period1']['label']} vs {data['period2']['label']}
 
 **Locatie:** Nijverdal, Overijssel

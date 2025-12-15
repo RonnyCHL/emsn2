@@ -487,6 +487,8 @@ unique_species: {data['unique_species']}
 generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 ---
 
+![EMSN Logo](logo.png)
+
 # EMSN Seizoensrapport {data['season_name']} {data['display_year']}
 
 **Locatie:** Nijverdal, Overijssel

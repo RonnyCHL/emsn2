@@ -494,6 +494,8 @@ unique_species: {data['unique_species']}
 generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 ---
 
+![EMSN Logo](logo.png)
+
 # Week {data['week_number']} - Vogelactiviteit
 
 **Periode:** {data['period']}

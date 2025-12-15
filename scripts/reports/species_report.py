@@ -323,6 +323,8 @@ total_detections: {data['total_detections']}
 generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 ---
 
+![EMSN Logo](logo.png)
+
 # {data['common_name']} (*{data['scientific_name']}*)
 
 **Locatie:** Nijverdal, Overijssel
