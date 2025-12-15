@@ -87,5 +87,11 @@ De `send_email()` functie filtert nu ontvangers op:
 - `assets/logo.png` - Nieuw: EMSN logo
 - `reports-web/logo.png` - Kopie voor web
 
+## Homer Dashboard
+- **URL:** http://192.168.1.25:8181/
+- **Config:** `/mnt/nas-docker/homer/config.yml`
+- **Assets:** `/mnt/nas-docker/homer/assets/`
+- EMSN logo toegevoegd als `assets/emsn-logo.png`
+
 ## Status
 Alle taken afgerond en gecommit naar GitHub.

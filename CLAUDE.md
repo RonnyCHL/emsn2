@@ -32,7 +32,8 @@ Eigenaar: Ronny Hullegie
 ## Netwerk
 - **Pi Zolder (emsn2-zolder):** 192.168.1.178 - BirdNET-Pi, MQTT broker (hoofd), API server
 - **Pi Berging (emsn2-berging):** 192.168.1.87 - BirdNET-Pi, AtmosBird (Pi Camera NoIR), MQTT bridge
-- **NAS (DS224Plus):** 192.168.1.25 - Opslag, PostgreSQL, Grafana, Homer
+- **NAS (DS224Plus):** 192.168.1.25 - Opslag, PostgreSQL, Grafana
+- **Homer Dashboard:** http://192.168.1.25:8181/ - Startpagina met alle links
 - **Ulanzi TC001:** 192.168.1.11 - AWTRIX Light LED matrix display
 
 ## Ulanzi Display
