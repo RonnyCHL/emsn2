@@ -551,24 +551,62 @@ def send_report_copy():
         msg['To'] = ', '.join(recipient_emails)
 
         # Email body
-        body = f"""Beste,
+        body = f"""Beste vogelliefhebber,
 
-Hierbij ontvangt u een kopie van het EMSN vogelrapport.
+Hierbij ontvangt u het EMSN vogelrapport: {title}
 
-Rapport: {title}
+Dit rapport is gegenereerd door het Ecologisch Monitoring Systeem Nijverdal (EMSN),
+een citizen science project voor het monitoren van de lokale vogelpopulatie in
+Nijverdal en omgeving. Met behulp van BirdNET-Pi wordt 24/7 de vogelactiviteit
+geregistreerd via geluidsherkenning.
 
-U kunt het rapport ook online bekijken op:
-http://192.168.1.25/rapporten/
+Het rapport bevat:
+- Overzicht van waargenomen vogelsoorten
+- Activiteitspatronen en trends
+- Bijzondere waarnemingen
+
+Het volledige rapport is als PDF bijgevoegd.
+
+Heeft u vragen of opmerkingen? Neem gerust contact op.
 
 Met vriendelijke groet,
+
+Ronny Hullegie
 EMSN Vogelmonitoring Nijverdal
+https://www.ronnyhullegie.nl
 """
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
-        # Attach markdown file
-        attachment = MIMEApplication(report_content.encode('utf-8'), Name=report_file)
-        attachment['Content-Disposition'] = f'attachment; filename="{report_file}"'
-        msg.attach(attachment)
+        # Generate PDF from markdown using pandoc
+        pdf_filename = report_file.replace('.md', '.pdf')
+        pdf_path = REPORTS_DIR / pdf_filename
+
+        try:
+            # Create PDF with pandoc
+            import subprocess
+            result = subprocess.run([
+                'pandoc',
+                str(report_path),
+                '-o', str(pdf_path),
+                '--pdf-engine=xelatex',
+                '-V', 'geometry:margin=2.5cm',
+                '-V', 'fontsize=11pt',
+                '--resource-path', str(REPORTS_DIR)
+            ], capture_output=True, text=True, timeout=60)
+
+            if result.returncode != 0:
+                return jsonify({'error': f'PDF generatie mislukt: {result.stderr}'}), 500
+
+            # Read PDF and attach
+            with open(pdf_path, 'rb') as pdf_file:
+                attachment = MIMEApplication(pdf_file.read(), _subtype='pdf')
+                attachment['Content-Disposition'] = f'attachment; filename="{pdf_filename}"'
+                msg.attach(attachment)
+
+        except subprocess.TimeoutExpired:
+            return jsonify({'error': 'PDF generatie timeout'}), 500
+        except FileNotFoundError:
+            return jsonify({'error': 'pandoc niet geïnstalleerd'}), 500
 
         # Send email
         server = smtplib.SMTP(smtp_config.get('host'), smtp_config.get('port', 587))

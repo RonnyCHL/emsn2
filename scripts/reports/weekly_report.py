@@ -14,6 +14,7 @@ import psycopg2
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 from report_base import ReportBase, REPORTS_PATH
+from report_charts import ReportCharts
 
 
 class WeeklyReportGenerator(ReportBase):
@@ -145,6 +146,51 @@ class WeeklyReportGenerator(ReportBase):
             hour = int(result[0])
             data["quietest_hour"] = f"{hour:02d}:00-{hour+1:02d}:00"
             data["quietest_hour_count"] = result[1]
+
+        # Hourly activity (for charts)
+        cur.execute("""
+            SELECT EXTRACT(HOUR FROM detection_timestamp) as hour, COUNT(*) as count
+            FROM bird_detections
+            WHERE detection_timestamp BETWEEN %s AND %s
+            GROUP BY hour
+            ORDER BY hour
+        """, (start_date, end_date))
+        data["hourly_activity"] = {int(row[0]): row[1] for row in cur.fetchall()}
+
+        # Daily activity (for charts)
+        cur.execute("""
+            SELECT DATE(detection_timestamp) as day, COUNT(*) as count
+            FROM bird_detections
+            WHERE detection_timestamp BETWEEN %s AND %s
+            GROUP BY day
+            ORDER BY day
+        """, (start_date, end_date))
+        data["daily_activity"] = [
+            {"date": row[0].strftime('%Y-%m-%d'), "count": row[1]}
+            for row in cur.fetchall()
+        ]
+
+        # Daily activity with temperature (for charts)
+        cur.execute("""
+            SELECT
+                DATE(d.detection_timestamp) as day,
+                COUNT(d.id) as detections,
+                AVG(w.temp_outdoor) as avg_temp
+            FROM bird_detections d
+            LEFT JOIN weather_data w
+                ON DATE(d.detection_timestamp) = DATE(w.measurement_timestamp)
+            WHERE d.detection_timestamp BETWEEN %s AND %s
+            GROUP BY day
+            ORDER BY day
+        """, (start_date, end_date))
+        data["daily_temp_activity"] = [
+            {
+                "date": row[0].strftime('%Y-%m-%d'),
+                "detections": row[1],
+                "temp_avg": round(float(row[2]), 1) if row[2] else None
+            }
+            for row in cur.fetchall()
+        ]
 
         # Weather correlation (if weather data available)
         cur.execute("""
@@ -474,7 +520,7 @@ Gebruik geen bullet points, schrijf vloeiende paragrafen.
         return self.generate_with_claude(prompt, max_tokens=2000)
 
     def save_report(self, report_text, data):
-        """Save report as markdown file"""
+        """Save report as markdown file with charts"""
 
         # Create reports directory if it doesn't exist
         REPORTS_PATH.mkdir(parents=True, exist_ok=True)
@@ -482,6 +528,51 @@ Gebruik geen bullet points, schrijf vloeiende paragrafen.
         # Filename: 2025-W50-Weekrapport.md
         filename = f"{data['year']}-W{data['week_number']:02d}-Weekrapport.md"
         filepath = REPORTS_PATH / filename
+
+        # Generate charts
+        print("Genereren grafieken...")
+        charts = ReportCharts(REPORTS_PATH)
+
+        chart_top_species = charts.top_species_bar(
+            data['top_species'],
+            title=f"Top 10 Soorten - Week {data['week_number']}"
+        )
+
+        chart_hourly = charts.hourly_activity(
+            data.get('hourly_activity', {}),
+            title=f"Activiteit per Uur - Week {data['week_number']}"
+        )
+
+        chart_daily = charts.daily_activity(
+            data.get('daily_activity', []),
+            title=f"Activiteit per Dag - Week {data['week_number']}"
+        )
+
+        chart_temp = charts.temperature_vs_activity(
+            data.get('daily_temp_activity', []),
+            title=f"Temperatuur vs Vogelactiviteit - Week {data['week_number']}"
+        )
+
+        chart_pie = charts.species_pie(
+            data['top_species'],
+            title=f"Verdeling Soorten - Week {data['week_number']}"
+        )
+
+        # Prepare weather data for chart
+        weather_chart_data = {
+            'wind': data.get('wind_analysis', {}).get('activity_by_wind', []),
+            'temperature': data.get('optimal_conditions', {}).get('by_temperature', []),
+            'precipitation': {
+                'Droog': data.get('weather_correlation', {}).get('dry_days_detections', 0),
+                'Regen': data.get('weather_correlation', {}).get('rainy_days_detections', 0)
+            }
+        }
+        chart_weather = charts.weather_conditions(
+            weather_chart_data,
+            title=f"Activiteit per Weersomstandigheid - Week {data['week_number']}"
+        )
+
+        print(f"   - {len(charts.generated_charts)} grafieken gegenereerd")
 
         # Create markdown with frontmatter
         markdown = f"""---
@@ -508,7 +599,32 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 ---
 
-## 📊 Statistieken
+## 📊 Grafieken
+
+"""
+
+        # Add charts to markdown
+        if chart_top_species:
+            markdown += f"### Top Soorten\n\n![Top 10 Soorten]({chart_top_species.name})\n\n"
+
+        if chart_hourly:
+            markdown += f"### Activiteit per Uur\n\n![Activiteit per Uur]({chart_hourly.name})\n\n"
+
+        if chart_daily:
+            markdown += f"### Activiteit per Dag\n\n![Activiteit per Dag]({chart_daily.name})\n\n"
+
+        if chart_temp:
+            markdown += f"### Temperatuur vs Activiteit\n\n![Temperatuur vs Activiteit]({chart_temp.name})\n\n"
+
+        if chart_pie:
+            markdown += f"### Verdeling Soorten\n\n![Verdeling Soorten]({chart_pie.name})\n\n"
+
+        if chart_weather:
+            markdown += f"### Weersomstandigheden\n\n![Weersomstandigheden]({chart_weather.name})\n\n"
+
+        markdown += """---
+
+## 📋 Statistieken
 
 ### Top 10 Soorten
 """
