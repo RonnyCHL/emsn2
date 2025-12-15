@@ -95,5 +95,11 @@ De `send_email()` functie filtert nu ontvangers op:
 - **Logo pad in config:** `assets/icons/emsn-logo.png` (niet `assets/emsn-logo.png`)
 - **Let op:** Na config wijziging moet Homer container herstart worden via Synology Container Manager (sudo docker restart homer)
 
+## API Service Environment Variables
+- **Service:** `emsn-reports-api.service`
+- **Locatie:** `/etc/systemd/system/emsn-reports-api.service`
+- **Vereiste env vars:** `ANTHROPIC_API_KEY`, `EMSN_DB_PASSWORD`, `EMSN_SMTP_PASSWORD`
+- **Let op:** Na wijziging: `sudo systemctl daemon-reload && sudo systemctl restart emsn-reports-api`
+
 ## Status
 Alle taken afgerond en gecommit naar GitHub.
