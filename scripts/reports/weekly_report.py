@@ -15,6 +15,7 @@ import psycopg2
 sys.path.insert(0, str(Path(__file__).parent))
 from report_base import ReportBase, REPORTS_PATH
 from report_charts import ReportCharts
+from report_highlights import ReportHighlights
 
 
 class WeeklyReportGenerator(ReportBase):
@@ -447,12 +448,18 @@ class WeeklyReportGenerator(ReportBase):
             detection_change = ((data["total_detections"] - prev_detections) / prev_detections) * 100
             data["comparison_last_week"] = {
                 "detections_change": f"{detection_change:+.0f}%",
-                "species_change": f"{data['unique_species'] - prev_species:+d}"
+                "species_change": f"{data['unique_species'] - prev_species:+d}",
+                "prev_detections": prev_detections,
+                "prev_species": prev_species,
+                "prev_week_number": prev_start.isocalendar()[1]
             }
         else:
             data["comparison_last_week"] = {
                 "detections_change": "N/A",
-                "species_change": "N/A"
+                "species_change": "N/A",
+                "prev_detections": 0,
+                "prev_species": 0,
+                "prev_week_number": prev_start.isocalendar()[1]
             }
 
         # Check for milestones
@@ -572,6 +579,25 @@ Gebruik geen bullet points, schrijf vloeiende paragrafen.
             title=f"Activiteit per Weersomstandigheid - Week {data['week_number']}"
         )
 
+        # Comparison chart with previous week
+        comparison = data.get('comparison_last_week', {})
+        chart_comparison = None
+        if comparison.get('prev_detections', 0) > 0:
+            current_data = {
+                'label': f'Week {data["week_number"]}',
+                'detections': data['total_detections'],
+                'species': data['unique_species']
+            }
+            previous_data = {
+                'label': f'Week {comparison["prev_week_number"]}',
+                'detections': comparison['prev_detections'],
+                'species': comparison['prev_species']
+            }
+            chart_comparison = charts.comparison_chart(
+                current_data, previous_data,
+                title=f"Week {data['week_number']} vs Week {comparison['prev_week_number']}"
+            )
+
         print(f"   - {len(charts.generated_charts)} grafieken gegenereerd")
 
         # Create markdown with frontmatter
@@ -622,9 +648,52 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         if chart_weather:
             markdown += f"### Weersomstandigheden\n\n![Weersomstandigheden]({chart_weather.name})\n\n"
 
+        if chart_comparison:
+            markdown += f"### Vergelijking Vorige Week\n\n![Vergelijking]({chart_comparison.name})\n\n"
+
+        # Add highlights section
+        highlights = data.get('highlights', {})
+        if any(highlights.values()):
+            markdown += "---\n\n## Highlights\n\n"
+
+            # New species (most important)
+            if highlights.get('new_species'):
+                markdown += "### Nieuwe Soorten\n\n"
+                for h in highlights['new_species'][:5]:  # Top 5
+                    markdown += f"- **{h['common_name']}** (*{h['scientific_name']}*) - eerste detectie ooit! ({h['count']} detecties)\n"
+                markdown += "\n"
+
+            # Milestones
+            if highlights.get('milestones'):
+                markdown += "### Mijlpalen\n\n"
+                for h in highlights['milestones']:
+                    markdown += f"- {h['message']}\n"
+                markdown += "\n"
+
+            # Records
+            if highlights.get('records'):
+                markdown += "### Records\n\n"
+                for h in highlights['records'][:3]:  # Top 3
+                    markdown += f"- {h['message']}\n"
+                markdown += "\n"
+
+            # Rare species
+            if highlights.get('rare_species'):
+                markdown += "### Zeldzame Soorten\n\n"
+                for h in highlights['rare_species'][:5]:  # Top 5
+                    markdown += f"- **{h['species']}** ({h['confidence']:.0%} zekerheid) - totaal {h['total_ever']} detecties ooit\n"
+                markdown += "\n"
+
+            # Unusual times
+            if highlights.get('unusual_times'):
+                markdown += "### Ongewone Waarnemingstijden\n\n"
+                for h in highlights['unusual_times'][:3]:  # Top 3
+                    markdown += f"- {h['message']}\n"
+                markdown += "\n"
+
         markdown += """---
 
-## 📋 Statistieken
+## Statistieken
 
 ### Top 10 Soorten
 """
@@ -744,6 +813,13 @@ Licentie: CC BY-NC 4.0 (gebruik toegestaan met bronvermelding, niet commercieel)
         print(f"   - {data['total_detections']:,} detecties")
         print(f"   - {data['unique_species']} soorten")
         print(f"   - {data['dual_detections']:,} dual detections")
+
+        # Generate highlights
+        print("Detecteren highlights...")
+        highlights_detector = ReportHighlights(self.conn)
+        data['highlights'] = highlights_detector.get_all_highlights(start_date, end_date)
+        highlight_count = sum(len(v) for v in data['highlights'].values())
+        print(f"   - {highlight_count} highlights gedetecteerd")
 
         # Generate report with Claude
         print("Genereren rapport met Claude AI...")
