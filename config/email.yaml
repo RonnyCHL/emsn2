@@ -10,6 +10,7 @@ recipients:
 - email: rapporten@ronnyhullegie.nl
   name: Ronny Hullegie
   mode: auto
+  style: wetenschappelijk
   report_types:
   - weekly
   - monthly
@@ -18,6 +19,7 @@ recipients:
 - email: peterkappers@hotmail.nl
   name: Peter
   mode: auto
+  style: populair
   report_types:
   - weekly
   - monthly
@@ -26,6 +28,7 @@ recipients:
 - email: moniqueoorsprong@outlook.com
   name: Monique
   mode: manual
+  style: populair
   report_types:
   - weekly
   - monthly
@@ -34,6 +37,7 @@ recipients:
 - email: info@vogelwerkgroepmiddenoverijssel.nl
   name: VWGMO
   mode: auto
+  style: wetenschappelijk
   report_types:
   - seasonal
 reports:

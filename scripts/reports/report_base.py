@@ -168,7 +168,7 @@ Vogelsoorten met Hoofdletter + wetenschappelijke naam.'''
             return yaml.safe_load(f)
 
     def send_email(self, subject, body, report_type="weekly"):
-        """Send report via email"""
+        """Send report via email (legacy method - same content to all recipients)"""
         config = self.load_email_config()
         if not config:
             print("WARNING: No email config, skipping email")
@@ -204,6 +204,104 @@ Vogelsoorten met Hoofdletter + wetenschappelijke naam.'''
         if not recipients:
             print(f"INFO: No auto-recipients configured for {report_type} reports")
             return False
+
+        try:
+            # Create message
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = f"{email_config.get('from_name', 'EMSN')} <{email_config.get('from_address')}>"
+            msg['To'] = ', '.join(recipients)
+
+            # Plain text version
+            text_part = MIMEText(body, 'plain', 'utf-8')
+            msg.attach(text_part)
+
+            # Connect and send
+            server = smtplib.SMTP(smtp_config.get('host'), smtp_config.get('port', 587))
+            if smtp_config.get('use_tls', True):
+                server.starttls()
+            server.login(smtp_config.get('username'), SMTP_PASSWORD)
+            server.sendmail(
+                email_config.get('from_address'),
+                recipients,
+                msg.as_string()
+            )
+            server.quit()
+
+            print(f"SUCCESS: Email sent to {', '.join(recipients)}")
+            return True
+
+        except Exception as e:
+            print(f"ERROR: Failed to send email: {e}")
+            return False
+
+    def get_recipients_by_style(self, report_type="weekly"):
+        """
+        Get recipients grouped by their preferred style.
+
+        Returns dict: {style_name: [list of email addresses]}
+        """
+        config = self.load_email_config()
+        if not config:
+            return {}
+
+        # Check if auto_send is enabled for this report type
+        auto_send = config.get('reports', {}).get('auto_send', {})
+        if not auto_send.get(report_type, False):
+            print(f"INFO: Email disabled for {report_type} reports")
+            return {}
+
+        recipients_config = config.get('recipients', [])
+        by_style = {}
+
+        for r in recipients_config:
+            if isinstance(r, str):
+                # Old format - use default style
+                style = 'wetenschappelijk'
+                email = r
+                mode = 'auto'
+                report_types = ['weekly', 'monthly', 'seasonal', 'yearly']
+            elif isinstance(r, dict):
+                email = r.get('email')
+                mode = r.get('mode', 'auto')
+                style = r.get('style', 'wetenschappelijk')
+                report_types = r.get('report_types', ['weekly', 'monthly', 'seasonal', 'yearly'])
+            else:
+                continue
+
+            # Filter: only auto mode + correct report type
+            if mode == 'auto' and report_type in report_types:
+                if style not in by_style:
+                    by_style[style] = []
+                by_style[style].append(email)
+
+        return by_style
+
+    def send_email_to_recipients(self, subject, body, recipients):
+        """
+        Send email with given body to specific recipients.
+
+        Args:
+            subject: Email subject
+            body: Email body text
+            recipients: List of email addresses
+
+        Returns: True if sent successfully
+        """
+        if not recipients:
+            return False
+
+        config = self.load_email_config()
+        if not config:
+            print("WARNING: No email config, skipping email")
+            return False
+
+        if not SMTP_PASSWORD:
+            print("WARNING: EMSN_SMTP_PASSWORD not set, skipping email")
+            return False
+
+        smtp_config = config.get('smtp', {})
+        email_config = config.get('email', {})
 
         try:
             # Create message

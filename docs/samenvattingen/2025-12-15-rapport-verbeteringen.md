@@ -148,3 +148,64 @@ python weekly_report.py --style natuurblog
 ## Status
 
 Alle 7 taken succesvol geïmplementeerd en getest.
+
+---
+
+### 8. Per-ontvanger schrijfstijl voorkeur (vervolgessie)
+
+**Datum:** 15 december 2025 (avond)
+**Verzoek:** Ontvangers kunnen kiezen welke schrijfstijl ze ontvangen (technisch, kinderen, populair, wetenschappelijk)
+
+**Gewijzigde bestanden:**
+
+1. **config/email.yaml**
+   - `style` veld toegevoegd per ontvanger
+   - Beschikbare stijlen: wetenschappelijk, populair, kinderen, technisch
+   - Voorbeeld:
+     ```yaml
+     recipients:
+     - email: rapporten@ronnyhullegie.nl
+       name: Ronny Hullegie
+       mode: auto
+       style: wetenschappelijk  # <-- NIEUW
+       report_types: [weekly, monthly, seasonal, yearly]
+     ```
+
+2. **reports-web/api.py**
+   - `get_email_recipients()`: Retourneert nu `style` per ontvanger
+   - `add_or_update_recipient()`: Accepteert nu `style` parameter
+
+3. **reports-web/index.html**
+   - Style dropdown toegevoegd aan "Nieuwe ontvanger toevoegen" formulier
+   - Keuze uit 4 stijlen met korte omschrijving
+
+4. **reports-web/app.js**
+   - `renderRecipientsList()`: Toont nu "Stijl" kolom met gekleurde badges
+   - `handleAddRecipient()`: Stuurt style mee bij toevoegen/bijwerken
+
+5. **reports-web/style.css**
+   - Style badges met kleuren per stijl:
+     - wetenschappelijk: paars
+     - populair: oranje
+     - kinderen: roze
+     - technisch: grijs
+
+6. **scripts/reports/report_base.py**
+   - `get_recipients_by_style()`: Groepeert ontvangers per stijl
+   - `send_email_to_recipients()`: Stuurt email naar specifieke ontvangers
+
+7. **scripts/reports/weekly_report.py**
+   - `run()`: Genereert nu per stijl een rapport en stuurt naar juiste ontvangers
+   - `_create_email_body()`: Maakt email body met stijl-specifieke tekst
+
+**Werking:**
+1. Bij rapport generatie worden ontvangers gegroepeerd per gewenste stijl
+2. Voor elke unieke stijl wordt een rapport gegenereerd met Claude AI
+3. Elke groep ontvangers krijgt hun stijl-specifieke rapport per email
+4. Opgeslagen rapport op disk blijft in de primaire stijl (wetenschappelijk by default)
+
+**Huidige configuratie:**
+- Ronny: wetenschappelijk
+- Peter: populair
+- Monique: populair (manual mode)
+- VWGMO: wetenschappelijk (alleen seizoensrapporten)

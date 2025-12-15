@@ -502,16 +502,26 @@ function renderRecipientsList() {
         'yearly': 'Jaar'
     };
 
+    const styleLabels = {
+        'wetenschappelijk': 'Wetenschappelijk',
+        'populair': 'Populair',
+        'kinderen': 'Kinderen',
+        'technisch': 'Technisch'
+    };
+
     let html = '<table class="recipients-table"><thead><tr>';
-    html += '<th>E-mailadres</th><th>Naam</th><th>Modus</th><th>Rapporttypes</th><th>Acties</th>';
+    html += '<th>E-mailadres</th><th>Naam</th><th>Modus</th><th>Stijl</th><th>Rapporttypes</th><th>Acties</th>';
     html += '</tr></thead><tbody>';
 
     emailRecipients.forEach(r => {
         const types = (r.report_types || []).map(t => typeLabels[t] || t).join(', ');
+        const style = r.style || 'wetenschappelijk';
+        const styleLabel = styleLabels[style] || style;
         html += `<tr>
             <td>${escapeHtml(r.email)}</td>
             <td>${escapeHtml(r.name || '-')}</td>
             <td><span class="mode-badge ${r.mode}">${modeLabels[r.mode] || r.mode}</span></td>
+            <td><span class="style-badge ${style}">${styleLabel}</span></td>
             <td>${r.mode === 'auto' ? types : '-'}</td>
             <td>
                 <button class="btn btn-small btn-danger" onclick="deleteRecipient('${escapeHtml(r.email)}')">Verwijderen</button>
@@ -537,6 +547,7 @@ async function handleAddRecipient(e) {
     const email = document.getElementById('recipient-email').value.trim();
     const name = document.getElementById('recipient-name').value.trim();
     const mode = document.getElementById('recipient-mode').value;
+    const style = document.getElementById('recipient-style').value;
 
     // Get selected report types
     const reportTypes = [];
@@ -552,6 +563,7 @@ async function handleAddRecipient(e) {
                 email,
                 name,
                 mode,
+                style,
                 report_types: reportTypes
             })
         });
@@ -563,6 +575,7 @@ async function handleAddRecipient(e) {
             document.getElementById('recipient-email').value = '';
             document.getElementById('recipient-name').value = '';
             document.getElementById('recipient-mode').value = 'auto';
+            document.getElementById('recipient-style').value = 'wetenschappelijk';
             document.querySelectorAll('input[name="report-type"]').forEach(cb => cb.checked = true);
 
             // Reload list

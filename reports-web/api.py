@@ -400,9 +400,13 @@ def get_email_recipients():
                 'email': r,
                 'name': '',
                 'mode': 'auto',
+                'style': 'wetenschappelijk',
                 'report_types': ['weekly', 'monthly', 'seasonal', 'yearly']
             })
         else:
+            # Ensure style field exists
+            if 'style' not in r:
+                r['style'] = 'wetenschappelijk'
             formatted_recipients.append(r)
 
     return jsonify({
@@ -450,6 +454,7 @@ def add_or_update_recipient():
         'email': email,
         'name': data.get('name', ''),
         'mode': data.get('mode', 'auto'),
+        'style': data.get('style', 'wetenschappelijk'),
         'report_types': data.get('report_types', ['weekly', 'monthly', 'seasonal', 'yearly'])
     }
 

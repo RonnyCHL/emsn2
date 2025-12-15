@@ -894,10 +894,70 @@ Licentie: CC BY-NC 4.0 (gebruik toegestaan met bronvermelding, niet commercieel)
         print("Bijwerken web index...")
         self.update_web_index()
 
-        # Send email notification
-        print("Versturen email...")
+        # Send emails per style preference
+        print("Versturen emails per stijlvoorkeur...")
         subject = f"EMSN Weekrapport Week {data['week_number']} - {data['year']}"
+
+        # Get recipients grouped by their preferred style
+        recipients_by_style = self.get_recipients_by_style(report_type="weekly")
+
+        if not recipients_by_style:
+            print("   - Geen ontvangers voor automatische verzending")
+        else:
+            # Track which styles we need to generate
+            generated_reports = {}  # style_name -> report_text
+
+            # Always have the primary style available
+            generated_reports[self.style_name] = report
+
+            for style_name, recipients in recipients_by_style.items():
+                print(f"   - Stijl '{style_name}': {len(recipients)} ontvanger(s)")
+
+                # Generate report for this style if not already done
+                if style_name not in generated_reports:
+                    print(f"     Genereren rapport in stijl '{style_name}'...")
+                    # Temporarily switch style
+                    original_style = self.style
+                    original_style_name = self.style_name
+                    self.get_style(style_name)
+
+                    style_report = self.generate_report(data)
+                    if style_report:
+                        generated_reports[style_name] = style_report
+                        print(f"     - {len(style_report)} karakters gegenereerd")
+                    else:
+                        print(f"     WARNING: Kon rapport niet genereren, gebruik default")
+                        generated_reports[style_name] = report
+
+                    # Restore original style
+                    self.style = original_style
+                    self.style_name = original_style_name
+
+                # Create personalized email body with the style-specific content
+                style_report_text = generated_reports.get(style_name, report)
+                email_body = self._create_email_body(data, style_report_text, style_name)
+
+                # Send to recipients of this style
+                self.send_email_to_recipients(subject, email_body, recipients)
+
+        print(f"\nWeekrapport succesvol gegenereerd")
+        print(f"Bestand: {filepath}")
+
+        self.close_db()
+        return True
+
+    def _create_email_body(self, data, report_text, style_name):
+        """Create email body with report content"""
+        style_labels = {
+            'wetenschappelijk': 'Wetenschappelijk',
+            'populair': 'Populair',
+            'kinderen': 'Kinderen',
+            'technisch': 'Technisch'
+        }
+        style_label = style_labels.get(style_name, style_name.capitalize())
+
         email_body = f"""Weekrapport Week {data['week_number']} ({data['period']})
+Stijl: {style_label}
 
 Samenvatting:
 - {data['total_detections']:,} detecties
@@ -910,19 +970,19 @@ Top 3 soorten:
             email_body += f"{i}. {species['name']}: {species['count']:,} detecties\n"
 
         email_body += f"""
-Bekijk het volledige rapport op:
+--- Rapport Tekst ({style_label}) ---
+
+{report_text}
+
+---
+
+Bekijk het volledige rapport met grafieken op:
 http://192.168.1.25/rapporten/
 
 ---
 EMSN Vogelmonitoring Nijverdal
 """
-        self.send_email(subject, email_body, report_type="weekly")
-
-        print(f"\nWeekrapport succesvol gegenereerd")
-        print(f"Bestand: {filepath}")
-
-        self.close_db()
-        return True
+        return email_body
 
 
 def main():

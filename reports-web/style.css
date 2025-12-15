@@ -552,6 +552,41 @@ h1 {
     color: #2c5282;
 }
 
+/* Style badges for writing styles */
+.style-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.style-badge.wetenschappelijk {
+    background: #e9d8fd;
+    color: #6b46c1;
+}
+
+.style-badge.populair {
+    background: #feebc8;
+    color: #c05621;
+}
+
+.style-badge.kinderen {
+    background: #fed7e2;
+    color: #97266d;
+}
+
+.style-badge.technisch {
+    background: #e2e8f0;
+    color: #4a5568;
+}
+
+.form-hint {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    margin-top: 0.25rem;
+}
+
 .btn-small {
     padding: 0.4rem 0.75rem;
     font-size: 0.85rem;
