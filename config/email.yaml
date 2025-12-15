@@ -14,13 +14,21 @@ email:
   from_name: "EMSN Vogelmonitoring"
   from_address: "rapporten@ronnyhullegie.nl"
 
-# Ontvangers
+# Ontvangers met per-adres instellingen
+# mode: "auto" = automatisch bij elk nieuw rapport, "manual" = alleen handmatig kopie
 recipients:
-  - rapporten@ronnyhullegie.nl
+  - email: "rapporten@ronnyhullegie.nl"
+    name: "Ronny Hullegie"
+    mode: "auto"
+    report_types:
+      - weekly
+      - monthly
+      - seasonal
+      - yearly
 
 # Rapport instellingen
 reports:
-  # Welke rapporten automatisch mailen
+  # Welke rapporten automatisch mailen (master switch)
   auto_send:
     weekly: true
     monthly: true

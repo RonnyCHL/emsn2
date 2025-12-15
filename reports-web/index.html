@@ -17,6 +17,7 @@
         <div class="main-tabs">
             <button class="main-tab active" data-tab="reports">Rapporten bekijken</button>
             <button class="main-tab" data-tab="generate">Rapport genereren</button>
+            <button class="main-tab" data-tab="email">E-mail beheer</button>
         </div>
 
         <!-- Reports view tab -->
@@ -108,6 +109,93 @@
                     <div class="result-icon"></div>
                     <p class="result-message"></p>
                     <a href="#" id="result-link" class="btn btn-secondary hidden">Bekijk rapport</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email management tab -->
+        <div id="email-tab" class="tab-content">
+            <div class="email-container">
+                <h2>E-mail Beheer</h2>
+                <p class="email-intro">Beheer ontvangers voor automatische en handmatige rapportverzending.</p>
+
+                <!-- Recipients list -->
+                <div class="email-section">
+                    <h3>Ontvangers</h3>
+                    <div id="recipients-list" class="recipients-list">
+                        <div class="loading">Laden...</div>
+                    </div>
+
+                    <!-- Add recipient form -->
+                    <div class="add-recipient-form">
+                        <h4>Nieuwe ontvanger toevoegen</h4>
+                        <form id="add-recipient-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="recipient-email">E-mailadres *</label>
+                                    <input type="email" id="recipient-email" required placeholder="naam@voorbeeld.nl">
+                                </div>
+                                <div class="form-group">
+                                    <label for="recipient-name">Naam</label>
+                                    <input type="text" id="recipient-name" placeholder="Optioneel">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="recipient-mode">Verzendmodus</label>
+                                    <select id="recipient-mode">
+                                        <option value="auto">Automatisch (bij elk nieuw rapport)</option>
+                                        <option value="manual">Handmatig (alleen kopie op verzoek)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Rapporttypes (voor automatische verzending)</label>
+                                <div class="checkbox-group">
+                                    <label><input type="checkbox" name="report-type" value="weekly" checked> Wekelijks</label>
+                                    <label><input type="checkbox" name="report-type" value="monthly" checked> Maandelijks</label>
+                                    <label><input type="checkbox" name="report-type" value="seasonal" checked> Seizoen</label>
+                                    <label><input type="checkbox" name="report-type" value="yearly" checked> Jaarlijks</label>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Toevoegen</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Send copy section -->
+                <div class="email-section">
+                    <h3>Rapport kopie versturen</h3>
+                    <p class="section-intro">Stuur een kopie van een bestaand rapport naar geselecteerde ontvangers.</p>
+                    <form id="send-copy-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="copy-report">Rapport</label>
+                                <select id="copy-report" required>
+                                    <option value="">Selecteer rapport...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Ontvangers</label>
+                            <div id="copy-recipients" class="checkbox-group">
+                                <!-- Dynamically filled -->
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Verstuur kopie</button>
+                    </form>
+                    <div id="send-copy-result" class="result-message hidden"></div>
+                </div>
+
+                <!-- Test email section -->
+                <div class="email-section">
+                    <h3>Test e-mail versturen</h3>
+                    <p class="section-intro">Test of de e-mailconfiguratie correct werkt.</p>
+                    <form id="test-email-form" class="inline-form">
+                        <input type="email" id="test-email-address" placeholder="E-mailadres" required>
+                        <button type="submit" class="btn btn-secondary">Test versturen</button>
+                    </form>
+                    <div id="test-email-result" class="result-message hidden"></div>
                 </div>
             </div>
         </div>

@@ -7,6 +7,11 @@ import os
 import sys
 import subprocess
 import threading
+import smtplib
+import yaml
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 from pathlib import Path
 from flask import Flask, send_file, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -22,6 +27,8 @@ CORS(app)
 REPORTS_DIR = Path("/mnt/nas-reports")
 WEB_DIR = Path("/home/ronny/emsn2/reports-web")
 SCRIPTS_DIR = Path("/home/ronny/emsn2/scripts/reports")
+CONFIG_DIR = Path("/home/ronny/emsn2/config")
+EMAIL_CONFIG_FILE = CONFIG_DIR / "email.yaml"
 VENV_PYTHON = "/home/ronny/emsn2/venv/bin/python3"
 
 # Track running report generations
@@ -356,6 +363,285 @@ def get_periods():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
+# EMAIL MANAGEMENT API
+# =============================================================================
+
+def load_email_config():
+    """Load email configuration from yaml file"""
+    if not EMAIL_CONFIG_FILE.exists():
+        return None
+    with open(EMAIL_CONFIG_FILE, 'r', encoding='utf-8') as f:
+        return yaml.safe_load(f)
+
+
+def save_email_config(config):
+    """Save email configuration to yaml file"""
+    with open(EMAIL_CONFIG_FILE, 'w', encoding='utf-8') as f:
+        yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+
+@app.route('/api/email/recipients')
+def get_email_recipients():
+    """Get list of all email recipients with their settings"""
+    config = load_email_config()
+    if not config:
+        return jsonify({'error': 'Email config not found'}), 500
+
+    recipients = config.get('recipients', [])
+    # Handle old format (list of strings) vs new format (list of dicts)
+    formatted_recipients = []
+    for r in recipients:
+        if isinstance(r, str):
+            # Old format - convert to new
+            formatted_recipients.append({
+                'email': r,
+                'name': '',
+                'mode': 'auto',
+                'report_types': ['weekly', 'monthly', 'seasonal', 'yearly']
+            })
+        else:
+            formatted_recipients.append(r)
+
+    return jsonify({
+        'recipients': formatted_recipients,
+        'smtp_configured': bool(config.get('smtp', {}).get('host'))
+    })
+
+
+@app.route('/api/email/recipients', methods=['POST'])
+def add_or_update_recipient():
+    """Add or update an email recipient"""
+    data = request.json
+    email = data.get('email', '').strip().lower()
+
+    if not email or '@' not in email:
+        return jsonify({'error': 'Ongeldig e-mailadres'}), 400
+
+    config = load_email_config()
+    if not config:
+        return jsonify({'error': 'Email config not found'}), 500
+
+    recipients = config.get('recipients', [])
+
+    # Convert old format if needed
+    new_recipients = []
+    for r in recipients:
+        if isinstance(r, str):
+            new_recipients.append({
+                'email': r,
+                'name': '',
+                'mode': 'auto',
+                'report_types': ['weekly', 'monthly', 'seasonal', 'yearly']
+            })
+        else:
+            new_recipients.append(r)
+
+    # Check if recipient exists
+    existing_idx = None
+    for i, r in enumerate(new_recipients):
+        if r.get('email', '').lower() == email:
+            existing_idx = i
+            break
+
+    new_recipient = {
+        'email': email,
+        'name': data.get('name', ''),
+        'mode': data.get('mode', 'auto'),
+        'report_types': data.get('report_types', ['weekly', 'monthly', 'seasonal', 'yearly'])
+    }
+
+    if existing_idx is not None:
+        new_recipients[existing_idx] = new_recipient
+        message = f'Ontvanger {email} bijgewerkt'
+    else:
+        new_recipients.append(new_recipient)
+        message = f'Ontvanger {email} toegevoegd'
+
+    config['recipients'] = new_recipients
+    save_email_config(config)
+
+    return jsonify({'success': True, 'message': message})
+
+
+@app.route('/api/email/recipients/<path:email>', methods=['DELETE'])
+def delete_recipient(email):
+    """Delete an email recipient"""
+    email = email.strip().lower()
+
+    config = load_email_config()
+    if not config:
+        return jsonify({'error': 'Email config not found'}), 500
+
+    recipients = config.get('recipients', [])
+
+    # Filter out the recipient
+    new_recipients = []
+    found = False
+    for r in recipients:
+        r_email = r.get('email', r) if isinstance(r, dict) else r
+        if r_email.lower() != email:
+            new_recipients.append(r)
+        else:
+            found = True
+
+    if not found:
+        return jsonify({'error': f'Ontvanger {email} niet gevonden'}), 404
+
+    config['recipients'] = new_recipients
+    save_email_config(config)
+
+    return jsonify({'success': True, 'message': f'Ontvanger {email} verwijderd'})
+
+
+@app.route('/api/email/send-copy', methods=['POST'])
+def send_report_copy():
+    """Send a copy of an existing report to specified recipients"""
+    data = request.json
+    report_file = data.get('report')
+    recipient_emails = data.get('recipients', [])
+
+    if not report_file:
+        return jsonify({'error': 'Geen rapport opgegeven'}), 400
+
+    if not recipient_emails:
+        return jsonify({'error': 'Geen ontvangers opgegeven'}), 400
+
+    # Check if report exists
+    report_path = REPORTS_DIR / report_file
+    if not report_path.exists():
+        return jsonify({'error': f'Rapport niet gevonden: {report_file}'}), 404
+
+    # Load email config
+    config = load_email_config()
+    if not config:
+        return jsonify({'error': 'Email config not found'}), 500
+
+    smtp_password = os.getenv('EMSN_SMTP_PASSWORD')
+    if not smtp_password:
+        return jsonify({'error': 'SMTP wachtwoord niet geconfigureerd'}), 500
+
+    # Read report content
+    with open(report_path, 'r', encoding='utf-8') as f:
+        report_content = f.read()
+
+    # Extract title from frontmatter or filename
+    title = report_file.replace('.md', '')
+    if report_content.startswith('---'):
+        try:
+            frontmatter_end = report_content.index('---', 3)
+            frontmatter = yaml.safe_load(report_content[3:frontmatter_end])
+            if frontmatter.get('type') == 'weekrapport':
+                title = f"Weekrapport Week {frontmatter.get('week', '')} - {frontmatter.get('year', '')}"
+            elif frontmatter.get('type') == 'maandrapport':
+                title = f"Maandrapport {frontmatter.get('month', '')} {frontmatter.get('year', '')}"
+        except:
+            pass
+
+    # Create email
+    smtp_config = config.get('smtp', {})
+    email_config = config.get('email', {})
+
+    try:
+        msg = MIMEMultipart('mixed')
+        msg['Subject'] = f"EMSN Rapport: {title}"
+        msg['From'] = f"{email_config.get('from_name', 'EMSN')} <{email_config.get('from_address', smtp_config.get('username'))}>"
+        msg['To'] = ', '.join(recipient_emails)
+
+        # Email body
+        body = f"""Beste,
+
+Hierbij ontvangt u een kopie van het EMSN vogelrapport.
+
+Rapport: {title}
+
+U kunt het rapport ook online bekijken op:
+http://192.168.1.25/rapporten/
+
+Met vriendelijke groet,
+EMSN Vogelmonitoring Nijverdal
+"""
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+        # Attach markdown file
+        attachment = MIMEApplication(report_content.encode('utf-8'), Name=report_file)
+        attachment['Content-Disposition'] = f'attachment; filename="{report_file}"'
+        msg.attach(attachment)
+
+        # Send email
+        server = smtplib.SMTP(smtp_config.get('host'), smtp_config.get('port', 587))
+        if smtp_config.get('use_tls', True):
+            server.starttls()
+        server.login(smtp_config.get('username'), smtp_password)
+        server.sendmail(
+            email_config.get('from_address', smtp_config.get('username')),
+            recipient_emails,
+            msg.as_string()
+        )
+        server.quit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Rapport verstuurd naar {len(recipient_emails)} ontvanger(s)'
+        })
+
+    except smtplib.SMTPAuthenticationError:
+        return jsonify({'error': 'SMTP authenticatie mislukt'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Verzenden mislukt: {str(e)}'}), 500
+
+
+@app.route('/api/email/test', methods=['POST'])
+def test_email():
+    """Send a test email to verify configuration"""
+    data = request.json
+    test_email = data.get('email', '').strip()
+
+    if not test_email or '@' not in test_email:
+        return jsonify({'error': 'Ongeldig e-mailadres'}), 400
+
+    config = load_email_config()
+    if not config:
+        return jsonify({'error': 'Email config not found'}), 500
+
+    smtp_password = os.getenv('EMSN_SMTP_PASSWORD')
+    if not smtp_password:
+        return jsonify({'error': 'SMTP wachtwoord niet geconfigureerd (EMSN_SMTP_PASSWORD)'}), 500
+
+    smtp_config = config.get('smtp', {})
+    email_config = config.get('email', {})
+
+    try:
+        msg = MIMEText("""Dit is een testbericht van EMSN Vogelmonitoring.
+
+Als u deze e-mail ontvangt, is de e-mailconfiguratie correct ingesteld.
+
+Met vriendelijke groet,
+EMSN Vogelmonitoring Nijverdal
+""", 'plain', 'utf-8')
+        msg['Subject'] = "EMSN Test E-mail"
+        msg['From'] = f"{email_config.get('from_name', 'EMSN')} <{email_config.get('from_address', smtp_config.get('username'))}>"
+        msg['To'] = test_email
+
+        server = smtplib.SMTP(smtp_config.get('host'), smtp_config.get('port', 587))
+        if smtp_config.get('use_tls', True):
+            server.starttls()
+        server.login(smtp_config.get('username'), smtp_password)
+        server.sendmail(
+            email_config.get('from_address', smtp_config.get('username')),
+            [test_email],
+            msg.as_string()
+        )
+        server.quit()
+
+        return jsonify({'success': True, 'message': f'Test e-mail verstuurd naar {test_email}'})
+
+    except smtplib.SMTPAuthenticationError:
+        return jsonify({'error': 'SMTP authenticatie mislukt - controleer wachtwoord'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Verzenden mislukt: {str(e)}'}), 500
 
 
 if __name__ == '__main__':

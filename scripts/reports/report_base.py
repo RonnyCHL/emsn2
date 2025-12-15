@@ -186,10 +186,23 @@ Vogelsoorten met Hoofdletter + wetenschappelijke naam.'''
 
         smtp_config = config.get('smtp', {})
         email_config = config.get('email', {})
-        recipients = config.get('recipients', [])
+        recipients_config = config.get('recipients', [])
+
+        # Filter recipients: only auto mode + correct report type
+        recipients = []
+        for r in recipients_config:
+            if isinstance(r, str):
+                # Old format - include all
+                recipients.append(r)
+            elif isinstance(r, dict):
+                # New format - check mode and report_types
+                if r.get('mode', 'auto') == 'auto':
+                    report_types = r.get('report_types', ['weekly', 'monthly', 'seasonal', 'yearly'])
+                    if report_type in report_types:
+                        recipients.append(r.get('email'))
 
         if not recipients:
-            print("WARNING: No recipients configured")
+            print(f"INFO: No auto-recipients configured for {report_type} reports")
             return False
 
         try:

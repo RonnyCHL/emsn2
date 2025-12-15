@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupTabs();
     loadStyles();
     setupGenerator();
+    setupEmailManagement();
 });
 
 async function loadReports() {
@@ -416,4 +417,300 @@ async function generateReport() {
             }
         }
     }, 100);
+}
+
+// =============================================================================
+// EMAIL MANAGEMENT
+// =============================================================================
+
+let emailRecipients = [];
+
+function setupEmailManagement() {
+    // Setup add recipient form
+    const addForm = document.getElementById('add-recipient-form');
+    if (addForm) {
+        addForm.addEventListener('submit', handleAddRecipient);
+    }
+
+    // Setup send copy form
+    const sendCopyForm = document.getElementById('send-copy-form');
+    if (sendCopyForm) {
+        sendCopyForm.addEventListener('submit', handleSendCopy);
+    }
+
+    // Setup test email form
+    const testForm = document.getElementById('test-email-form');
+    if (testForm) {
+        testForm.addEventListener('submit', handleTestEmail);
+    }
+
+    // Load data when email tab is shown
+    document.querySelectorAll('.main-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            if (tab.dataset.tab === 'email') {
+                loadEmailRecipients();
+                loadReportsForCopy();
+            }
+        });
+    });
+}
+
+async function loadEmailRecipients() {
+    const container = document.getElementById('recipients-list');
+    container.innerHTML = '<div class="loading">Laden...</div>';
+
+    try {
+        const response = await fetch(getApiUrl('api/email/recipients', false));
+        const data = await response.json();
+
+        if (data.error) {
+            container.innerHTML = `<div class="error">${data.error}</div>`;
+            return;
+        }
+
+        emailRecipients = data.recipients || [];
+        renderRecipientsList();
+        updateCopyRecipients();
+
+    } catch (error) {
+        console.error('Error loading recipients:', error);
+        container.innerHTML = '<div class="error">Kon ontvangers niet laden</div>';
+    }
+}
+
+function renderRecipientsList() {
+    const container = document.getElementById('recipients-list');
+
+    if (emailRecipients.length === 0) {
+        container.innerHTML = '<p class="no-data">Geen ontvangers geconfigureerd</p>';
+        return;
+    }
+
+    const modeLabels = {
+        'auto': 'Automatisch',
+        'manual': 'Handmatig'
+    };
+
+    const typeLabels = {
+        'weekly': 'Week',
+        'monthly': 'Maand',
+        'seasonal': 'Seizoen',
+        'yearly': 'Jaar'
+    };
+
+    let html = '<table class="recipients-table"><thead><tr>';
+    html += '<th>E-mailadres</th><th>Naam</th><th>Modus</th><th>Rapporttypes</th><th>Acties</th>';
+    html += '</tr></thead><tbody>';
+
+    emailRecipients.forEach(r => {
+        const types = (r.report_types || []).map(t => typeLabels[t] || t).join(', ');
+        html += `<tr>
+            <td>${escapeHtml(r.email)}</td>
+            <td>${escapeHtml(r.name || '-')}</td>
+            <td><span class="mode-badge ${r.mode}">${modeLabels[r.mode] || r.mode}</span></td>
+            <td>${r.mode === 'auto' ? types : '-'}</td>
+            <td>
+                <button class="btn btn-small btn-danger" onclick="deleteRecipient('${escapeHtml(r.email)}')">Verwijderen</button>
+            </td>
+        </tr>`;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;');
+}
+
+async function handleAddRecipient(e) {
+    e.preventDefault();
+
+    const email = document.getElementById('recipient-email').value.trim();
+    const name = document.getElementById('recipient-name').value.trim();
+    const mode = document.getElementById('recipient-mode').value;
+
+    // Get selected report types
+    const reportTypes = [];
+    document.querySelectorAll('input[name="report-type"]:checked').forEach(cb => {
+        reportTypes.push(cb.value);
+    });
+
+    try {
+        const response = await fetch(getApiUrl('api/email/recipients', true), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email,
+                name,
+                mode,
+                report_types: reportTypes
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Clear form
+            document.getElementById('recipient-email').value = '';
+            document.getElementById('recipient-name').value = '';
+            document.getElementById('recipient-mode').value = 'auto';
+            document.querySelectorAll('input[name="report-type"]').forEach(cb => cb.checked = true);
+
+            // Reload list
+            await loadEmailRecipients();
+            alert(data.message);
+        } else {
+            alert('Fout: ' + (data.error || 'Onbekende fout'));
+        }
+    } catch (error) {
+        console.error('Error adding recipient:', error);
+        alert('Fout bij toevoegen: ' + error.message);
+    }
+}
+
+async function deleteRecipient(email) {
+    if (!confirm(`Weet je zeker dat je ${email} wilt verwijderen?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(getApiUrl(`api/email/recipients/${encodeURIComponent(email)}`, true), {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            await loadEmailRecipients();
+        } else {
+            alert('Fout: ' + (data.error || 'Onbekende fout'));
+        }
+    } catch (error) {
+        console.error('Error deleting recipient:', error);
+        alert('Fout bij verwijderen: ' + error.message);
+    }
+}
+
+async function loadReportsForCopy() {
+    const select = document.getElementById('copy-report');
+    if (!select) return;
+
+    // Use already loaded reports if available
+    if (allReports.length > 0) {
+        populateReportSelect(select, allReports);
+    } else {
+        try {
+            const response = await fetch('reports.json');
+            const data = await response.json();
+            populateReportSelect(select, data.reports || []);
+        } catch (error) {
+            console.error('Error loading reports for copy:', error);
+        }
+    }
+}
+
+function populateReportSelect(select, reports) {
+    select.innerHTML = '<option value="">Selecteer rapport...</option>';
+    reports.forEach(r => {
+        select.innerHTML += `<option value="${r.filename}">${r.year} - ${r.title}</option>`;
+    });
+}
+
+function updateCopyRecipients() {
+    const container = document.getElementById('copy-recipients');
+    if (!container) return;
+
+    if (emailRecipients.length === 0) {
+        container.innerHTML = '<p class="no-data">Voeg eerst ontvangers toe</p>';
+        return;
+    }
+
+    let html = '';
+    emailRecipients.forEach(r => {
+        const label = r.name ? `${r.name} (${r.email})` : r.email;
+        html += `<label><input type="checkbox" name="copy-recipient" value="${escapeHtml(r.email)}"> ${escapeHtml(label)}</label>`;
+    });
+    container.innerHTML = html;
+}
+
+async function handleSendCopy(e) {
+    e.preventDefault();
+
+    const report = document.getElementById('copy-report').value;
+    const recipients = [];
+    document.querySelectorAll('input[name="copy-recipient"]:checked').forEach(cb => {
+        recipients.push(cb.value);
+    });
+
+    if (!report) {
+        alert('Selecteer een rapport');
+        return;
+    }
+    if (recipients.length === 0) {
+        alert('Selecteer minimaal één ontvanger');
+        return;
+    }
+
+    const resultEl = document.getElementById('send-copy-result');
+    resultEl.classList.remove('hidden', 'success', 'error');
+    resultEl.textContent = 'Versturen...';
+
+    try {
+        const response = await fetch(getApiUrl('api/email/send-copy', true), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ report, recipients })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            resultEl.classList.add('success');
+            resultEl.textContent = data.message;
+        } else {
+            resultEl.classList.add('error');
+            resultEl.textContent = 'Fout: ' + (data.error || 'Onbekende fout');
+        }
+    } catch (error) {
+        console.error('Error sending copy:', error);
+        resultEl.classList.add('error');
+        resultEl.textContent = 'Netwerkfout: ' + error.message;
+    }
+}
+
+async function handleTestEmail(e) {
+    e.preventDefault();
+
+    const email = document.getElementById('test-email-address').value.trim();
+    const resultEl = document.getElementById('test-email-result');
+
+    resultEl.classList.remove('hidden', 'success', 'error');
+    resultEl.textContent = 'Versturen...';
+
+    try {
+        const response = await fetch(getApiUrl('api/email/test', true), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            resultEl.classList.add('success');
+            resultEl.textContent = data.message;
+        } else {
+            resultEl.classList.add('error');
+            resultEl.textContent = 'Fout: ' + (data.error || 'Onbekende fout');
+        }
+    } catch (error) {
+        console.error('Error sending test email:', error);
+        resultEl.classList.add('error');
+        resultEl.textContent = 'Netwerkfout: ' + error.message;
+    }
 }
