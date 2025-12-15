@@ -90,8 +90,10 @@ De `send_email()` functie filtert nu ontvangers op:
 ## Homer Dashboard
 - **URL:** http://192.168.1.25:8181/
 - **Config:** `/mnt/nas-docker/homer/config.yml`
-- **Assets:** `/mnt/nas-docker/homer/assets/`
+- **Assets:** `/mnt/nas-docker/homer/assets/` → gemount als `/www/assets/icons/` in container
 - EMSN logo toegevoegd als `assets/emsn-logo.png`
+- **Logo pad in config:** `assets/icons/emsn-logo.png` (niet `assets/emsn-logo.png`)
+- **Let op:** Na config wijziging moet Homer container herstart worden via Synology Container Manager (sudo docker restart homer)
 
 ## Status
 Alle taken afgerond en gecommit naar GitHub.
