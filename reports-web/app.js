@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadStyles();
     setupGenerator();
     setupEmailManagement();
+    setupScheduleTab();
 });
 
 async function loadReports() {
@@ -181,10 +182,13 @@ function createReportCard(report) {
             </div>
 
             <div class="report-actions">
-                <a href="view.html?report=${encodeURIComponent(report.filename)}" class="btn btn-primary">
-                    Bekijk
+                <a href="view-interactive.html?report=${encodeURIComponent(report.filename)}" class="btn btn-primary" title="Interactieve versie met grafieken">
+                    Interactief
                 </a>
-                <a href="api/pdf?file=${encodeURIComponent(report.filename)}" class="btn btn-secondary" download>
+                <a href="view.html?report=${encodeURIComponent(report.filename)}" class="btn btn-secondary" title="Volledige tekst versie">
+                    Tekst
+                </a>
+                <a href="api/pdf?file=${encodeURIComponent(report.filename)}" class="btn btn-secondary" download title="Download als PDF">
                     PDF
                 </a>
             </div>
@@ -713,4 +717,158 @@ async function handleTestEmail(e) {
         resultEl.classList.add('error');
         resultEl.textContent = 'Netwerkfout: ' + error.message;
     }
+}
+
+// =============================================================================
+// SCHEDULE TAB
+// =============================================================================
+
+function setupScheduleTab() {
+    // Setup quick action buttons
+    document.querySelectorAll('.btn-action').forEach(btn => {
+        btn.addEventListener('click', () => handleQuickAction(btn.dataset.action));
+    });
+
+    // Load data when schedule tab is shown
+    document.querySelectorAll('.main-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            if (tab.dataset.tab === 'schedule') {
+                loadSchedule();
+                loadGenerationHistory();
+            }
+        });
+    });
+}
+
+async function loadSchedule() {
+    const container = document.getElementById('schedule-list');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading">Laden...</div>';
+
+    try {
+        const response = await fetch(getApiUrl('api/schedule', false));
+        const data = await response.json();
+
+        if (data.error) {
+            container.innerHTML = `<div class="error">${data.error}</div>`;
+            return;
+        }
+
+        if (!data.schedules || data.schedules.length === 0) {
+            container.innerHTML = '<p class="no-data">Geen geplande rapporten gevonden</p>';
+            return;
+        }
+
+        let html = '<table class="schedule-table"><thead><tr>';
+        html += '<th>Rapport</th><th>Planning</th><th>Volgende generatie</th><th>Status</th>';
+        html += '</tr></thead><tbody>';
+
+        data.schedules.forEach(s => {
+            const statusClass = s.active ? 'active' : 'inactive';
+            const statusText = s.active ? 'Actief' : 'Inactief';
+            html += `<tr>
+                <td><strong>${escapeHtml(s.name)}</strong></td>
+                <td>${escapeHtml(s.schedule)}</td>
+                <td>${escapeHtml(s.next_run)}</td>
+                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error loading schedule:', error);
+        container.innerHTML = '<div class="error">Kon planning niet laden</div>';
+    }
+}
+
+async function loadGenerationHistory() {
+    const container = document.getElementById('generation-history');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading">Laden...</div>';
+
+    try {
+        const response = await fetch(getApiUrl('api/schedule/history', false));
+        const data = await response.json();
+
+        if (data.error) {
+            container.innerHTML = `<div class="error">${data.error}</div>`;
+            return;
+        }
+
+        if (!data.history || data.history.length === 0) {
+            container.innerHTML = '<p class="no-data">Geen recente generaties gevonden</p>';
+            return;
+        }
+
+        let html = '<table class="history-table"><thead><tr>';
+        html += '<th>Bestand</th><th>Type</th><th>Gegenereerd</th><th>Grootte</th><th>Status</th>';
+        html += '</tr></thead><tbody>';
+
+        data.history.forEach(h => {
+            const statusClass = h.status === 'success' ? 'success' : 'error';
+            html += `<tr>
+                <td><a href="view.html?report=${encodeURIComponent(h.filename)}">${escapeHtml(h.filename)}</a></td>
+                <td>${escapeHtml(h.type)}</td>
+                <td>${escapeHtml(h.generated)}</td>
+                <td>${escapeHtml(h.size)}</td>
+                <td><span class="status-badge ${statusClass}">${h.status === 'success' ? 'OK' : 'Fout'}</span></td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error loading history:', error);
+        container.innerHTML = '<div class="error">Kon geschiedenis niet laden</div>';
+    }
+}
+
+async function handleQuickAction(action) {
+    const resultEl = document.getElementById('quick-action-result');
+    if (!resultEl) return;
+
+    // Disable all action buttons
+    document.querySelectorAll('.btn-action').forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('loading');
+    });
+
+    resultEl.classList.remove('hidden', 'success', 'error');
+    resultEl.textContent = 'Rapport wordt gegenereerd... (dit kan 30-60 seconden duren)';
+
+    try {
+        const response = await fetch(getApiUrl('api/schedule/quick-generate', true), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            resultEl.classList.add('success');
+            resultEl.textContent = data.message;
+            // Refresh history and reports list
+            loadGenerationHistory();
+            loadReports();
+        } else {
+            resultEl.classList.add('error');
+            resultEl.textContent = 'Fout: ' + (data.error || 'Onbekende fout');
+        }
+    } catch (error) {
+        console.error('Error generating report:', error);
+        resultEl.classList.add('error');
+        resultEl.textContent = 'Netwerkfout: ' + error.message;
+    }
+
+    // Re-enable buttons
+    document.querySelectorAll('.btn-action').forEach(btn => {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+    });
 }

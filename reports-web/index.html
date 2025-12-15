@@ -17,6 +17,7 @@
         <div class="main-tabs">
             <button class="main-tab active" data-tab="reports">Rapporten bekijken</button>
             <button class="main-tab" data-tab="generate">Rapport genereren</button>
+            <button class="main-tab" data-tab="schedule">Planning</button>
             <button class="main-tab" data-tab="email">E-mail beheer</button>
         </div>
 
@@ -109,6 +110,61 @@
                     <div class="result-icon"></div>
                     <p class="result-message"></p>
                     <a href="#" id="result-link" class="btn btn-secondary hidden">Bekijk rapport</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedule tab -->
+        <div id="schedule-tab" class="tab-content">
+            <div class="schedule-container">
+                <h2>Rapport Planning</h2>
+                <p class="schedule-intro">Overzicht van automatische rapportgeneratie en geplande taken.</p>
+
+                <!-- Current schedule overview -->
+                <div class="schedule-section">
+                    <h3>Automatische Planning</h3>
+                    <p class="section-intro">Deze rapporten worden automatisch gegenereerd door systemd timers.</p>
+                    <div id="schedule-list" class="schedule-list">
+                        <div class="loading">Laden...</div>
+                    </div>
+                </div>
+
+                <!-- Quick actions -->
+                <div class="schedule-section">
+                    <h3>Snelle Acties</h3>
+                    <p class="section-intro">Genereer nu direct een rapport met specifieke opties.</p>
+                    <div class="quick-actions">
+                        <button class="btn btn-action" data-action="week">
+                            <span class="action-icon">📅</span>
+                            <span class="action-text">Weekrapport<br><small>Vorige week</small></span>
+                        </button>
+                        <button class="btn btn-action" data-action="week-kort">
+                            <span class="action-icon">📋</span>
+                            <span class="action-text">Kort Weekrapport<br><small>Beknopte versie</small></span>
+                        </button>
+                        <button class="btn btn-action" data-action="week-spectrograms">
+                            <span class="action-icon">📊</span>
+                            <span class="action-text">Weekrapport+<br><small>Met spectrogrammen</small></span>
+                        </button>
+                        <button class="btn btn-action" data-action="month">
+                            <span class="action-icon">📆</span>
+                            <span class="action-text">Maandrapport<br><small>Vorige maand</small></span>
+                        </button>
+                        <button class="btn btn-action" data-action="season">
+                            <span class="action-icon">🍂</span>
+                            <span class="action-text">Seizoensrapport<br><small>Huidig seizoen</small></span>
+                        </button>
+                    </div>
+                    <div id="quick-action-result" class="result-message hidden"></div>
+                </div>
+
+                <!-- Recent generation history -->
+                <div class="schedule-section">
+                    <h3>Recente Generaties</h3>
+                    <p class="section-intro">Laatste rapportgeneraties en hun status.</p>
+                    <div id="generation-history" class="history-list">
+                        <div class="loading">Laden...</div>
+                    </div>
                 </div>
             </div>
         </div>

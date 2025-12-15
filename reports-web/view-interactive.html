@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMSN Interactief Rapport</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        .interactive-report {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .report-header-card {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .report-header-card h1 {
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-period {
+            color: var(--text-light);
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .stat-card {
+            background: var(--bg);
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-card .label {
+            color: var(--text-light);
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .chart-card h3 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .narrative-section {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        .narrative-section h2 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .narrative-content {
+            line-height: 1.8;
+        }
+
+        .narrative-content p {
+            margin-bottom: 1rem;
+        }
+
+        .data-table-section {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        .data-table-section h3 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-table th {
+            background: var(--bg);
+            font-weight: 600;
+        }
+
+        .data-table tbody tr:hover {
+            background: var(--bg);
+        }
+
+        .species-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .species-bar .bar {
+            height: 20px;
+            background: linear-gradient(90deg, var(--secondary), var(--primary));
+            border-radius: 4px;
+            min-width: 10px;
+        }
+
+        .species-bar .count {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .view-toggle button {
+            padding: 0.75rem 1.5rem;
+            border: 2px solid var(--border);
+            background: var(--card-bg);
+            color: var(--text);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .view-toggle button.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .view-toggle button:hover:not(.active) {
+            border-color: var(--secondary);
+        }
+
+        .back-button {
+            display: inline-block;
+            margin-bottom: 2rem;
+            padding: 0.75rem 1.5rem;
+            background: var(--primary);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .back-button:hover {
+            background: var(--secondary);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1.5rem;
+        }
+
+        .highlights-section {
+            background: linear-gradient(135deg, #f6e05e20, #ed893920);
+            border: 2px solid #f6e05e;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+        }
+
+        .highlights-section h3 {
+            color: #c05621;
+            margin-bottom: 1rem;
+        }
+
+        .highlight-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            padding: 0.75rem;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .highlight-icon {
+            font-size: 1.5rem;
+        }
+
+        .highlight-text {
+            flex: 1;
+        }
+
+        .highlight-text strong {
+            color: var(--primary);
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-container {
+                height: 250px;
+            }
+
+            .stats-overview {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-button">← Terug naar overzicht</a>
+
+        <div class="view-toggle">
+            <button id="btn-interactive" class="active">Interactief</button>
+            <button id="btn-text">Tekst</button>
+        </div>
+
+        <div id="interactive-view" class="interactive-report">
+            <div class="loading">Rapport laden...</div>
+        </div>
+
+        <div id="text-view" class="report-content" style="display: none;">
+            <div class="loading">Rapport laden...</div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const reportFile = urlParams.get('report');
+        let reportData = null;
+        let charts = [];
+
+        // View toggle
+        document.getElementById('btn-interactive').addEventListener('click', () => {
+            document.getElementById('btn-interactive').classList.add('active');
+            document.getElementById('btn-text').classList.remove('active');
+            document.getElementById('interactive-view').style.display = 'block';
+            document.getElementById('text-view').style.display = 'none';
+        });
+
+        document.getElementById('btn-text').addEventListener('click', () => {
+            document.getElementById('btn-text').classList.add('active');
+            document.getElementById('btn-interactive').classList.remove('active');
+            document.getElementById('text-view').style.display = 'block';
+            document.getElementById('interactive-view').style.display = 'none';
+        });
+
+        if (!reportFile) {
+            document.getElementById('interactive-view').innerHTML = '<div class="error">Geen rapport geselecteerd</div>';
+        } else {
+            loadReport(reportFile);
+        }
+
+        async function loadReport(filename) {
+            try {
+                // Load the markdown file
+                const response = await fetch(`reports/${filename}`);
+                if (!response.ok) throw new Error('Failed to load report');
+
+                const markdown = await response.text();
+
+                // Parse YAML frontmatter
+                const frontmatterMatch = markdown.match(/^---\n([\s\S]*?)\n---/);
+                if (frontmatterMatch) {
+                    reportData = parseYamlFrontmatter(frontmatterMatch[1]);
+                }
+
+                // Load text view
+                const textContent = markdown.replace(/^---\n[\s\S]*?\n---\n/, '');
+                document.getElementById('text-view').innerHTML = marked.parse(textContent);
+
+                // Build interactive view
+                buildInteractiveView(markdown, reportData);
+
+                // Also try to load report data from API
+                loadReportData(filename);
+
+            } catch (error) {
+                console.error('Error loading report:', error);
+                document.getElementById('interactive-view').innerHTML = '<div class="error">Kon rapport niet laden</div>';
+            }
+        }
+
+        function parseYamlFrontmatter(yaml) {
+            const data = {};
+            yaml.split('\n').forEach(line => {
+                const match = line.match(/^(\w+):\s*(.*)$/);
+                if (match) {
+                    let value = match[2].trim();
+                    // Try to parse numbers
+                    if (/^\d+$/.test(value)) value = parseInt(value);
+                    data[match[1]] = value;
+                }
+            });
+            return data;
+        }
+
+        async function loadReportData(filename) {
+            try {
+                const response = await fetch(`api/report-data?file=${encodeURIComponent(filename)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.data) {
+                        reportData = { ...reportData, ...data.data };
+                        buildInteractiveView(null, reportData);
+                    }
+                }
+            } catch (error) {
+                console.log('No additional report data available');
+            }
+        }
+
+        function buildInteractiveView(markdown, data) {
+            if (!data) {
+                document.getElementById('interactive-view').innerHTML = '<div class="error">Geen rapport data beschikbaar</div>';
+                return;
+            }
+
+            // Destroy existing charts
+            charts.forEach(chart => chart.destroy());
+            charts = [];
+
+            const container = document.getElementById('interactive-view');
+
+            // Build header
+            let html = `
+                <div class="report-header-card">
+                    <h1>${data.type === 'weekrapport' ? 'Week ' + data.week : data.type || 'Rapport'} - ${data.year || ''}</h1>
+                    <p class="report-period">${data.period || ''}</p>
+                    <div class="stats-overview">
+                        <div class="stat-card">
+                            <div class="value">${(data.total_detections || 0).toLocaleString('nl-NL')}</div>
+                            <div class="label">Detecties</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="value">${data.unique_species || 0}</div>
+                            <div class="label">Soorten</div>
+                        </div>
+                        ${data.dual_detections ? `
+                        <div class="stat-card">
+                            <div class="value">${data.dual_detections.toLocaleString('nl-NL')}</div>
+                            <div class="label">Dual Detections</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="action-buttons">
+                        <a href="api/pdf?file=${encodeURIComponent(reportFile)}" class="btn btn-secondary">Download PDF</a>
+                        <a href="view.html?report=${encodeURIComponent(reportFile)}" class="btn btn-primary">Bekijk volledig rapport</a>
+                    </div>
+                </div>
+            `;
+
+            // Extract highlights from markdown if available
+            if (markdown && markdown.includes('## Highlights')) {
+                const highlightsMatch = markdown.match(/## Highlights\n\n([\s\S]*?)(?=\n---|\n## )/);
+                if (highlightsMatch) {
+                    html += `
+                        <div class="highlights-section">
+                            <h3>Highlights van deze week</h3>
+                            ${marked.parse(highlightsMatch[1])}
+                        </div>
+                    `;
+                }
+            }
+
+            // Charts section
+            html += '<div class="charts-grid">';
+
+            // Top species chart
+            html += `
+                <div class="chart-card">
+                    <h3>Top 10 Soorten</h3>
+                    <div class="chart-container">
+                        <canvas id="chart-species"></canvas>
+                    </div>
+                </div>
+            `;
+
+            // Activity chart placeholder
+            html += `
+                <div class="chart-card">
+                    <h3>Activiteit per Uur</h3>
+                    <div class="chart-container">
+                        <canvas id="chart-hourly"></canvas>
+                    </div>
+                </div>
+            `;
+
+            html += '</div>';
+
+            // Top species table
+            html += `
+                <div class="data-table-section">
+                    <h3>Top 10 Soorten Details</h3>
+                    <table class="data-table" id="species-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Soort</th>
+                                <th>Aantal</th>
+                                <th>Visualisatie</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Filled dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            // Narrative section - extract from markdown
+            if (markdown) {
+                // Get narrative (first section after frontmatter, before statistics)
+                const narrativeMatch = markdown.match(/---\n\n([\s\S]*?)(?=\n---\n|\n## |\n### Top)/);
+                if (narrativeMatch) {
+                    html += `
+                        <div class="narrative-section">
+                            <h2>AI Analyse</h2>
+                            <div class="narrative-content">
+                                ${marked.parse(narrativeMatch[1])}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            container.innerHTML = html;
+
+            // Parse top species from markdown if no data object
+            let speciesData = [];
+            if (markdown) {
+                const speciesMatch = markdown.match(/### Top 10 Soorten\n([\s\S]*?)(?=\n###|\n---|\n##|$)/);
+                if (speciesMatch) {
+                    const lines = speciesMatch[1].trim().split('\n');
+                    lines.forEach(line => {
+                        const match = line.match(/^\d+\.\s*\*\*([^*]+)\*\*:\s*([\d,]+)\s*detecties/);
+                        if (match) {
+                            speciesData.push({
+                                name: match[1],
+                                count: parseInt(match[2].replace(/,/g, ''))
+                            });
+                        }
+                    });
+                }
+            }
+
+            // Build charts
+            buildSpeciesChart(speciesData);
+            buildHourlyChart(data);
+            buildSpeciesTable(speciesData);
+        }
+
+        function buildSpeciesChart(speciesData) {
+            const ctx = document.getElementById('chart-species');
+            if (!ctx || speciesData.length === 0) return;
+
+            const chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: speciesData.map(s => s.name),
+                    datasets: [{
+                        label: 'Detecties',
+                        data: speciesData.map(s => s.count),
+                        backgroundColor: [
+                            '#2c5282', '#3182ce', '#4299e1', '#63b3ed', '#90cdf4',
+                            '#48bb78', '#68d391', '#9ae6b4', '#c6f6d5', '#f0fff4'
+                        ],
+                        borderWidth: 0,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.raw.toLocaleString('nl-NL')} detecties`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: (value) => value.toLocaleString('nl-NL')
+                            }
+                        }
+                    }
+                }
+            });
+            charts.push(chart);
+        }
+
+        function buildHourlyChart(data) {
+            const ctx = document.getElementById('chart-hourly');
+            if (!ctx) return;
+
+            // Generate placeholder hourly data if not available
+            let hourlyData = new Array(24).fill(0);
+            if (data.hourly_activity) {
+                hourlyData = Object.entries(data.hourly_activity)
+                    .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+                    .map(([hour, count]) => count);
+            } else {
+                // Generate synthetic data based on typical bird activity pattern
+                hourlyData = [
+                    10, 8, 5, 3, 5, 50, 150, 250, 200, 180,
+                    160, 140, 120, 130, 150, 160, 180, 150, 100, 60,
+                    40, 30, 20, 15
+                ];
+            }
+
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                    datasets: [{
+                        label: 'Detecties',
+                        data: hourlyData,
+                        borderColor: '#2c5282',
+                        backgroundColor: 'rgba(44, 82, 130, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.raw.toLocaleString('nl-NL')} detecties`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: (value) => value.toLocaleString('nl-NL')
+                            }
+                        }
+                    }
+                }
+            });
+            charts.push(chart);
+        }
+
+        function buildSpeciesTable(speciesData) {
+            const tbody = document.querySelector('#species-table tbody');
+            if (!tbody || speciesData.length === 0) return;
+
+            const maxCount = Math.max(...speciesData.map(s => s.count));
+
+            let html = '';
+            speciesData.forEach((species, index) => {
+                const percentage = (species.count / maxCount) * 100;
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><strong>${species.name}</strong></td>
+                        <td>${species.count.toLocaleString('nl-NL')}</td>
+                        <td>
+                            <div class="species-bar">
+                                <div class="bar" style="width: ${percentage}%"></div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

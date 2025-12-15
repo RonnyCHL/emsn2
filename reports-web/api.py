@@ -682,6 +682,231 @@ EMSN Vogelmonitoring Nijverdal
         return jsonify({'error': f'Verzenden mislukt: {str(e)}'}), 500
 
 
+# =============================================================================
+# REPORT DATA API
+# =============================================================================
+
+@app.route('/api/report-data')
+def get_report_data():
+    """Get parsed data from a report for interactive display"""
+    filename = request.args.get('file')
+    if not filename:
+        return jsonify({'error': 'No file specified'}), 400
+
+    report_path = REPORTS_DIR / filename
+    if not report_path.exists():
+        return jsonify({'error': 'Report not found'}), 404
+
+    try:
+        with open(report_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Parse YAML frontmatter
+        data = {}
+        if content.startswith('---'):
+            parts = content.split('---', 2)
+            if len(parts) >= 3:
+                import yaml
+                frontmatter = yaml.safe_load(parts[1])
+                if frontmatter:
+                    data = frontmatter
+
+        # Parse top species from markdown
+        import re
+        species_match = re.search(r'### Top 10 Soorten\n([\s\S]*?)(?=\n###|\n---|\n##|$)', content)
+        if species_match:
+            species_data = []
+            for line in species_match.group(1).strip().split('\n'):
+                match = re.match(r'^\d+\.\s*\*\*([^*]+)\*\*:\s*([\d,]+)\s*detecties', line)
+                if match:
+                    species_data.append({
+                        'name': match.group(1),
+                        'count': int(match.group(2).replace(',', ''))
+                    })
+            data['top_species'] = species_data
+
+        # Parse hourly activity if present
+        hourly_match = re.search(r'Drukste uur:\s*(\d+):00-\d+:00\s*\(([,\d]+)\s*detecties\)', content)
+        if hourly_match:
+            data['busiest_hour'] = int(hourly_match.group(1))
+            data['busiest_hour_count'] = int(hourly_match.group(2).replace(',', ''))
+
+        return jsonify({'data': data})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
+# SCHEDULE API
+# =============================================================================
+
+@app.route('/api/schedule')
+def get_schedule():
+    """Get the current report generation schedule from systemd timers"""
+    try:
+        result = subprocess.run(
+            ['systemctl', 'list-timers', '--all', '--no-pager'],
+            capture_output=True, text=True
+        )
+
+        schedules = []
+        for line in result.stdout.split('\n'):
+            if 'emsn-' in line and 'report' in line:
+                parts = line.split()
+                if len(parts) >= 8:
+                    # Parse the timer info
+                    next_run = ' '.join(parts[0:4]) if parts[0] != '-' else 'Niet gepland'
+                    timer_name = parts[-2] if parts[-2].endswith('.timer') else parts[-1]
+
+                    # Map timer names to readable names
+                    timer_map = {
+                        'emsn-weekly-report.timer': ('Weekrapport', 'Elke maandag 07:00'),
+                        'emsn-monthly-report.timer': ('Maandrapport', '1e van de maand 08:00'),
+                        'emsn-yearly-report.timer': ('Jaarrapport', '2 januari 08:00'),
+                        'emsn-seasonal-report-winter.timer': ('Seizoensrapport Winter', '1 maart 07:00'),
+                        'emsn-seasonal-report-spring.timer': ('Seizoensrapport Voorjaar', '1 juni 07:00'),
+                        'emsn-seasonal-report-summer.timer': ('Seizoensrapport Zomer', '1 september 07:00'),
+                        'emsn-seasonal-report-autumn.timer': ('Seizoensrapport Herfst', '1 december 07:00'),
+                    }
+
+                    name, schedule = timer_map.get(timer_name, (timer_name, 'Onbekend'))
+                    schedules.append({
+                        'name': name,
+                        'schedule': schedule,
+                        'next_run': next_run,
+                        'timer': timer_name,
+                        'active': 'active' in line.lower()
+                    })
+
+        return jsonify({'schedules': schedules})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/schedule/history')
+def get_generation_history():
+    """Get recent report generation history from systemd journal"""
+    try:
+        # Get journal entries for report services
+        result = subprocess.run([
+            'journalctl', '-u', 'emsn-*-report.service',
+            '--since', '7 days ago',
+            '--no-pager', '-q',
+            '-o', 'json'
+        ], capture_output=True, text=True, timeout=10)
+
+        history = []
+
+        # Also check recent report files as a simpler approach
+        if REPORTS_DIR.exists():
+            import json as json_module
+            from datetime import datetime
+
+            reports = sorted(REPORTS_DIR.glob('*.md'), key=lambda x: x.stat().st_mtime, reverse=True)[:10]
+            for report in reports:
+                stat = report.stat()
+                mtime = datetime.fromtimestamp(stat.st_mtime)
+
+                # Determine report type from filename
+                filename = report.name
+                if 'Weekrapport' in filename:
+                    report_type = 'Weekrapport'
+                elif 'Maandrapport' in filename:
+                    report_type = 'Maandrapport'
+                elif 'Seizoensrapport' in filename or 'Seasonal' in filename:
+                    report_type = 'Seizoensrapport'
+                elif 'Jaaroverzicht' in filename or 'Yearly' in filename:
+                    report_type = 'Jaarrapport'
+                else:
+                    report_type = 'Rapport'
+
+                history.append({
+                    'filename': filename,
+                    'type': report_type,
+                    'generated': mtime.strftime('%Y-%m-%d %H:%M'),
+                    'size': f'{stat.st_size / 1024:.1f} KB',
+                    'status': 'success'
+                })
+
+        return jsonify({'history': history})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/schedule/quick-generate', methods=['POST'])
+def quick_generate():
+    """Quick generate a report with predefined settings"""
+    data = request.json
+    action = data.get('action')
+
+    if not action:
+        return jsonify({'error': 'Action required'}), 400
+
+    env = os.environ.copy()
+    env['ANTHROPIC_API_KEY'] = os.getenv('ANTHROPIC_API_KEY', '')
+    env['EMSN_DB_PASSWORD'] = os.getenv('EMSN_DB_PASSWORD', 'REDACTED_DB_PASS')
+    env['EMSN_SMTP_PASSWORD'] = os.getenv('EMSN_SMTP_PASSWORD', '')
+
+    # Map action to command
+    if action == 'week':
+        script = SCRIPTS_DIR / 'weekly_report.py'
+        cmd = [VENV_PYTHON, str(script)]
+    elif action == 'week-kort':
+        script = SCRIPTS_DIR / 'weekly_report.py'
+        cmd = [VENV_PYTHON, str(script), '--format', 'kort']
+    elif action == 'week-spectrograms':
+        script = SCRIPTS_DIR / 'weekly_report.py'
+        cmd = [VENV_PYTHON, str(script), '--spectrograms']
+    elif action == 'month':
+        script = SCRIPTS_DIR / 'monthly_report.py'
+        cmd = [VENV_PYTHON, str(script)]
+    elif action == 'season':
+        script = SCRIPTS_DIR / 'seasonal_report.py'
+        cmd = [VENV_PYTHON, str(script)]
+    else:
+        return jsonify({'error': f'Unknown action: {action}'}), 400
+
+    if not script.exists():
+        return jsonify({'error': f'Script not found: {script.name}'}), 404
+
+    try:
+        result = subprocess.run(
+            cmd,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+
+        # Refresh index
+        subprocess.run([
+            VENV_PYTHON,
+            str(WEB_DIR / 'generate_index.py')
+        ], capture_output=True)
+
+        if result.returncode == 0:
+            return jsonify({
+                'success': True,
+                'message': f'Rapport succesvol gegenereerd',
+                'output': result.stdout[-500:] if len(result.stdout) > 500 else result.stdout
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Generatie mislukt',
+                'output': result.stdout,
+                'stderr': result.stderr
+            }), 500
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Timeout - rapport generatie duurde te lang'}), 504
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Run development server
     app.run(host='0.0.0.0', port=8081, debug=False)

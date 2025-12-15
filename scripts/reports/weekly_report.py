@@ -16,14 +16,17 @@ sys.path.insert(0, str(Path(__file__).parent))
 from report_base import ReportBase, REPORTS_PATH
 from report_charts import ReportCharts
 from report_highlights import ReportHighlights
+from report_spectrograms import ReportSpectrograms
 
 
 class WeeklyReportGenerator(ReportBase):
     """Generate weekly narrative bird activity reports"""
 
-    def __init__(self, style=None):
+    def __init__(self, style=None, report_format='uitgebreid', include_spectrograms=False):
         super().__init__()
         self.get_style(style)
+        self.report_format = report_format  # 'kort' or 'uitgebreid'
+        self.include_spectrograms = include_spectrograms
 
     def get_week_dates(self):
         """Get start and end dates for last week"""
@@ -500,7 +503,26 @@ class WeeklyReportGenerator(ReportBase):
 
         style_prompt = self.get_style_prompt()
 
-        prompt = f"""{style_prompt}
+        # Different prompts for short vs extended format
+        if self.report_format == 'kort':
+            prompt = f"""{style_prompt}
+
+Je schrijft een BEKNOPT weekrapport voor het EMSN vogelmonitoringsproject in Nijverdal, Overijssel.
+
+DATA:
+{json.dumps(data, indent=2, ensure_ascii=False)}
+
+STRUCTUUR (kort en bondig):
+1. Korte samenvatting van de week (weer + vogelactiviteit in 2-3 zinnen)
+2. Top 3 waarnemingen of hoogtepunten
+3. Vergelijking met vorige week (1 zin)
+
+LENGTE: 150-200 woorden MAXIMUM
+Wees beknopt, alleen de essentie. Geen uitgebreide beschrijvingen.
+"""
+            max_tokens = 800
+        else:  # uitgebreid (default)
+            prompt = f"""{style_prompt}
 
 Je schrijft een weekrapport voor het EMSN vogelmonitoringsproject in Nijverdal, Overijssel.
 
@@ -523,65 +545,94 @@ STRUCTUUR:
 LENGTE: 400-600 woorden
 Gebruik geen bullet points, schrijf vloeiende paragrafen.
 """
+            max_tokens = 2000
 
-        return self.generate_with_claude(prompt, max_tokens=2000)
+        return self.generate_with_claude(prompt, max_tokens=max_tokens)
 
-    def save_report(self, report_text, data):
-        """Save report as markdown file with charts"""
+    def save_report(self, report_text, data, start_date=None, end_date=None):
+        """Save report as markdown file with charts and optionally spectrograms"""
 
         # Create reports directory if it doesn't exist
         REPORTS_PATH.mkdir(parents=True, exist_ok=True)
 
-        # Filename: 2025-W50-Weekrapport.md
-        filename = f"{data['year']}-W{data['week_number']:02d}-Weekrapport.md"
+        # Filename based on format
+        format_suffix = "-kort" if self.report_format == 'kort' else ""
+        filename = f"{data['year']}-W{data['week_number']:02d}-Weekrapport{format_suffix}.md"
         filepath = REPORTS_PATH / filename
 
-        # Generate charts
+        # Generate charts (fewer for short format)
         print("Genereren grafieken...")
         charts = ReportCharts(REPORTS_PATH)
 
+        # Generate spectrograms if enabled
+        spectrograms_markdown = ""
+        if self.include_spectrograms and start_date and end_date:
+            print("Zoeken spectrogrammen...")
+            spec_generator = ReportSpectrograms(REPORTS_PATH, self.conn)
+            top_species_names = [s['name'] for s in data.get('top_species', [])[:5]]
+            highlights = data.get('highlights', {})
+
+            prepared_specs = spec_generator.prepare_for_report(
+                start_date, end_date,
+                top_species=top_species_names,
+                highlights=highlights,
+                max_total=6 if self.report_format == 'uitgebreid' else 3
+            )
+            if prepared_specs:
+                spectrograms_markdown = spec_generator.generate_markdown_section(prepared_specs)
+                print(f"   - {len(prepared_specs)} spectrogrammen toegevoegd")
+
+        # Always generate top species chart
         chart_top_species = charts.top_species_bar(
             data['top_species'],
             title=f"Top 10 Soorten - Week {data['week_number']}"
         )
 
-        chart_hourly = charts.hourly_activity(
-            data.get('hourly_activity', {}),
-            title=f"Activiteit per Uur - Week {data['week_number']}"
-        )
-
-        chart_daily = charts.daily_activity(
-            data.get('daily_activity', []),
-            title=f"Activiteit per Dag - Week {data['week_number']}"
-        )
-
-        chart_temp = charts.temperature_vs_activity(
-            data.get('daily_temp_activity', []),
-            title=f"Temperatuur vs Vogelactiviteit - Week {data['week_number']}"
-        )
-
-        chart_pie = charts.species_pie(
-            data['top_species'],
-            title=f"Verdeling Soorten - Week {data['week_number']}"
-        )
-
-        # Prepare weather data for chart
-        weather_chart_data = {
-            'wind': data.get('wind_analysis', {}).get('activity_by_wind', []),
-            'temperature': data.get('optimal_conditions', {}).get('by_temperature', []),
-            'precipitation': {
-                'Droog': data.get('weather_correlation', {}).get('dry_days_detections', 0),
-                'Regen': data.get('weather_correlation', {}).get('rainy_days_detections', 0)
-            }
-        }
-        chart_weather = charts.weather_conditions(
-            weather_chart_data,
-            title=f"Activiteit per Weersomstandigheid - Week {data['week_number']}"
-        )
-
-        # Comparison chart with previous week
-        comparison = data.get('comparison_last_week', {})
+        # Extended format gets all charts, short format only gets essentials
+        chart_hourly = None
+        chart_daily = None
+        chart_temp = None
+        chart_pie = None
+        chart_weather = None
         chart_comparison = None
+
+        if self.report_format == 'uitgebreid':
+            chart_hourly = charts.hourly_activity(
+                data.get('hourly_activity', {}),
+                title=f"Activiteit per Uur - Week {data['week_number']}"
+            )
+
+            chart_daily = charts.daily_activity(
+                data.get('daily_activity', []),
+                title=f"Activiteit per Dag - Week {data['week_number']}"
+            )
+
+            chart_temp = charts.temperature_vs_activity(
+                data.get('daily_temp_activity', []),
+                title=f"Temperatuur vs Vogelactiviteit - Week {data['week_number']}"
+            )
+
+            chart_pie = charts.species_pie(
+                data['top_species'],
+                title=f"Verdeling Soorten - Week {data['week_number']}"
+            )
+
+            # Prepare weather data for chart
+            weather_chart_data = {
+                'wind': data.get('wind_analysis', {}).get('activity_by_wind', []),
+                'temperature': data.get('optimal_conditions', {}).get('by_temperature', []),
+                'precipitation': {
+                    'Droog': data.get('weather_correlation', {}).get('dry_days_detections', 0),
+                    'Regen': data.get('weather_correlation', {}).get('rainy_days_detections', 0)
+                }
+            }
+            chart_weather = charts.weather_conditions(
+                weather_chart_data,
+                title=f"Activiteit per Weersomstandigheid - Week {data['week_number']}"
+            )
+
+        # Comparison chart for both formats
+        comparison = data.get('comparison_last_week', {})
         if comparison.get('prev_detections', 0) > 0:
             current_data = {
                 'label': f'Week {data["week_number"]}',
@@ -650,6 +701,10 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
         if chart_comparison:
             markdown += f"### Vergelijking Vorige Week\n\n![Vergelijking]({chart_comparison.name})\n\n"
+
+        # Add spectrograms section if available
+        if spectrograms_markdown:
+            markdown += spectrograms_markdown
 
         # Add highlights section
         highlights = data.get('highlights', {})
@@ -833,7 +888,7 @@ Licentie: CC BY-NC 4.0 (gebruik toegestaan met bronvermelding, niet commercieel)
 
         # Save report
         print("Opslaan rapport...")
-        filepath = self.save_report(report, data)
+        filepath = self.save_report(report, data, start_date, end_date)
 
         # Update web index
         print("Bijwerken web index...")
@@ -877,6 +932,11 @@ def main():
     parser = argparse.ArgumentParser(description='Generate EMSN weekly bird report')
     parser.add_argument('--style', type=str, default=None,
                         help='Writing style (default: wetenschappelijk)')
+    parser.add_argument('--format', type=str, default='uitgebreid',
+                        choices=['kort', 'uitgebreid'],
+                        help='Report format: kort (150-200 woorden, 2 grafieken) or uitgebreid (400-600 woorden, alle grafieken)')
+    parser.add_argument('--spectrograms', action='store_true',
+                        help='Include spectrograms from BirdNET-Pi recordings')
     parser.add_argument('--list-styles', action='store_true',
                         help='List available writing styles and exit')
 
@@ -889,7 +949,11 @@ def main():
             print(f"  {name}: {info['description']}")
         sys.exit(0)
 
-    generator = WeeklyReportGenerator(style=args.style)
+    generator = WeeklyReportGenerator(
+        style=args.style,
+        report_format=args.format,
+        include_spectrograms=args.spectrograms
+    )
     success = generator.run()
     sys.exit(0 if success else 1)
 
