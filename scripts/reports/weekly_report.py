@@ -226,23 +226,27 @@ EMSN Vogelmonitoring
         """, (start_date, end_date))
         data["unique_species"] = cur.fetchone()[0]
 
-        # Top species
+        # Top species (Dutch common_name + scientific species name)
         cur.execute("""
-            SELECT species, COUNT(*) as count
+            SELECT common_name, species, COUNT(*) as count
             FROM bird_detections
             WHERE detection_timestamp BETWEEN %s AND %s
-            GROUP BY species
+            GROUP BY common_name, species
             ORDER BY count DESC
             LIMIT 10
         """, (start_date, end_date))
         data["top_species"] = [
-            {"name": row[0], "count": row[1]}
+            {
+                "name": row[0] or row[1],  # Dutch name, fallback to scientific
+                "scientific_name": row[1],
+                "count": row[2]
+            }
             for row in cur.fetchall()
         ]
 
         # Rare sightings (species with < 5 detections in the week)
         cur.execute("""
-            SELECT species, detection_timestamp, confidence, station
+            SELECT common_name, species, detection_timestamp, confidence, station
             FROM bird_detections
             WHERE detection_timestamp BETWEEN %s AND %s
             AND species IN (
@@ -257,10 +261,11 @@ EMSN Vogelmonitoring
         """, (start_date, end_date, start_date, end_date))
         data["rare_sightings"] = [
             {
-                "species": row[0],
-                "time": row[1].strftime('%Y-%m-%d %H:%M'),
-                "confidence": float(row[2]),
-                "station": row[3]
+                "species": row[0] or row[1],  # Dutch name, fallback to scientific
+                "scientific_name": row[1],
+                "time": row[2].strftime('%Y-%m-%d %H:%M'),
+                "confidence": float(row[3]),
+                "station": row[4]
             }
             for row in cur.fetchall()
         ]
@@ -640,7 +645,7 @@ EMSN Vogelmonitoring
 
         # New species this year
         cur.execute("""
-            SELECT DISTINCT species
+            SELECT DISTINCT common_name, species
             FROM bird_detections
             WHERE EXTRACT(YEAR FROM detection_timestamp) = %s
             AND detection_timestamp BETWEEN %s AND %s
@@ -650,7 +655,10 @@ EMSN Vogelmonitoring
                 WHERE detection_timestamp < %s
             )
         """, (start_date.year, start_date, end_date, start_date))
-        data["new_species_this_week"] = [row[0] for row in cur.fetchall()]
+        data["new_species_this_week"] = [
+            {"name": row[0] or row[1], "scientific_name": row[1]}
+            for row in cur.fetchall()
+        ]
 
         cur.close()
         return data
@@ -927,12 +935,23 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 """
 
         for i, species in enumerate(data['top_species'], 1):
-            markdown += f"{i}. **{species['name']}**: {species['count']:,} detecties\n"
+            name = species['name']
+            scientific = species.get('scientific_name', '')
+            if scientific and scientific != name:
+                markdown += f"{i}. **{name}** (*{scientific}*): {species['count']:,} detecties\n"
+            else:
+                markdown += f"{i}. **{name}**: {species['count']:,} detecties\n"
 
         if data['rare_sightings']:
             markdown += "\n### 🦅 Zeldzame Waarnemingen\n\n"
             for sighting in data['rare_sightings']:
-                markdown += f"- **{sighting['species']}** op {sighting['time']} ({sighting['confidence']:.1%} zekerheid, station {sighting['station']})\n"
+                name = sighting['species']
+                scientific = sighting.get('scientific_name', '')
+                if scientific and scientific != name:
+                    species_str = f"**{name}** (*{scientific}*)"
+                else:
+                    species_str = f"**{name}**"
+                markdown += f"- {species_str} op {sighting['time']} ({sighting['confidence']:.1%} zekerheid, station {sighting['station']})\n"
 
         if data['milestones']:
             markdown += "\n### 🎉 Mijlpalen\n\n"
@@ -1177,7 +1196,12 @@ Samenvatting:
 Top 3 soorten:
 """
         for i, species in enumerate(data['top_species'][:3], 1):
-            email_body += f"{i}. {species['name']}: {species['count']:,} detecties\n"
+            name = species['name']
+            scientific = species.get('scientific_name', '')
+            if scientific and scientific != name:
+                email_body += f"{i}. {name} ({scientific}): {species['count']:,} detecties\n"
+            else:
+                email_body += f"{i}. {name}: {species['count']:,} detecties\n"
 
         email_body += f"""
 --- Rapport Tekst ({style_label}) ---
