@@ -1,0 +1,507 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Realtime overzicht van alle EMSN systemd timers met tijdlijn",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "emsn_postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "emsn_postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  'Nu: ' || TO_CHAR(NOW() AT TIME ZONE 'Europe/Amsterdam', 'HH24:MI:SS') as time,\n  COUNT(*) FILTER (WHERE next_run > NOW() AND next_run < NOW() + INTERVAL '1 hour') as \"Komend uur\",\n  COUNT(*) FILTER (WHERE next_run > NOW() AND next_run < NOW() + INTERVAL '24 hours') as \"Vandaag\",\n  COUNT(*) as \"Totaal EMSN Timers\"\nFROM timer_timeline_current",
+          "refId": "A",
+          "sql": {
+            "columns": [{"parameters": [], "type": "function"}],
+            "groupBy": [{"property": {"type": "string"}, "type": "groupBy"}],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Timer Status Overzicht",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "emsn_postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 3
+      },
+      "id": 2,
+      "options": {
+        "displayLabels": ["name", "value"],
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "emsn_postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT category, COUNT(*) as count\nFROM timer_timeline_current\nGROUP BY category\nORDER BY count DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Timers per Categorie",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "emsn_postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 300
+              },
+              {
+                "color": "orange",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Seconden"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "gauge"
+                }
+              },
+              {
+                "id": "max",
+                "value": 3600
+              },
+              {
+                "id": "min",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Categorie"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Timer"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 200
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 8,
+        "y": 3
+      },
+      "id": 3,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Seconden"
+          }
+        ]
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "emsn_postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  timer_name as \"Timer\",\n  category as \"Categorie\",\n  TO_CHAR(next_run AT TIME ZONE 'Europe/Amsterdam', 'HH24:MI:SS') as \"Volgende run\",\n  CASE \n    WHEN seconds_until_next < 60 THEN seconds_until_next || 's'\n    WHEN seconds_until_next < 3600 THEN ROUND(seconds_until_next/60) || 'm'\n    ELSE ROUND(seconds_until_next/3600, 1) || 'u'\n  END as \"Over\",\n  seconds_until_next as \"Seconden\"\nFROM timer_timeline_current\nWHERE next_run > NOW()\nAND next_run < NOW() + INTERVAL '2 hours'\nORDER BY next_run ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "Komende 2 uur - Wat draait er binnenkort?",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "emsn_postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "id": 4,
+      "options": {
+        "displayMode": "lcd",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "text"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "emsn_postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  timer_name || ' (' || TO_CHAR(next_run AT TIME ZONE 'Europe/Amsterdam', 'HH24:MI') || ')' as metric,\n  GREATEST(0, EXTRACT(EPOCH FROM (next_run - NOW()))::integer) as value\nFROM timer_timeline_current\nWHERE next_run > NOW()\nAND next_run < NOW() + INTERVAL '6 hours'\nORDER BY next_run ASC\nLIMIT 15",
+          "refId": "A"
+        }
+      ],
+      "title": "Tijdlijn - Seconden tot uitvoering (komende 6 uur)",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "emsn_postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Laatste run"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 21
+      },
+      "id": 5,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "emsn_postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  timer_name as \"Timer\",\n  category as \"Categorie\",\n  TO_CHAR(last_run AT TIME ZONE 'Europe/Amsterdam', 'HH24:MI:SS') as \"Laatste run\",\n  CASE \n    WHEN seconds_since_last < 60 THEN ROUND(seconds_since_last) || 's geleden'\n    WHEN seconds_since_last < 3600 THEN ROUND(seconds_since_last/60) || 'm geleden'\n    ELSE ROUND(seconds_since_last/3600, 1) || 'u geleden'\n  END as \"Geleden\"\nFROM timer_timeline_current\nWHERE last_run IS NOT NULL\nORDER BY last_run DESC\nLIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Recent uitgevoerd",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "emsn_postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 21
+      },
+      "id": 6,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "emsn_postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  timer_name as \"Timer\",\n  category as \"Categorie\",\n  TO_CHAR(next_run AT TIME ZONE 'Europe/Amsterdam', 'DD Mon HH24:MI') as \"Volgende run\",\n  CASE \n    WHEN seconds_until_next < 86400 THEN 'Morgen'\n    WHEN seconds_until_next < 604800 THEN 'Deze week'\n    WHEN seconds_until_next < 2592000 THEN 'Deze maand'\n    ELSE 'Later'\n  END as \"Wanneer\"\nFROM timer_timeline_current\nWHERE next_run > NOW() + INTERVAL '6 hours'\nORDER BY next_run ASC\nLIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Gepland (na 6 uur)",
+      "type": "table"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["emsn", "timers", "timeline"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now+6h"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "EMSN Timer Tijdlijn",
+  "uid": "emsn-timer-timeline",
+  "version": 1,
+  "weekStart": ""
+}
