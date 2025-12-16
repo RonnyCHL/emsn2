@@ -49,3 +49,75 @@
     notifempty
     create 644 ronny ronny
 }
+
+# BirdNET MQTT Publisher logs (large files!)
+/mnt/usb/logs/birdnet-mqtt-publisher.error.log
+/mnt/usb/logs/birdnet_mqtt_zolder.log {
+    daily
+    rotate 3
+    compress
+    delaycompress
+    missingok
+    notifempty
+    size 10M
+    copytruncate
+    create 644 ronny ronny
+}
+
+# Ulanzi bridge logs
+/mnt/usb/logs/ulanzi_bridge_*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 ronny ronny
+}
+
+# Dual detection logs
+/mnt/usb/logs/dual_detection_*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 ronny ronny
+}
+
+# Cooldown display logs
+/mnt/usb/logs/cooldown_display_*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 ronny ronny
+}
+
+# Screenshot server logs
+/mnt/usb/logs/screenshot-server.error.log {
+    daily
+    rotate 3
+    compress
+    delaycompress
+    missingok
+    notifempty
+    size 5M
+    copytruncate
+    create 644 root root
+}
+
+# System inventory logs
+/mnt/usb/logs/system-inventory.log
+/mnt/usb/logs/system-inventory.error.log {
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 ronny ronny
+}
