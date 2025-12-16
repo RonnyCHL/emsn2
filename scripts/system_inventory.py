@@ -11,8 +11,14 @@ Genereert een compleet overzicht van alle EMSN-systemen:
 Output:
 - Markdown bestand met complete systeeminventarisatie
 - Update van het EMSN Handboek met actuele data
+- Detectie van nieuwe componenten sinds vorige run
 
-Versie: 1.1.0
+Features v1.2.0:
+- Nieuwe componenten detectie (services, timers, scripts, tabellen)
+- State file tracking voor vergelijking met vorige inventarisatie
+- "Nieuwe Componenten" sectie in rapport wanneer er wijzigingen zijn
+
+Versie: 1.2.0
 Auteur: EMSN Project
 """
 
@@ -33,7 +39,107 @@ except ImportError:
     HAS_PSYCOPG2 = False
 
 # Script versie
-VERSION = "1.1.0"
+VERSION = "1.2.0"
+
+# State file voor tracking van bekende componenten
+STATE_FILE = Path("/home/ronny/emsn2/docs/.inventory_state.json")
+
+
+def load_state() -> dict:
+    """Laad vorige inventarisatie state."""
+    if STATE_FILE.exists():
+        try:
+            with open(STATE_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"   ⚠️ Kon state niet laden: {e}")
+    return {}
+
+
+def save_state(state: dict) -> bool:
+    """Sla huidige inventarisatie state op."""
+    try:
+        with open(STATE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(state, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"   ❌ Kon state niet opslaan: {e}")
+        return False
+
+
+def detect_new_components(current: dict, previous: dict) -> dict:
+    """Detecteer nieuwe componenten sinds vorige run.
+
+    Returns een dict met nieuwe componenten per categorie:
+    {
+        "zolder_services": ["nieuwe-service.service", ...],
+        "zolder_timers": [...],
+        "zolder_scripts": [...],
+        "berging_services": [...],
+        "berging_timers": [...],
+        "database_tables": [...],
+    }
+    """
+    new_components = {}
+
+    # Zolder services
+    curr_zolder_services = set(s['name'] for s in current.get('zolder', {}).get('services', []))
+    prev_zolder_services = set(previous.get('zolder_services', []))
+    new_zolder_services = curr_zolder_services - prev_zolder_services
+    if new_zolder_services and prev_zolder_services:  # Alleen als er vorige data was
+        new_components['zolder_services'] = sorted(new_zolder_services)
+
+    # Zolder timers
+    curr_zolder_timers = set(t['name'] for t in current.get('zolder', {}).get('timers', []))
+    prev_zolder_timers = set(previous.get('zolder_timers', []))
+    new_zolder_timers = curr_zolder_timers - prev_zolder_timers
+    if new_zolder_timers and prev_zolder_timers:
+        new_components['zolder_timers'] = sorted(new_zolder_timers)
+
+    # Zolder scripts
+    curr_zolder_scripts = set(s['path'] for s in current.get('zolder', {}).get('scripts', []))
+    prev_zolder_scripts = set(previous.get('zolder_scripts', []))
+    new_zolder_scripts = curr_zolder_scripts - prev_zolder_scripts
+    if new_zolder_scripts and prev_zolder_scripts:
+        new_components['zolder_scripts'] = sorted(new_zolder_scripts)
+
+    # Berging services
+    curr_berging_services = set(s['name'] for s in current.get('berging', {}).get('services', []))
+    prev_berging_services = set(previous.get('berging_services', []))
+    new_berging_services = curr_berging_services - prev_berging_services
+    if new_berging_services and prev_berging_services:
+        new_components['berging_services'] = sorted(new_berging_services)
+
+    # Berging timers
+    curr_berging_timers = set(t['name'] for t in current.get('berging', {}).get('timers', []))
+    prev_berging_timers = set(previous.get('berging_timers', []))
+    new_berging_timers = curr_berging_timers - prev_berging_timers
+    if new_berging_timers and prev_berging_timers:
+        new_components['berging_timers'] = sorted(new_berging_timers)
+
+    # Database tabellen
+    curr_tables = set(t['name'] for t in current.get('database', {}).get('tables', []))
+    prev_tables = set(previous.get('database_tables', []))
+    new_tables = curr_tables - prev_tables
+    if new_tables and prev_tables:
+        new_components['database_tables'] = sorted(new_tables)
+
+    return new_components
+
+
+def build_current_state(zolder_info: dict, berging_info: dict, db_info: dict) -> dict:
+    """Bouw huidige state dict voor opslag."""
+    return {
+        "timestamp": datetime.now().isoformat(),
+        "version": VERSION,
+        "zolder_services": [s['name'] for s in zolder_info.get('services', [])],
+        "zolder_timers": [t['name'] for t in zolder_info.get('timers', [])],
+        "zolder_scripts": [s['path'] for s in zolder_info.get('scripts', [])],
+        "berging_services": [s['name'] for s in berging_info.get('services', [])],
+        "berging_timers": [t['name'] for t in berging_info.get('timers', [])],
+        "database_tables": [t['name'] for t in db_info.get('tables', [])] if not db_info.get('error') else []
+    }
+
 
 # Configuratie
 CONFIG = {
@@ -401,7 +507,8 @@ def get_database_info() -> dict:
         return {"error": str(e)}
 
 
-def generate_markdown_report(zolder_info: dict, berging_info: dict, db_info: dict) -> str:
+def generate_markdown_report(zolder_info: dict, berging_info: dict, db_info: dict,
+                             new_components: dict = None, previous_timestamp: str = None) -> str:
     """Genereer Markdown rapport."""
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -445,6 +552,53 @@ def generate_markdown_report(zolder_info: dict, berging_info: dict, db_info: dic
         md += """### ✅ Geen Kritieke Problemen Gevonden
 
 """
+
+    # ============ NIEUWE COMPONENTEN SECTIE ============
+    if new_components:
+        md += """### 🆕 Nieuwe Componenten Sinds Vorige Run
+
+"""
+        if previous_timestamp:
+            md += f"*Vergeleken met inventarisatie van: {previous_timestamp}*\n\n"
+
+        if new_components.get('zolder_services'):
+            md += "**Zolder - Nieuwe Services:**\n"
+            for svc in new_components['zolder_services']:
+                md += f"- `{svc}`\n"
+            md += "\n"
+
+        if new_components.get('zolder_timers'):
+            md += "**Zolder - Nieuwe Timers:**\n"
+            for timer in new_components['zolder_timers']:
+                md += f"- `{timer}`\n"
+            md += "\n"
+
+        if new_components.get('zolder_scripts'):
+            md += "**Zolder - Nieuwe Scripts:**\n"
+            for script in new_components['zolder_scripts']:
+                md += f"- `{script}`\n"
+            md += "\n"
+
+        if new_components.get('berging_services'):
+            md += "**Berging - Nieuwe Services:**\n"
+            for svc in new_components['berging_services']:
+                md += f"- `{svc}`\n"
+            md += "\n"
+
+        if new_components.get('berging_timers'):
+            md += "**Berging - Nieuwe Timers:**\n"
+            for timer in new_components['berging_timers']:
+                md += f"- `{timer}`\n"
+            md += "\n"
+
+        if new_components.get('database_tables'):
+            md += "**Database - Nieuwe Tabellen:**\n"
+            for table in new_components['database_tables']:
+                md += f"- `{table}`\n"
+            md += "\n"
+
+        md += "> **Let op:** Deze nieuwe componenten zijn nog niet gedocumenteerd in het handboek.\n"
+        md += "> Overweeg om de documentatie bij te werken!\n\n"
 
     # ============ ZOLDER SECTIE ============
     md += """---
@@ -854,10 +1008,38 @@ def main():
     else:
         print(f"   ✅ {len(db_info.get('tables', []))} tabellen, {db_info.get('total_size', 'N/A')}")
 
+    # Laad vorige state en detecteer nieuwe componenten
+    print("\n🔄 Vergelijken met vorige inventarisatie...")
+    previous_state = load_state()
+    previous_timestamp = previous_state.get('timestamp', None)
+
+    # Bouw current state dict voor vergelijking
+    current_data = {
+        "zolder": zolder_info,
+        "berging": berging_info,
+        "database": db_info
+    }
+
+    new_components = detect_new_components(current_data, previous_state)
+
+    if new_components:
+        total_new = sum(len(v) for v in new_components.values())
+        print(f"   🆕 {total_new} nieuwe component(en) gevonden!")
+        for category, items in new_components.items():
+            print(f"      - {category}: {len(items)}")
+    elif previous_timestamp:
+        print(f"   ✅ Geen nieuwe componenten sinds {previous_timestamp}")
+    else:
+        print(f"   ℹ️ Eerste run - baseline wordt opgeslagen")
+
     # Genereer rapport (tenzij --handbook-only)
     if not args.handbook_only:
         print("\n📝 Genereren Markdown rapport...")
-        report = generate_markdown_report(zolder_info, berging_info, db_info)
+        report = generate_markdown_report(
+            zolder_info, berging_info, db_info,
+            new_components=new_components,
+            previous_timestamp=previous_timestamp
+        )
 
         # Schrijf naar bestand
         output_dir = Path("/home/ronny/emsn2/docs")
@@ -899,6 +1081,15 @@ def main():
         print(f"\n   ⚠️ FAILED SERVICES: {', '.join(failed)}")
     else:
         print(f"\n   ✅ Geen failed services")
+
+    # Sla huidige state op voor volgende run
+    if not args.handbook_only:
+        print("\n💾 Opslaan state voor volgende run...")
+        new_state = build_current_state(zolder_info, berging_info, db_info)
+        if save_state(new_state):
+            print(f"   ✅ State opgeslagen: {STATE_FILE}")
+        else:
+            print(f"   ⚠️ State niet opgeslagen")
 
     return 0
 

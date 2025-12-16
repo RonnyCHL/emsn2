@@ -53,8 +53,8 @@ EMSN 2.0 is een biodiversiteitsmonitoringssysteem dat vogelgeluiden detecteert e
 - **Totaal vogeldetecties:** 53,294
 - **Unieke soorten:** 142 (in referentietabel)
 - **Dual detections:** 7,473 (beide stations)
-- **Weerdata metingen:** 29,998
-- **System health records:** 37,751
+- **Weerdata metingen:** 30,005
+- **System health records:** 37,772
 
 ---
 
