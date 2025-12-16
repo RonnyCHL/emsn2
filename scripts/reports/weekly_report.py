@@ -17,16 +17,173 @@ from report_base import ReportBase, REPORTS_PATH
 from report_charts import ReportCharts
 from report_highlights import ReportHighlights
 from report_spectrograms import ReportSpectrograms
+from weather_forecast import get_forecast_for_report
 
 
 class WeeklyReportGenerator(ReportBase):
     """Generate weekly narrative bird activity reports"""
 
-    def __init__(self, style=None, report_format='uitgebreid', include_spectrograms=False):
+    def __init__(self, style=None, report_format='uitgebreid', include_spectrograms=False,
+                 pending_mode=False):
         super().__init__()
         self.get_style(style)
         self.report_format = report_format  # 'kort' or 'uitgebreid'
         self.include_spectrograms = include_spectrograms
+        self.pending_mode = pending_mode  # If True, add to review queue instead of sending
+
+    def create_pending_report(self, report_type, report_title, report_filename,
+                              markdown_path, pdf_path=None, expires_hours=24,
+                              report_data=None):
+        """
+        Create a pending report in the review queue.
+        Sends notification to Ulanzi display and email.
+        """
+        import json
+        import requests
+
+        try:
+            # Insert into database
+            cur = self.conn.cursor()
+
+            expires_at = None
+            if expires_hours:
+                cur.execute("SELECT NOW() + INTERVAL '%s hours'", (expires_hours,))
+                expires_at = cur.fetchone()[0]
+
+            cur.execute("""
+                INSERT INTO pending_reports
+                (report_type, report_title, report_filename, markdown_path, pdf_path,
+                 expires_at, report_data)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                report_type,
+                report_title,
+                report_filename,
+                str(markdown_path),
+                str(pdf_path) if pdf_path else None,
+                expires_at,
+                json.dumps(report_data) if report_data else None
+            ))
+
+            report_id = cur.fetchone()[0]
+            self.conn.commit()
+
+            # Send Ulanzi notification
+            self._send_ulanzi_notification(report_type, report_title)
+
+            # Send email notification
+            self._send_pending_email_notification(report_type, report_title)
+
+            # Update notification status
+            cur.execute("""
+                UPDATE pending_reports
+                SET notification_sent = TRUE, notification_sent_at = NOW()
+                WHERE id = %s
+            """, (report_id,))
+            self.conn.commit()
+
+            return report_id
+
+        except Exception as e:
+            print(f"ERROR creating pending report: {e}")
+            return None
+
+    def _send_ulanzi_notification(self, report_type, report_title):
+        """Send notification to Ulanzi TC001 display"""
+        import requests
+
+        try:
+            type_labels = {
+                'weekly': 'Weekrapport',
+                'monthly': 'Maandrapport',
+                'seasonal': 'Seizoen',
+                'yearly': 'Jaarrapport'
+            }
+            type_label = type_labels.get(report_type, 'Rapport')
+
+            payload = {
+                "text": f"Nieuw {type_label} wacht op review",
+                "color": "#FFAA00",
+                "duration": 300,  # 30 seconds in deciseconds
+                "scrollSpeed": 80,
+                "stack": True,
+            }
+
+            response = requests.post(
+                "http://192.168.1.11/api/notify",
+                json=payload,
+                timeout=5
+            )
+            return response.status_code == 200
+
+        except Exception as e:
+            print(f"   WARNING: Ulanzi notification failed: {e}")
+            return False
+
+    def _send_pending_email_notification(self, report_type, report_title):
+        """Send email notification about pending report"""
+        import smtplib
+        import yaml
+        from email.mime.text import MIMEText
+
+        try:
+            config_path = Path(__file__).parent.parent.parent / 'config' / 'email.yaml'
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+
+            smtp_password = os.environ.get('EMSN_SMTP_PASSWORD')
+            if not smtp_password:
+                print("   WARNING: SMTP password not set, skipping email notification")
+                return False
+
+            smtp_config = config.get('smtp', {})
+            email_config = config.get('email', {})
+            admin_email = email_config.get('admin_email', 'ronny@ronnyhullegie.nl')
+
+            type_labels = {
+                'weekly': 'Weekrapport',
+                'monthly': 'Maandrapport',
+                'seasonal': 'Seizoensrapport',
+                'yearly': 'Jaarrapport'
+            }
+            type_label = type_labels.get(report_type, report_type)
+
+            msg = MIMEText(f"""Beste Ronny,
+
+Er staat een nieuw {type_label} klaar voor review:
+
+{report_title}
+
+Je kunt het rapport bekijken en goedkeuren via:
+http://192.168.1.25/rapporten/#review
+
+Als je het rapport niet binnen 24 uur beoordeelt, wordt het automatisch goedgekeurd en verzonden.
+
+Met vriendelijke groet,
+EMSN Vogelmonitoring
+""", 'plain', 'utf-8')
+
+            msg['Subject'] = f"EMSN: Nieuw {type_label} wacht op review"
+            msg['From'] = f"{email_config.get('from_name', 'EMSN')} <{email_config.get('from_address', smtp_config.get('username'))}>"
+            msg['To'] = admin_email
+
+            server = smtplib.SMTP(smtp_config.get('host'), smtp_config.get('port', 587))
+            if smtp_config.get('use_tls', True):
+                server.starttls()
+            server.login(smtp_config.get('username'), smtp_password)
+            server.sendmail(
+                email_config.get('from_address', smtp_config.get('username')),
+                [admin_email],
+                msg.as_string()
+            )
+            server.quit()
+
+            return True
+
+        except Exception as e:
+            print(f"   WARNING: Email notification failed: {e}")
+            return False
 
     def get_week_dates(self):
         """Get start and end dates for last week"""
@@ -564,20 +721,36 @@ Gebruik geen bullet points, schrijf vloeiende paragrafen.
         print("Genereren grafieken...")
         charts = ReportCharts(REPORTS_PATH)
 
-        # Generate spectrograms if enabled
+        # Generate spectrograms
+        # - If --spectrograms flag: include full set (top species + highlights)
+        # - For uitgebreid format: automatically include highlights spectrograms (max 3)
         spectrograms_markdown = ""
-        if self.include_spectrograms and start_date and end_date:
-            print("Zoeken spectrogrammen...")
+        if start_date and end_date:
             spec_generator = ReportSpectrograms(REPORTS_PATH, self.conn)
             top_species_names = [s['name'] for s in data.get('top_species', [])[:5]]
             highlights = data.get('highlights', {})
 
-            prepared_specs = spec_generator.prepare_for_report(
-                start_date, end_date,
-                top_species=top_species_names,
-                highlights=highlights,
-                max_total=6 if self.report_format == 'uitgebreid' else 3
-            )
+            if self.include_spectrograms:
+                # Full spectrogram mode: top species + highlights
+                print("Zoeken spectrogrammen (volledig)...")
+                prepared_specs = spec_generator.prepare_for_report(
+                    start_date, end_date,
+                    top_species=top_species_names,
+                    highlights=highlights,
+                    max_total=6 if self.report_format == 'uitgebreid' else 3
+                )
+            elif self.report_format == 'uitgebreid' and highlights:
+                # Auto-include spectrograms for interesting highlights only
+                print("Zoeken spectrogrammen (highlights)...")
+                prepared_specs = spec_generator.prepare_for_report(
+                    start_date, end_date,
+                    top_species=None,  # Skip top species
+                    highlights=highlights,
+                    max_total=3  # Max 3 for auto-include
+                )
+            else:
+                prepared_specs = []
+
             if prepared_specs:
                 spectrograms_markdown = spec_generator.generate_markdown_section(prepared_specs)
                 print(f"   - {len(prepared_specs)} spectrogrammen toegevoegd")
@@ -831,6 +1004,17 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                 markdown += f"- Activiteit bij lage druk: {humidity['activity_by_pressure'].get('lage druk', 0):,} detecties\n"
                 markdown += f"- Activiteit bij hoge druk: {humidity['activity_by_pressure'].get('hoge druk', 0):,} detecties\n"
 
+        # Add weather forecast for coming week (only for extended format)
+        if self.report_format == 'uitgebreid':
+            markdown += "\n"
+            try:
+                weather_forecast = get_forecast_for_report()
+                markdown += weather_forecast
+                markdown += "\n"
+            except Exception as e:
+                print(f"   WARNING: Kon weersverwachting niet ophalen: {e}")
+                markdown += "\n*Weersverwachting niet beschikbaar.*\n"
+
         markdown += f"""
 ---
 
@@ -894,54 +1078,80 @@ Licentie: CC BY-NC 4.0 (gebruik toegestaan met bronvermelding, niet commercieel)
         print("Bijwerken web index...")
         self.update_web_index()
 
-        # Send emails per style preference
-        print("Versturen emails per stijlvoorkeur...")
-        subject = f"EMSN Weekrapport Week {data['week_number']} - {data['year']}"
+        # Pending mode: add to review queue instead of sending
+        if self.pending_mode:
+            print("Toevoegen aan review queue...")
+            report_id = self.create_pending_report(
+                report_type='weekly',
+                report_title=f"Weekrapport Week {data['week_number']} - {data['year']}",
+                report_filename=filepath.name,
+                markdown_path=filepath,
+                report_data={
+                    'total_detections': data['total_detections'],
+                    'unique_species': data['unique_species'],
+                    'week_number': data['week_number'],
+                    'year': data['year'],
+                    'period': data['period']
+                }
+            )
+            if report_id:
+                print(f"   - Rapport toegevoegd aan review queue (ID: {report_id})")
+                print("   - Notificatie verzonden naar Ulanzi & email")
+            else:
+                print("   WARNING: Kon rapport niet toevoegen aan review queue")
 
-        # Get recipients grouped by their preferred style
-        recipients_by_style = self.get_recipients_by_style(report_type="weekly")
+            print(f"\nWeekrapport succesvol gegenereerd en wacht op review")
+            print(f"Bestand: {filepath}")
 
-        if not recipients_by_style:
-            print("   - Geen ontvangers voor automatische verzending")
         else:
-            # Track which styles we need to generate
-            generated_reports = {}  # style_name -> report_text
+            # Original behavior: send emails per style preference
+            print("Versturen emails per stijlvoorkeur...")
+            subject = f"EMSN Weekrapport Week {data['week_number']} - {data['year']}"
 
-            # Always have the primary style available
-            generated_reports[self.style_name] = report
+            # Get recipients grouped by their preferred style
+            recipients_by_style = self.get_recipients_by_style(report_type="weekly")
 
-            for style_name, recipients in recipients_by_style.items():
-                print(f"   - Stijl '{style_name}': {len(recipients)} ontvanger(s)")
+            if not recipients_by_style:
+                print("   - Geen ontvangers voor automatische verzending")
+            else:
+                # Track which styles we need to generate
+                generated_reports = {}  # style_name -> report_text
 
-                # Generate report for this style if not already done
-                if style_name not in generated_reports:
-                    print(f"     Genereren rapport in stijl '{style_name}'...")
-                    # Temporarily switch style
-                    original_style = self.style
-                    original_style_name = self.style_name
-                    self.get_style(style_name)
+                # Always have the primary style available
+                generated_reports[self.style_name] = report
 
-                    style_report = self.generate_report(data)
-                    if style_report:
-                        generated_reports[style_name] = style_report
-                        print(f"     - {len(style_report)} karakters gegenereerd")
-                    else:
-                        print(f"     WARNING: Kon rapport niet genereren, gebruik default")
-                        generated_reports[style_name] = report
+                for style_name, recipients in recipients_by_style.items():
+                    print(f"   - Stijl '{style_name}': {len(recipients)} ontvanger(s)")
 
-                    # Restore original style
-                    self.style = original_style
-                    self.style_name = original_style_name
+                    # Generate report for this style if not already done
+                    if style_name not in generated_reports:
+                        print(f"     Genereren rapport in stijl '{style_name}'...")
+                        # Temporarily switch style
+                        original_style = self.style
+                        original_style_name = self.style_name
+                        self.get_style(style_name)
 
-                # Create personalized email body with the style-specific content
-                style_report_text = generated_reports.get(style_name, report)
-                email_body = self._create_email_body(data, style_report_text, style_name)
+                        style_report = self.generate_report(data)
+                        if style_report:
+                            generated_reports[style_name] = style_report
+                            print(f"     - {len(style_report)} karakters gegenereerd")
+                        else:
+                            print(f"     WARNING: Kon rapport niet genereren, gebruik default")
+                            generated_reports[style_name] = report
 
-                # Send to recipients of this style
-                self.send_email_to_recipients(subject, email_body, recipients)
+                        # Restore original style
+                        self.style = original_style
+                        self.style_name = original_style_name
 
-        print(f"\nWeekrapport succesvol gegenereerd")
-        print(f"Bestand: {filepath}")
+                    # Create personalized email body with the style-specific content
+                    style_report_text = generated_reports.get(style_name, report)
+                    email_body = self._create_email_body(data, style_report_text, style_name)
+
+                    # Send to recipients of this style
+                    self.send_email_to_recipients(subject, email_body, recipients)
+
+            print(f"\nWeekrapport succesvol gegenereerd")
+            print(f"Bestand: {filepath}")
 
         self.close_db()
         return True
@@ -997,6 +1207,8 @@ def main():
                         help='Report format: kort (150-200 woorden, 2 grafieken) or uitgebreid (400-600 woorden, alle grafieken)')
     parser.add_argument('--spectrograms', action='store_true',
                         help='Include spectrograms from BirdNET-Pi recordings')
+    parser.add_argument('--pending', action='store_true',
+                        help='Add report to review queue instead of sending directly')
     parser.add_argument('--list-styles', action='store_true',
                         help='List available writing styles and exit')
 
@@ -1012,7 +1224,8 @@ def main():
     generator = WeeklyReportGenerator(
         style=args.style,
         report_format=args.format,
-        include_spectrograms=args.spectrograms
+        include_spectrograms=args.spectrograms,
+        pending_mode=args.pending
     )
     success = generator.run()
     sys.exit(0 if success else 1)

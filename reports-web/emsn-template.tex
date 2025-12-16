@@ -1,0 +1,149 @@
+% EMSN Report LaTeX Template for Pandoc
+% Generates professional PDFs with EMSN logo header
+
+\documentclass[11pt,a4paper]{article}
+
+% Margins
+\usepackage[margin=2.5cm, top=3.5cm, bottom=2.5cm]{geometry}
+
+% Unicode support with XeLaTeX
+\usepackage{fontspec}
+\defaultfontfeatures{Mapping=tex-text,Scale=MatchLowercase}
+
+% Try to use system fonts, fallback to defaults
+\IfFontExistsTF{DejaVu Sans}{
+    \setmainfont{DejaVu Sans}
+}{
+    \setmainfont{Liberation Sans}
+}
+\IfFontExistsTF{DejaVu Sans Mono}{
+    \setmonofont{DejaVu Sans Mono}
+}{
+    \setmonofont{Liberation Mono}
+}
+
+% Dutch language support
+\usepackage{polyglossia}
+\setdefaultlanguage{dutch}
+
+% Graphics for logo
+\usepackage{graphicx}
+
+% Colors
+\usepackage{xcolor}
+\definecolor{emsngreen}{HTML}{1B5E3B}
+\definecolor{emsngray}{HTML}{666666}
+
+% Headers and footers
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+
+% Header configuration
+\fancyhead[L]{%
+$if(logo-path)$
+    \raisebox{-0.4\height}{\includegraphics[height=1cm]{$logo-path$}}%
+$endif$
+}
+\fancyhead[R]{%
+    \small\textcolor{emsngray}{Ecologisch Monitoring Systeem Nijverdal}%
+}
+
+% Footer configuration
+\fancyfoot[L]{\small\textcolor{emsngray}{www.ronnyhullegie.nl}}
+\fancyfoot[C]{\small\textcolor{emsngray}{\thepage}}
+\fancyfoot[R]{\small\textcolor{emsngray}{$date$}}
+
+% Header/footer lines
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% Tables
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+
+% Hyperlinks
+\usepackage[colorlinks=true,linkcolor=emsngreen,urlcolor=emsngreen,breaklinks=true]{hyperref}
+
+% Lists
+\usepackage{enumitem}
+\setlist{noitemsep,topsep=0pt}
+
+% Paragraph spacing
+\setlength{\parskip}{0.6em}
+\setlength{\parindent}{0pt}
+
+% Section formatting
+\usepackage{titlesec}
+\titleformat{\section}
+    {\Large\bfseries\color{emsngreen}}
+    {\thesection}{1em}{}
+\titleformat{\subsection}
+    {\large\bfseries\color{emsngreen}}
+    {\thesubsection}{1em}{}
+\titleformat{\subsubsection}
+    {\normalsize\bfseries\color{emsngreen}}
+    {\thesubsubsection}{1em}{}
+
+% Images
+\usepackage{float}
+\floatplacement{figure}{H}
+
+% Code highlighting (from pandoc)
+$if(highlighting-macros)$
+$highlighting-macros$
+$endif$
+
+% Tight lists (from pandoc)
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+% Title page styling
+$if(title)$
+\title{%
+    \vspace{-2cm}%
+$if(logo-path)$
+    \includegraphics[height=2.5cm]{$logo-path$}\\[1em]%
+$endif$
+    {\Huge\bfseries\color{emsngreen}$title$}%
+$if(subtitle)$
+    \\[0.5em]{\Large\color{emsngray}$subtitle$}%
+$endif$
+}
+$else$
+\title{}
+$endif$
+
+\author{}
+\date{\color{emsngray}$date$}
+
+\begin{document}
+
+$if(title)$
+\maketitle
+\thispagestyle{fancy}
+$endif$
+
+$body$
+
+% Disclaimer section - appears at end of all reports
+\vspace{2em}
+\noindent\rule{\textwidth}{0.4pt}
+
+\small
+\textcolor{emsngray}{%
+\textbf{Disclaimer}\\[0.5em]
+Dit rapport is automatisch gegenereerd op basis van geluidsopnames die zijn geanalyseerd
+met BirdNET, een AI-systeem voor vogelgeluidsherkenning. Hoewel BirdNET een hoge nauwkeurigheid
+heeft, kunnen er fouten voorkomen bij de soortdeterminatie.\\[0.5em]
+\textbf{Let op:} Zeldzame of onverwachte soorten in dit rapport zijn \textbf{niet geverifieerd}
+door experts en dienen met voorzichtigheid ge\"interpreteerd te worden. Voor wetenschappelijk
+gebruik of officiële waarnemingen wordt aangeraden de detecties te verifi\"eren aan de hand
+van de originele geluidsopnames.\\[0.5em]
+De gegevens zijn afkomstig van het Ecologisch Monitoring Systeem Nijverdal (EMSN), een
+citizen science project van Ronny Hullegie. Voor vragen of opmerkingen:
+\href{mailto:ronny@ronnyhullegie.nl}{ronny@ronnyhullegie.nl}
+}
+
+\end{document}

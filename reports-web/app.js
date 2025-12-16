@@ -30,6 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupGenerator();
     setupEmailManagement();
     setupScheduleTab();
+    setupReviewTab();
+    loadPendingCount();
 });
 
 async function loadReports() {
@@ -884,4 +886,383 @@ async function handleQuickAction(action) {
         btn.disabled = false;
         btn.classList.remove('loading');
     });
+}
+
+// =============================================================================
+// REVIEW TAB
+// =============================================================================
+
+let currentReviewReport = null;
+let pendingReports = [];
+
+function setupReviewTab() {
+    // Load data when review tab is shown
+    document.querySelectorAll('.main-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            if (tab.dataset.tab === 'review') {
+                loadPendingReports();
+                loadReviewHistory();
+            }
+        });
+    });
+}
+
+// Load pending count for badge
+async function loadPendingCount() {
+    try {
+        const response = await fetch(getApiUrl('api/pending', false));
+        const data = await response.json();
+
+        const badge = document.getElementById('pending-count');
+        if (badge) {
+            const count = data.count || 0;
+            badge.textContent = count;
+            if (count > 0) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+    } catch (error) {
+        console.error('Error loading pending count:', error);
+    }
+}
+
+// Load pending reports list
+async function loadPendingReports() {
+    const container = document.getElementById('pending-reports-list');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading">Laden...</div>';
+
+    try {
+        const response = await fetch(getApiUrl('api/pending', false));
+        const data = await response.json();
+
+        pendingReports = data.pending_reports || [];
+
+        if (pendingReports.length === 0) {
+            container.innerHTML = '<p class="no-data">Geen rapporten wachten op review</p>';
+            return;
+        }
+
+        let html = '';
+        pendingReports.forEach(report => {
+            const createdDate = new Date(report.created_at);
+            const dateStr = createdDate.toLocaleDateString('nl-NL', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            // Calculate time remaining if expires_at is set
+            let timeRemaining = '';
+            if (report.hours_until_expiry !== null) {
+                const hours = Math.round(report.hours_until_expiry);
+                if (hours < 2) {
+                    timeRemaining = `<span class="time-remaining urgent">Nog ${hours}u</span>`;
+                } else {
+                    timeRemaining = `<span class="time-remaining">Nog ${hours}u</span>`;
+                }
+            }
+
+            const typeLabels = {
+                'weekly': 'Wekelijks',
+                'monthly': 'Maandelijks',
+                'seasonal': 'Seizoen',
+                'yearly': 'Jaarlijks'
+            };
+            const typeLabel = typeLabels[report.report_type] || report.report_type;
+
+            html += `
+                <div class="pending-report-card" onclick="openReviewPanel(${report.id})">
+                    <div class="pending-report-info">
+                        <h4>${escapeHtml(report.report_title || report.report_filename)}</h4>
+                        <div class="report-meta">
+                            <span class="status-badge pending">${typeLabel}</span>
+                            Aangemaakt: ${dateStr}
+                            ${report.has_custom_text ? '<span class="badge-new" style="background:#fbbf24;">Tekst</span>' : ''}
+                            ${timeRemaining}
+                        </div>
+                    </div>
+                    <div class="pending-report-actions">
+                        <button class="btn btn-small btn-primary" onclick="event.stopPropagation(); openReviewPanel(${report.id})">Review</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error loading pending reports:', error);
+        container.innerHTML = '<div class="error">Kon rapporten niet laden</div>';
+    }
+}
+
+// Open review panel for a specific report
+async function openReviewPanel(reportId) {
+    const panel = document.getElementById('review-panel');
+    if (!panel) return;
+
+    try {
+        const response = await fetch(getApiUrl(`api/pending/${reportId}`, false));
+        const data = await response.json();
+
+        if (data.error) {
+            alert('Fout: ' + data.error);
+            return;
+        }
+
+        currentReviewReport = data;
+
+        // Update title
+        document.getElementById('review-title').textContent = data.report_title || data.report_filename;
+
+        // Load existing custom text if any
+        document.getElementById('custom-text').value = data.custom_text || '';
+        document.getElementById('custom-text-position').value = data.custom_text_position || 'after_intro';
+        document.getElementById('reviewer-notes').value = data.reviewer_notes || '';
+
+        // Clear preview
+        document.getElementById('report-preview-content').innerHTML =
+            '<p class="no-data">Klik op "Preview" om het rapport met je tekst te bekijken</p>';
+
+        // Show panel
+        panel.classList.remove('hidden');
+        panel.scrollIntoView({ behavior: 'smooth' });
+
+    } catch (error) {
+        console.error('Error loading report:', error);
+        alert('Fout bij laden rapport: ' + error.message);
+    }
+}
+
+// Close review panel
+function closeReviewPanel() {
+    const panel = document.getElementById('review-panel');
+    if (panel) {
+        panel.classList.add('hidden');
+    }
+    currentReviewReport = null;
+}
+
+// Preview report with custom text
+async function previewReport() {
+    if (!currentReviewReport) return;
+
+    const previewContainer = document.getElementById('report-preview-content');
+    previewContainer.innerHTML = '<div class="loading">Preview laden...</div>';
+
+    const customText = document.getElementById('custom-text').value;
+    const position = document.getElementById('custom-text-position').value;
+
+    try {
+        const response = await fetch(getApiUrl(`api/pending/${currentReviewReport.id}/preview?custom_text=${encodeURIComponent(customText)}&position=${position}`, false));
+        const data = await response.json();
+
+        if (data.error) {
+            previewContainer.innerHTML = `<div class="error">${data.error}</div>`;
+            return;
+        }
+
+        // Convert markdown to basic HTML (simple conversion)
+        let html = data.preview_content || '';
+
+        // Highlight custom text section
+        if (customText && data.preview_content.includes(customText)) {
+            html = html.replace(customText, `<div class="custom-text-highlight">${customText}</div>`);
+        }
+
+        // Basic markdown to HTML
+        html = simpleMarkdownToHtml(html);
+
+        previewContainer.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error loading preview:', error);
+        previewContainer.innerHTML = `<div class="error">Fout bij laden preview: ${error.message}</div>`;
+    }
+}
+
+// Simple markdown to HTML converter
+function simpleMarkdownToHtml(md) {
+    if (!md) return '';
+
+    // Headers
+    md = md.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+    md = md.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+    md = md.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+
+    // Bold and italic
+    md = md.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    md = md.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    md = md.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+    // Line breaks
+    md = md.replace(/\n\n/g, '</p><p>');
+    md = md.replace(/\n/g, '<br>');
+
+    // Wrap in paragraph
+    md = '<p>' + md + '</p>';
+
+    return md;
+}
+
+// Save review changes
+async function saveReviewChanges() {
+    if (!currentReviewReport) return;
+
+    const customText = document.getElementById('custom-text').value;
+    const position = document.getElementById('custom-text-position').value;
+    const notes = document.getElementById('reviewer-notes').value;
+
+    try {
+        const response = await fetch(getApiUrl(`api/pending/${currentReviewReport.id}/update`, true), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                custom_text: customText,
+                custom_text_position: position,
+                reviewer_notes: notes
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert('Wijzigingen opgeslagen');
+            // Reload pending reports
+            loadPendingReports();
+        } else {
+            alert('Fout: ' + (data.error || 'Onbekende fout'));
+        }
+    } catch (error) {
+        console.error('Error saving changes:', error);
+        alert('Fout bij opslaan: ' + error.message);
+    }
+}
+
+// Approve report
+async function approveReport() {
+    if (!currentReviewReport) return;
+
+    if (!confirm('Weet je zeker dat je dit rapport wilt goedkeuren en verzenden?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(getApiUrl(`api/pending/${currentReviewReport.id}/approve`, true), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert('Rapport goedgekeurd en verzonden!');
+            closeReviewPanel();
+            loadPendingReports();
+            loadReviewHistory();
+            loadPendingCount();
+        } else {
+            alert('Fout: ' + (data.error || 'Onbekende fout'));
+        }
+    } catch (error) {
+        console.error('Error approving report:', error);
+        alert('Fout bij goedkeuren: ' + error.message);
+    }
+}
+
+// Reject report
+async function rejectReport() {
+    if (!currentReviewReport) return;
+
+    const reason = prompt('Reden voor afwijzing (optioneel):');
+
+    try {
+        const response = await fetch(getApiUrl(`api/pending/${currentReviewReport.id}/reject`, true), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert('Rapport afgewezen');
+            closeReviewPanel();
+            loadPendingReports();
+            loadReviewHistory();
+            loadPendingCount();
+        } else {
+            alert('Fout: ' + (data.error || 'Onbekende fout'));
+        }
+    } catch (error) {
+        console.error('Error rejecting report:', error);
+        alert('Fout bij afwijzen: ' + error.message);
+    }
+}
+
+// Load review history
+async function loadReviewHistory() {
+    const container = document.getElementById('review-history-list');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading">Laden...</div>';
+
+    try {
+        const response = await fetch(getApiUrl('api/pending/history', false));
+        const data = await response.json();
+
+        if (data.error) {
+            container.innerHTML = `<div class="error">${data.error}</div>`;
+            return;
+        }
+
+        const history = data.history || [];
+
+        if (history.length === 0) {
+            container.innerHTML = '<p class="no-data">Geen recent beoordeelde rapporten</p>';
+            return;
+        }
+
+        const statusLabels = {
+            'approved': 'Goedgekeurd',
+            'rejected': 'Afgewezen',
+            'sent': 'Verzonden',
+            'expired': 'Verlopen'
+        };
+
+        let html = '<table class="review-history-table"><thead><tr>';
+        html += '<th>Rapport</th><th>Type</th><th>Status</th><th>Beoordeeld</th><th>Notities</th>';
+        html += '</tr></thead><tbody>';
+
+        history.forEach(h => {
+            const statusClass = h.status;
+            const statusLabel = statusLabels[h.status] || h.status;
+            const reviewedDate = h.reviewed_at ? new Date(h.reviewed_at).toLocaleDateString('nl-NL', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) : '-';
+
+            html += `<tr>
+                <td>${escapeHtml(h.report_title || h.report_filename)}</td>
+                <td>${escapeHtml(h.report_type)}</td>
+                <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+                <td>${reviewedDate}</td>
+                <td>${escapeHtml(h.reviewer_notes || '-')}</td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error loading history:', error);
+        container.innerHTML = '<div class="error">Kon geschiedenis niet laden</div>';
+    }
 }

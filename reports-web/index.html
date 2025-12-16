@@ -16,6 +16,7 @@
         <!-- Main tabs -->
         <div class="main-tabs">
             <button class="main-tab active" data-tab="reports">Rapporten bekijken</button>
+            <button class="main-tab" data-tab="review">Review <span id="pending-count" class="badge-pending hidden">0</span></button>
             <button class="main-tab" data-tab="generate">Rapport genereren</button>
             <button class="main-tab" data-tab="schedule">Planning</button>
             <button class="main-tab" data-tab="email">E-mail beheer</button>
@@ -33,6 +34,83 @@
 
             <div id="reports-list" class="reports-container">
                 <div class="loading">Laden...</div>
+            </div>
+        </div>
+
+        <!-- Review tab -->
+        <div id="review-tab" class="tab-content">
+            <div class="review-container">
+                <h2>Rapport Review</h2>
+                <p class="review-intro">Rapporten wachten op goedkeuring voordat ze verzonden worden. Je kunt hier tekst toevoegen of aanpassen.</p>
+
+                <!-- Pending reports list -->
+                <div class="review-section">
+                    <h3>Te reviewen rapporten</h3>
+                    <div id="pending-reports-list" class="pending-list">
+                        <div class="loading">Laden...</div>
+                    </div>
+                </div>
+
+                <!-- Report preview/edit panel (shown when report is selected) -->
+                <div id="review-panel" class="review-panel hidden">
+                    <div class="review-header">
+                        <h3 id="review-title">Rapport Review</h3>
+                        <button class="btn btn-small" onclick="closeReviewPanel()">Sluiten</button>
+                    </div>
+
+                    <!-- Custom text editor -->
+                    <div class="review-editor">
+                        <h4>Persoonlijke tekst toevoegen</h4>
+                        <p class="editor-hint">Voeg hier je eigen tekst toe. Deze wordt in het rapport ingevoegd op de geselecteerde positie.</p>
+
+                        <div class="form-group">
+                            <label for="custom-text-position">Positie in rapport</label>
+                            <select id="custom-text-position">
+                                <option value="after_intro">Na de inleiding</option>
+                                <option value="before_intro">Voor de inleiding</option>
+                                <option value="before_conclusion">Voor de conclusie</option>
+                                <option value="after_conclusion">Na de conclusie</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="custom-text">Je tekst (Markdown ondersteund)</label>
+                            <textarea id="custom-text" rows="6" placeholder="Voer hier je eigen tekst in..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reviewer-notes">Interne notities (niet zichtbaar in rapport)</label>
+                            <textarea id="reviewer-notes" rows="3" placeholder="Optionele notities voor jezelf..."></textarea>
+                        </div>
+
+                        <div class="review-actions">
+                            <button class="btn btn-secondary" onclick="previewReport()">Preview</button>
+                            <button class="btn btn-primary" onclick="saveReviewChanges()">Opslaan</button>
+                        </div>
+                    </div>
+
+                    <!-- Report preview -->
+                    <div class="review-preview">
+                        <h4>Rapport Preview</h4>
+                        <div id="report-preview-content" class="preview-content">
+                            <p class="no-data">Klik op "Preview" om het rapport met je tekst te bekijken</p>
+                        </div>
+                    </div>
+
+                    <!-- Approve/Reject buttons -->
+                    <div class="review-final-actions">
+                        <button class="btn btn-danger" onclick="rejectReport()">Afwijzen</button>
+                        <button class="btn btn-success" onclick="approveReport()">Goedkeuren & Verzenden</button>
+                    </div>
+                </div>
+
+                <!-- Review history -->
+                <div class="review-section">
+                    <h3>Recent beoordeeld</h3>
+                    <div id="review-history-list" class="history-list">
+                        <div class="loading">Laden...</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -127,35 +205,6 @@
                     <div id="schedule-list" class="schedule-list">
                         <div class="loading">Laden...</div>
                     </div>
-                </div>
-
-                <!-- Quick actions -->
-                <div class="schedule-section">
-                    <h3>Snelle Acties</h3>
-                    <p class="section-intro">Genereer nu direct een rapport met specifieke opties.</p>
-                    <div class="quick-actions">
-                        <button class="btn btn-action" data-action="week">
-                            <span class="action-icon">📅</span>
-                            <span class="action-text">Weekrapport<br><small>Vorige week</small></span>
-                        </button>
-                        <button class="btn btn-action" data-action="week-kort">
-                            <span class="action-icon">📋</span>
-                            <span class="action-text">Kort Weekrapport<br><small>Beknopte versie</small></span>
-                        </button>
-                        <button class="btn btn-action" data-action="week-spectrograms">
-                            <span class="action-icon">📊</span>
-                            <span class="action-text">Weekrapport+<br><small>Met spectrogrammen</small></span>
-                        </button>
-                        <button class="btn btn-action" data-action="month">
-                            <span class="action-icon">📆</span>
-                            <span class="action-text">Maandrapport<br><small>Vorige maand</small></span>
-                        </button>
-                        <button class="btn btn-action" data-action="season">
-                            <span class="action-icon">🍂</span>
-                            <span class="action-text">Seizoensrapport<br><small>Huidig seizoen</small></span>
-                        </button>
-                    </div>
-                    <div id="quick-action-result" class="result-message hidden"></div>
                 </div>
 
                 <!-- Recent generation history -->

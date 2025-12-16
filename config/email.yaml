@@ -6,6 +6,7 @@ smtp:
 email:
   from_name: EMSN Vogelmonitoring
   from_address: rapporten@ronnyhullegie.nl
+  admin_email: ronny@ronnyhullegie.nl
 recipients:
 - email: rapporten@ronnyhullegie.nl
   name: Ronny Hullegie

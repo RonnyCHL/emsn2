@@ -28,8 +28,13 @@ REPORTS_DIR = Path("/mnt/nas-reports")
 WEB_DIR = Path("/home/ronny/emsn2/reports-web")
 SCRIPTS_DIR = Path("/home/ronny/emsn2/scripts/reports")
 CONFIG_DIR = Path("/home/ronny/emsn2/config")
+ASSETS_DIR = Path("/home/ronny/emsn2/assets")
 EMAIL_CONFIG_FILE = CONFIG_DIR / "email.yaml"
 VENV_PYTHON = "/home/ronny/emsn2/venv/bin/python3"
+
+# PDF Template and Logo paths
+PDF_TEMPLATE = WEB_DIR / "emsn-template.tex"
+LOGO_PATH = ASSETS_DIR / "logo-pdf.png"  # Optimized version for PDFs
 
 # Track running report generations
 running_jobs = {}
@@ -49,9 +54,98 @@ def serve_report(filename):
     """Serve markdown report files"""
     return send_from_directory(REPORTS_DIR, filename)
 
+
+def generate_pdf_with_logo(md_path, output_pdf_path, title=None):
+    """
+    Generate PDF from markdown with EMSN logo header using pandoc + XeLaTeX.
+
+    Args:
+        md_path: Path to markdown file
+        output_pdf_path: Path for output PDF
+        title: Optional title override
+
+    Returns:
+        tuple: (success: bool, error_message: str or None)
+    """
+    from datetime import datetime
+
+    try:
+        # Read and prepare markdown content
+        with open(md_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Extract and remove YAML frontmatter, parse metadata
+        metadata = {}
+        if content.startswith('---'):
+            parts = content.split('---', 2)
+            if len(parts) >= 3:
+                try:
+                    metadata = yaml.safe_load(parts[1]) or {}
+                except:
+                    pass
+                content = parts[2].strip()
+
+        # Use title from metadata if not provided
+        if not title:
+            title = metadata.get('title', 'EMSN Rapport')
+
+        # Get date from metadata or use today
+        report_date = metadata.get('date', datetime.now().strftime('%d %B %Y'))
+
+        # Write cleaned content to temp file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False, encoding='utf-8') as tmp_md:
+            tmp_md.write(content)
+            tmp_md_path = Path(tmp_md.name)
+
+        try:
+            # Build pandoc command with template
+            cmd = [
+                'pandoc',
+                str(tmp_md_path),
+                '-o', str(output_pdf_path),
+                '--pdf-engine=xelatex',
+                '-V', f'title={title}',
+                '-V', f'date={report_date}',
+                '-V', f'logo-path={LOGO_PATH}',
+                '--resource-path', f'{REPORTS_DIR}:{ASSETS_DIR}',
+            ]
+
+            # Use custom template if it exists
+            if PDF_TEMPLATE.exists():
+                cmd.extend(['--template', str(PDF_TEMPLATE)])
+            else:
+                # Fallback to basic styling without template
+                cmd.extend([
+                    '-V', 'geometry:margin=2.5cm',
+                    '-V', 'fontsize=11pt',
+                ])
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+
+            if result.returncode != 0:
+                return False, f"pandoc error: {result.stderr}"
+
+            return True, None
+
+        finally:
+            # Clean up temp markdown
+            if tmp_md_path.exists():
+                tmp_md_path.unlink()
+
+    except subprocess.TimeoutExpired:
+        return False, "PDF generation timed out"
+    except Exception as e:
+        return False, str(e)
+
+
 @app.route('/api/pdf')
 def generate_pdf():
-    """Generate PDF from markdown report"""
+    """Generate PDF from markdown report with EMSN logo header"""
     filename = request.args.get('file')
 
     if not filename:
@@ -67,34 +161,13 @@ def generate_pdf():
         pdf_path = Path(tmp.name)
 
     try:
-        # Use pandoc to convert markdown to PDF
-        # Strip YAML frontmatter first
-        with open(md_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+        # Generate PDF with logo using helper function
+        success, error = generate_pdf_with_logo(md_path, pdf_path)
 
-        # Remove frontmatter
-        if content.startswith('---'):
-            parts = content.split('---', 2)
-            if len(parts) >= 3:
-                content = parts[2].strip()
-
-        # Write cleaned content to temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False, encoding='utf-8') as tmp_md:
-            tmp_md.write(content)
-            tmp_md_path = Path(tmp_md.name)
-
-        # Convert to PDF with pandoc using XeLaTeX for better Unicode support
-        result = subprocess.run([
-            'pandoc',
-            str(tmp_md_path),
-            '-o', str(pdf_path),
-            '--pdf-engine=xelatex',
-            '-V', 'geometry:margin=2cm',
-            '--metadata', 'title=EMSN Rapport'
-        ], check=True, capture_output=True, text=True)
-
-        # Clean up temp markdown
-        tmp_md_path.unlink()
+        if not success:
+            if pdf_path.exists():
+                pdf_path.unlink()
+            return jsonify({'error': f'PDF generation failed: {error}'}), 500
 
         # Send PDF file
         pdf_filename = filename.replace('.md', '.pdf')
@@ -115,13 +188,6 @@ def generate_pdf():
 
         return response
 
-    except subprocess.CalledProcessError as e:
-        if pdf_path.exists():
-            pdf_path.unlink()
-        error_msg = f'PDF generation failed: {str(e)}'
-        if e.stderr:
-            error_msg += f'\nStderr: {e.stderr}'
-        return jsonify({'error': error_msg}), 500
     except Exception as e:
         if pdf_path.exists():
             pdf_path.unlink()
@@ -582,25 +648,16 @@ https://www.ronnyhullegie.nl
 """
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
-        # Generate PDF from markdown using pandoc
+        # Generate PDF from markdown with EMSN logo
         pdf_filename = report_file.replace('.md', '.pdf')
         pdf_path = REPORTS_DIR / pdf_filename
 
         try:
-            # Create PDF with pandoc
-            import subprocess
-            result = subprocess.run([
-                'pandoc',
-                str(report_path),
-                '-o', str(pdf_path),
-                '--pdf-engine=xelatex',
-                '-V', 'geometry:margin=2.5cm',
-                '-V', 'fontsize=11pt',
-                '--resource-path', str(REPORTS_DIR)
-            ], capture_output=True, text=True, timeout=60)
+            # Create PDF with logo using helper function
+            success, error = generate_pdf_with_logo(report_path, pdf_path, title=title)
 
-            if result.returncode != 0:
-                return jsonify({'error': f'PDF generatie mislukt: {result.stderr}'}), 500
+            if not success:
+                return jsonify({'error': f'PDF generatie mislukt: {error}'}), 500
 
             # Read PDF and attach
             with open(pdf_path, 'rb') as pdf_file:
@@ -608,10 +665,8 @@ https://www.ronnyhullegie.nl
                 attachment['Content-Disposition'] = f'attachment; filename="{pdf_filename}"'
                 msg.attach(attachment)
 
-        except subprocess.TimeoutExpired:
-            return jsonify({'error': 'PDF generatie timeout'}), 500
-        except FileNotFoundError:
-            return jsonify({'error': 'pandoc niet geïnstalleerd'}), 500
+        except Exception as e:
+            return jsonify({'error': f'PDF generatie fout: {str(e)}'}), 500
 
         # Send email
         server = smtplib.SMTP(smtp_config.get('host'), smtp_config.get('port', 587))
@@ -910,6 +965,550 @@ def quick_generate():
         return jsonify({'error': 'Timeout - rapport generatie duurde te lang'}), 504
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
+# PENDING REPORTS - Review Workflow API
+# =============================================================================
+
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import json
+
+DB_CONFIG = {
+    "host": "192.168.1.25",
+    "port": 5433,
+    "database": "emsn",
+    "user": "birdpi_zolder",
+    "password": os.environ.get("EMSN_DB_PASSWORD", "REDACTED_DB_PASS")
+}
+
+
+def get_db_connection():
+    """Get database connection for pending reports"""
+    return psycopg2.connect(**DB_CONFIG)
+
+
+@app.route('/api/pending')
+def get_pending_reports():
+    """Get all pending reports awaiting review"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            SELECT
+                id,
+                report_type,
+                report_title,
+                report_filename,
+                markdown_path,
+                pdf_path,
+                status,
+                created_at,
+                expires_at,
+                custom_text,
+                reviewer_notes,
+                notification_sent,
+                CASE
+                    WHEN expires_at IS NOT NULL THEN
+                        ROUND(EXTRACT(EPOCH FROM (expires_at - NOW())) / 3600, 1)
+                    ELSE NULL
+                END as hours_until_expiry
+            FROM pending_reports
+            WHERE status = 'pending'
+            ORDER BY created_at DESC
+        """)
+
+        reports = cur.fetchall()
+
+        # Convert datetime objects to strings
+        for r in reports:
+            if r['created_at']:
+                r['created_at'] = r['created_at'].isoformat()
+            if r['expires_at']:
+                r['expires_at'] = r['expires_at'].isoformat()
+
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            'pending_reports': reports,
+            'count': len(reports)
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/pending/<int:report_id>')
+def get_pending_report(report_id):
+    """Get a specific pending report by ID"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            SELECT * FROM pending_reports WHERE id = %s
+        """, (report_id,))
+
+        report = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if not report:
+            return jsonify({'error': 'Report not found'}), 404
+
+        # Convert datetime objects
+        for key in ['created_at', 'expires_at', 'reviewed_at', 'sent_at', 'notification_sent_at']:
+            if report.get(key):
+                report[key] = report[key].isoformat()
+
+        # Load markdown content
+        md_path = Path(report['markdown_path'])
+        if md_path.exists():
+            with open(md_path, 'r', encoding='utf-8') as f:
+                report['markdown_content'] = f.read()
+        else:
+            report['markdown_content'] = None
+
+        return jsonify(report)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/pending/<int:report_id>/preview')
+def preview_pending_report(report_id):
+    """Get markdown content for preview (raw or with custom text inserted)"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            SELECT markdown_path, custom_text, custom_text_position
+            FROM pending_reports WHERE id = %s
+        """, (report_id,))
+
+        report = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if not report:
+            return jsonify({'error': 'Report not found'}), 404
+
+        md_path = Path(report['markdown_path'])
+        if not md_path.exists():
+            return jsonify({'error': 'Markdown file not found'}), 404
+
+        with open(md_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # If custom_text exists, show where it will be inserted
+        if report['custom_text']:
+            position = report['custom_text_position'] or 'after_intro'
+            custom_block = f"\n\n---\n\n**Persoonlijke notitie:**\n\n{report['custom_text']}\n\n---\n\n"
+
+            # Insert at appropriate position (simplified for now)
+            if position == 'after_intro':
+                # Find first ## heading and insert after its paragraph
+                lines = content.split('\n')
+                for i, line in enumerate(lines):
+                    if line.startswith('## ') and i > 10:  # Skip title area
+                        content = '\n'.join(lines[:i]) + custom_block + '\n'.join(lines[i:])
+                        break
+
+        return jsonify({
+            'content': content,
+            'has_custom_text': bool(report['custom_text'])
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/pending/<int:report_id>/update', methods=['POST'])
+def update_pending_report(report_id):
+    """Update custom text or reviewer notes for a pending report"""
+    try:
+        data = request.json
+        custom_text = data.get('custom_text', '').strip()
+        reviewer_notes = data.get('reviewer_notes', '').strip()
+        custom_text_position = data.get('custom_text_position', 'after_intro')
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+            UPDATE pending_reports
+            SET custom_text = %s,
+                reviewer_notes = %s,
+                custom_text_position = %s
+            WHERE id = %s AND status = 'pending'
+            RETURNING id
+        """, (custom_text or None, reviewer_notes or None, custom_text_position, report_id))
+
+        result = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        if not result:
+            return jsonify({'error': 'Report not found or already processed'}), 404
+
+        return jsonify({
+            'success': True,
+            'message': 'Rapport bijgewerkt'
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/pending/<int:report_id>/approve', methods=['POST'])
+def approve_pending_report(report_id):
+    """Approve a pending report and trigger sending"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Get report details
+        cur.execute("""
+            SELECT * FROM pending_reports WHERE id = %s AND status = 'pending'
+        """, (report_id,))
+        report = cur.fetchone()
+
+        if not report:
+            cur.close()
+            conn.close()
+            return jsonify({'error': 'Report not found or already processed'}), 404
+
+        # Update status to approved
+        cur.execute("""
+            UPDATE pending_reports
+            SET status = 'approved', reviewed_at = NOW()
+            WHERE id = %s
+            RETURNING id
+        """, (report_id,))
+
+        conn.commit()
+
+        # TODO: Insert custom text into markdown if present
+        # TODO: Regenerate PDF with custom text
+        # TODO: Trigger email sending
+
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': f"Rapport '{report['report_title']}' goedgekeurd. Verzending gestart."
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/pending/<int:report_id>/reject', methods=['POST'])
+def reject_pending_report(report_id):
+    """Reject a pending report (won't be sent)"""
+    try:
+        data = request.json
+        reason = data.get('reason', '').strip()
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+            UPDATE pending_reports
+            SET status = 'rejected',
+                reviewed_at = NOW(),
+                reviewer_notes = COALESCE(reviewer_notes || E'\n\nAfgewezen: ', 'Afgewezen: ') || %s
+            WHERE id = %s AND status = 'pending'
+            RETURNING id
+        """, (reason or 'Geen reden opgegeven', report_id))
+
+        result = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        if not result:
+            return jsonify({'error': 'Report not found or already processed'}), 404
+
+        return jsonify({
+            'success': True,
+            'message': 'Rapport afgewezen en zal niet worden verzonden'
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/pending/history')
+def get_pending_history():
+    """Get history of all processed pending reports"""
+    try:
+        limit = request.args.get('limit', 20, type=int)
+
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            SELECT
+                id,
+                report_type,
+                report_title,
+                report_filename,
+                status,
+                created_at,
+                reviewed_at,
+                sent_at,
+                reviewer_notes
+            FROM pending_reports
+            WHERE status != 'pending'
+            ORDER BY COALESCE(reviewed_at, created_at) DESC
+            LIMIT %s
+        """, (limit,))
+
+        reports = cur.fetchall()
+
+        for r in reports:
+            for key in ['created_at', 'reviewed_at', 'sent_at']:
+                if r.get(key):
+                    r[key] = r[key].isoformat()
+
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            'history': reports,
+            'count': len(reports)
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# Helper function to create a pending report (called from report generators)
+def create_pending_report(report_type, report_title, report_filename, markdown_path,
+                          pdf_path=None, expires_hours=24, report_data=None,
+                          send_notification=True):
+    """
+    Create a new pending report entry.
+
+    Args:
+        report_type: 'weekly', 'monthly', 'seasonal', 'yearly'
+        report_title: Human-readable title
+        report_filename: Filename (e.g., '2025-W51-Weekrapport.md')
+        markdown_path: Full path to markdown file
+        pdf_path: Full path to PDF file (optional)
+        expires_hours: Hours until auto-approval (None for no expiry)
+        report_data: Dict with additional metadata (stored as JSONB)
+        send_notification: Whether to send Ulanzi + email notification
+
+    Returns: pending report ID
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        expires_at = None
+        if expires_hours:
+            cur.execute("SELECT NOW() + INTERVAL '%s hours'", (expires_hours,))
+            expires_at = cur.fetchone()[0]
+
+        cur.execute("""
+            INSERT INTO pending_reports
+            (report_type, report_title, report_filename, markdown_path, pdf_path,
+             expires_at, report_data)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            report_type,
+            report_title,
+            report_filename,
+            str(markdown_path),
+            str(pdf_path) if pdf_path else None,
+            expires_at,
+            json.dumps(report_data) if report_data else None
+        ))
+
+        report_id = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        # Send notification
+        if send_notification and report_id:
+            send_pending_report_notification(report_id, report_type, report_title)
+
+        return report_id
+
+    except Exception as e:
+        print(f"ERROR creating pending report: {e}")
+        return None
+
+
+# =============================================================================
+# NOTIFICATION FUNCTIONS
+# =============================================================================
+
+import requests
+
+ULANZI_IP = "192.168.1.11"
+ULANZI_API = f"http://{ULANZI_IP}/api"
+
+
+def send_ulanzi_notification(text, color="#FFAA00", duration=20, icon=None):
+    """
+    Send a notification to the Ulanzi TC001 display.
+
+    Args:
+        text: Text to display
+        color: Hex color for text
+        duration: Duration in seconds
+        icon: Icon name or number (optional)
+    """
+    try:
+        payload = {
+            "text": text,
+            "color": color,
+            "duration": duration * 10,  # AWTRIX uses deciseconds
+            "scrollSpeed": 80,
+            "stack": True,  # Queue if another notification is showing
+        }
+
+        if icon:
+            payload["icon"] = icon
+
+        response = requests.post(
+            f"{ULANZI_API}/notify",
+            json=payload,
+            timeout=5
+        )
+        return response.status_code == 200
+
+    except requests.exceptions.RequestException as e:
+        print(f"Ulanzi notification failed: {e}")
+        return False
+
+
+def send_pending_report_email_notification(report_type, report_title, review_url):
+    """Send email notification about pending report"""
+    try:
+        config = load_email_config()
+        if not config:
+            return False
+
+        smtp_password = os.getenv('EMSN_SMTP_PASSWORD')
+        if not smtp_password:
+            return False
+
+        smtp_config = config.get('smtp', {})
+        email_config = config.get('email', {})
+
+        # Send to admin email (first recipient or default)
+        admin_email = email_config.get('admin_email', 'ronny@ronnyhullegie.nl')
+
+        type_labels = {
+            'weekly': 'Weekrapport',
+            'monthly': 'Maandrapport',
+            'seasonal': 'Seizoensrapport',
+            'yearly': 'Jaarrapport'
+        }
+        type_label = type_labels.get(report_type, report_type)
+
+        msg = MIMEText(f"""Beste Ronny,
+
+Er staat een nieuw {type_label} klaar voor review:
+
+{report_title}
+
+Je kunt het rapport bekijken en goedkeuren via:
+{review_url}
+
+Als je het rapport niet binnen 24 uur beoordeelt, wordt het automatisch goedgekeurd en verzonden.
+
+Met vriendelijke groet,
+EMSN Vogelmonitoring
+""", 'plain', 'utf-8')
+
+        msg['Subject'] = f"EMSN: Nieuw {type_label} wacht op review"
+        msg['From'] = f"{email_config.get('from_name', 'EMSN')} <{email_config.get('from_address', smtp_config.get('username'))}>"
+        msg['To'] = admin_email
+
+        server = smtplib.SMTP(smtp_config.get('host'), smtp_config.get('port', 587))
+        if smtp_config.get('use_tls', True):
+            server.starttls()
+        server.login(smtp_config.get('username'), smtp_password)
+        server.sendmail(
+            email_config.get('from_address', smtp_config.get('username')),
+            [admin_email],
+            msg.as_string()
+        )
+        server.quit()
+
+        return True
+
+    except Exception as e:
+        print(f"Email notification failed: {e}")
+        return False
+
+
+def send_pending_report_notification(report_id, report_type, report_title):
+    """
+    Send notifications (Ulanzi + Email) about a new pending report.
+    Updates the notification_sent flag in database.
+    """
+    try:
+        type_labels = {
+            'weekly': 'Weekrapport',
+            'monthly': 'Maandrapport',
+            'seasonal': 'Seizoen',
+            'yearly': 'Jaarrapport'
+        }
+        type_label = type_labels.get(report_type, 'Rapport')
+
+        # Send to Ulanzi display
+        ulanzi_text = f"Nieuw {type_label} wacht op review"
+        ulanzi_success = send_ulanzi_notification(
+            text=ulanzi_text,
+            color="#FFAA00",  # Orange/amber for attention
+            duration=30,
+            icon="4886"  # Document/clipboard icon
+        )
+
+        # Generate review URL
+        review_url = "http://192.168.1.25/rapporten/#review"
+
+        # Send email notification
+        email_success = send_pending_report_email_notification(
+            report_type, report_title, review_url
+        )
+
+        # Update notification status in database
+        if ulanzi_success or email_success:
+            try:
+                conn = get_db_connection()
+                cur = conn.cursor()
+                cur.execute("""
+                    UPDATE pending_reports
+                    SET notification_sent = TRUE,
+                        notification_sent_at = NOW()
+                    WHERE id = %s
+                """, (report_id,))
+                conn.commit()
+                cur.close()
+                conn.close()
+            except Exception as e:
+                print(f"Failed to update notification status: {e}")
+
+        return ulanzi_success or email_success
+
+    except Exception as e:
+        print(f"Notification error: {e}")
+        return False
 
 
 if __name__ == '__main__':
