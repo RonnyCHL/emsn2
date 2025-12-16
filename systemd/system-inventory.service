@@ -1,0 +1,16 @@
+[Unit]
+Description=EMSN System Inventory - Generates system report and updates handbook
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ronny
+WorkingDirectory=/home/ronny/emsn2/scripts
+Environment="EMSN_DB_PASSWORD=REDACTED_DB_PASS"
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/system_inventory.py
+StandardOutput=append:/mnt/usb/logs/system-inventory.log
+StandardError=append:/mnt/usb/logs/system-inventory.error.log
+
+[Install]
+WantedBy=multi-user.target

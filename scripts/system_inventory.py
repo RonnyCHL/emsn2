@@ -8,9 +8,11 @@ Genereert een compleet overzicht van alle EMSN-systemen:
 - Berging Pi (remote via SSH, 192.168.1.87)
 - NAS PostgreSQL database (192.168.1.25)
 
-Output: Markdown bestand met complete systeeminventarisatie
+Output:
+- Markdown bestand met complete systeeminventarisatie
+- Update van het EMSN Handboek met actuele data
 
-Versie: 1.0.0
+Versie: 1.1.0
 Auteur: EMSN Project
 """
 
@@ -21,6 +23,7 @@ from datetime import datetime
 from pathlib import Path
 import json
 import re
+import argparse
 
 # Probeer psycopg2 te importeren
 try:
@@ -30,7 +33,7 @@ except ImportError:
     HAS_PSYCOPG2 = False
 
 # Script versie
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 # Configuratie
 CONFIG = {
@@ -60,6 +63,9 @@ SERVICE_PATTERNS = [
     "dual-detection", "hardware", "flysafe", "rarity", "screenshot",
     "backup", "atmosbird"
 ]
+
+# Handboek pad
+HANDBOOK_PATH = Path("/home/ronny/emsn2/docs/EMSN-Handboek-v1.0.md")
 
 
 def run_local_command(cmd: str, timeout: int = 30) -> tuple[bool, str]:
@@ -99,7 +105,8 @@ def get_system_info(is_local: bool, host: str = None, user: str = None) -> dict:
         "kernel": "uname -r",
         "uptime": "uptime -p",
         "uptime_since": "uptime -s",
-        "load": "cat /proc/loadavg | awk '{print $1, $2, $3}'"
+        "load": "cat /proc/loadavg | awk '{print $1, $2, $3}'",
+        "uptime_days": "awk '{print int($1/86400)}' /proc/uptime"
     }
 
     for key, cmd in commands.items():
@@ -361,15 +368,31 @@ def get_database_info() -> dict:
             })
 
         # Recente data check
-        cur.execute("""
-            SELECT MAX(detection_timestamp) FROM bird_detections
-        """)
+        cur.execute("SELECT MAX(detection_timestamp) FROM bird_detections")
         info['last_detection'] = str(cur.fetchone()[0])
 
-        cur.execute("""
-            SELECT MAX(measurement_timestamp) FROM system_health
-        """)
+        cur.execute("SELECT MAX(measurement_timestamp) FROM system_health")
         info['last_health'] = str(cur.fetchone()[0])
+
+        # Totaal detecties
+        cur.execute("SELECT COUNT(*) FROM bird_detections")
+        info['total_detections'] = cur.fetchone()[0]
+
+        # Unieke soorten
+        cur.execute("SELECT COUNT(DISTINCT species) FROM bird_detections")
+        info['unique_species'] = cur.fetchone()[0]
+
+        # Dual detections
+        cur.execute("SELECT COUNT(*) FROM dual_detections")
+        info['dual_detections'] = cur.fetchone()[0]
+
+        # Weather data count
+        cur.execute("SELECT COUNT(*) FROM weather_data")
+        info['weather_count'] = cur.fetchone()[0]
+
+        # System health count
+        cur.execute("SELECT COUNT(*) FROM system_health")
+        info['health_count'] = cur.fetchone()[0]
 
         conn.close()
         return info
@@ -589,7 +612,10 @@ def generate_markdown_report(zolder_info: dict, berging_info: dict, db_info: dic
 |-------|---------|----------|-------|
 """
         for table in db_info.get('tables', []):
-            md += f"| {table['name']} | {table['size']} | {table['columns']} | {table['rows']:,} |\n"
+            rows = table['rows']
+            if isinstance(rows, int):
+                rows = f"{rows:,}"
+            md += f"| {table['name']} | {table['size']} | {table['columns']} | {rows} |\n"
 
     # ============ APPENDIX ============
     md += """
@@ -628,8 +654,137 @@ def generate_markdown_report(zolder_info: dict, berging_info: dict, db_info: dic
     return md
 
 
+def update_handbook(zolder_info: dict, berging_info: dict, db_info: dict) -> bool:
+    """Update het EMSN Handboek met actuele data."""
+
+    if not HANDBOOK_PATH.exists():
+        print(f"   ⚠️ Handboek niet gevonden: {HANDBOOK_PATH}")
+        return False
+
+    try:
+        # Lees huidige handboek
+        with open(HANDBOOK_PATH, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        timestamp = datetime.now().strftime("%d %B %Y").replace(
+            "January", "januari").replace("February", "februari").replace(
+            "March", "maart").replace("April", "april").replace(
+            "May", "mei").replace("June", "juni").replace(
+            "July", "juli").replace("August", "augustus").replace(
+            "September", "september").replace("October", "oktober").replace(
+            "November", "november").replace("December", "december")
+
+        # Update datum
+        content = re.sub(
+            r'\*\*Datum:\*\* \d+ \w+ \d+',
+            f'**Datum:** {timestamp}',
+            content
+        )
+
+        # Update huidige status tabel in sectie 1.2
+        zolder_uptime = zolder_info.get('system', {}).get('uptime_days', '?')
+        berging_uptime = berging_info.get('system', {}).get('uptime_days', '?')
+        db_size = db_info.get('total_size', 'N/A')
+        total_detections = db_info.get('total_detections', 'N/A')
+        if isinstance(total_detections, int):
+            total_detections = f"{total_detections:,}"
+
+        # Update status tabel
+        zolder_status = '✅ Online' if zolder_info.get('system') else '❌ Offline'
+        berging_status = '✅ Online' if berging_info.get('system') else '❌ Offline'
+        db_status = '✅ Online' if not db_info.get('error') else '❌ Offline'
+
+        # Zoek en vervang de status tabel
+        status_pattern = r'\| Zolder Pi \| .+ \| .+ \|'
+        content = re.sub(
+            status_pattern,
+            f'| Zolder Pi | {zolder_status} | {zolder_uptime} dagen uptime, primaire node |',
+            content
+        )
+
+        status_pattern = r'\| Berging Pi \| .+ \| .+ \|'
+        content = re.sub(
+            status_pattern,
+            f'| Berging Pi | {berging_status} | {berging_uptime} dagen uptime, secundaire node |',
+            content
+        )
+
+        status_pattern = r'\| NAS Database \| .+ \| .+ \|'
+        content = re.sub(
+            status_pattern,
+            f'| NAS Database | {db_status} | {db_size}, {total_detections} detecties |',
+            content
+        )
+
+        # Update statistieken
+        if not db_info.get('error'):
+            unique_species = db_info.get('unique_species', 'N/A')
+            dual_detections = db_info.get('dual_detections', 'N/A')
+            weather_count = db_info.get('weather_count', 'N/A')
+            health_count = db_info.get('health_count', 'N/A')
+
+            if isinstance(dual_detections, int):
+                dual_detections = f"{dual_detections:,}"
+            if isinstance(weather_count, int):
+                weather_count = f"{weather_count:,}"
+            if isinstance(health_count, int):
+                health_count = f"{health_count:,}"
+
+            # Update statistieken regels
+            # Pattern: match het label en de cijfers, behoud de rest van de regel
+            content = re.sub(
+                r'(\*\*Totaal vogeldetecties:\*\* )[\d,]+',
+                f'\\g<1>{total_detections}',
+                content
+            )
+            content = re.sub(
+                r'(\*\*Unieke soorten:\*\* )\d+',
+                f'\\g<1>{unique_species}',
+                content
+            )
+            content = re.sub(
+                r'(\*\*Dual detections:\*\* )[\d,]+',
+                f'\\g<1>{dual_detections}',
+                content
+            )
+            content = re.sub(
+                r'(\*\*Weerdata metingen:\*\* )[\d,]+',
+                f'\\g<1>{weather_count}',
+                content
+            )
+            content = re.sub(
+                r'(\*\*System health records:\*\* )[\d,]+',
+                f'\\g<1>{health_count}',
+                content
+            )
+
+        # Update database grootte in sectie 5.3
+        content = re.sub(
+            r'\| \*\*Totaal\*\* \| \*\*[\d]+ MB\*\* \| - \|',
+            f'| **Totaal** | **{db_size}** | - |',
+            content
+        )
+
+        # Schrijf bijgewerkt handboek
+        with open(HANDBOOK_PATH, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        return True
+
+    except Exception as e:
+        print(f"   ❌ Fout bij updaten handboek: {e}")
+        return False
+
+
 def main():
     """Main functie."""
+    parser = argparse.ArgumentParser(description='EMSN Systeem Inventarisatie')
+    parser.add_argument('--no-handbook', action='store_true',
+                        help='Handboek niet bijwerken')
+    parser.add_argument('--handbook-only', action='store_true',
+                        help='Alleen handboek bijwerken, geen nieuw rapport')
+    args = parser.parse_args()
+
     print("🔍 EMSN Systeem Inventarisatie")
     print("=" * 50)
 
@@ -699,21 +854,30 @@ def main():
     else:
         print(f"   ✅ {len(db_info.get('tables', []))} tabellen, {db_info.get('total_size', 'N/A')}")
 
-    # Genereer rapport
-    print("\n📝 Genereren Markdown rapport...")
-    report = generate_markdown_report(zolder_info, berging_info, db_info)
+    # Genereer rapport (tenzij --handbook-only)
+    if not args.handbook_only:
+        print("\n📝 Genereren Markdown rapport...")
+        report = generate_markdown_report(zolder_info, berging_info, db_info)
 
-    # Schrijf naar bestand
-    output_dir = Path("/home/ronny/emsn2/docs")
-    output_dir.mkdir(exist_ok=True)
+        # Schrijf naar bestand
+        output_dir = Path("/home/ronny/emsn2/docs")
+        output_dir.mkdir(exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y-%m-%d")
-    output_file = output_dir / f"systeem-inventarisatie-{timestamp}.md"
+        timestamp = datetime.now().strftime("%Y-%m-%d")
+        output_file = output_dir / f"systeem-inventarisatie-{timestamp}.md"
 
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write(report)
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(report)
 
-    print(f"\n✅ Rapport opgeslagen: {output_file}")
+        print(f"   ✅ Rapport opgeslagen: {output_file}")
+
+    # Update handboek (tenzij --no-handbook)
+    if not args.no_handbook:
+        print("\n📚 Bijwerken EMSN Handboek...")
+        if update_handbook(zolder_info, berging_info, db_info):
+            print(f"   ✅ Handboek bijgewerkt: {HANDBOOK_PATH}")
+        else:
+            print(f"   ⚠️ Handboek niet bijgewerkt")
 
     # Print samenvatting
     print("\n" + "=" * 50)
@@ -727,6 +891,9 @@ def main():
     print(f"   Services: {total_services}")
     print(f"   Scripts: {total_scripts}")
     print(f"   Database tabellen: {len(db_info.get('tables', []))}")
+
+    if not db_info.get('error'):
+        print(f"   Vogeldetecties: {db_info.get('total_detections', 'N/A'):,}")
 
     if failed:
         print(f"\n   ⚠️ FAILED SERVICES: {', '.join(failed)}")

@@ -1,6 +1,6 @@
 # EMSN 2.0 - Systeem Handboek
 
-**EcoMonitoring Systeem Nijverdal - Biodiversity Monitoring**
+**Ecologisch Monitoring Systeem Nijverdal - Biodiversity Monitoring**
 
 **Versie:** 1.0
 **Datum:** 16 december 2025
@@ -41,20 +41,20 @@ EMSN 2.0 is een biodiversiteitsmonitoringssysteem dat vogelgeluiden detecteert e
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| Zolder Pi | ✅ Online | 21 dagen uptime, primaire node |
-| Berging Pi | ✅ Online | 21 dagen uptime, secundaire node |
-| NAS Database | ✅ Online | 136 MB, 53.293 detecties |
+| Zolder Pi | ✅ Online | 20 dagen uptime, primaire node |
+| Berging Pi | ✅ Online | N/A dagen uptime, secundaire node |
+| NAS Database | ✅ Online | 137 MB, 53,294 detecties |
 | MQTT Broker | ✅ Active | Bidirectionele bridge actief |
 | Rapporten | ⚠️ Gefixd | Monthly report SQL bug verholpen |
 | Ulanzi Display | ✅ Active | LED matrix notificaties |
 
 ### 1.3 Statistieken
 
-- **Totaal vogeldetecties:** 53.293
-- **Unieke soorten:** 148 (in referentietabel)
-- **Dual detections:** 7.473 (beide stations)
-- **Weerdata metingen:** 29.983
-- **System health records:** 37.706
+- **Totaal vogeldetecties:** 53,294
+- **Unieke soorten:** 142 (in referentietabel)
+- **Dual detections:** 7,473 (beide stations)
+- **Weerdata metingen:** 29,998
+- **System health records:** 37,751
 
 ---
 
@@ -387,7 +387,7 @@ Referentietabel met alle soorten.
 | dual_detections | 3 MB | 7.473 |
 | ulanzi_notification_log | 2 MB | 9.512 |
 | performance_metrics | 1 MB | 10.290 |
-| **Totaal** | **136 MB** | - |
+| **Totaal** | **137 MB** | - |
 
 ---
 

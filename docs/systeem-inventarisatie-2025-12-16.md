@@ -1,7 +1,7 @@
 # EMSN 2.0 - Systeem Inventarisatie
 
-**Gegenereerd:** 2025-12-16 18:55:14
-**Script versie:** 1.0.0
+**Gegenereerd:** 2025-12-16 19:09:31
+**Script versie:** 1.1.0
 **Gegenereerd op:** emsn2-zolder
 
 ---
@@ -10,8 +10,8 @@
 
 | Systeem | Status | Uptime | IP Adres |
 |---------|--------|--------|----------|
-| Zolder Pi | ✅ Online | up 2 weeks, 6 days, 23 hours, 27 minutes | 192.168.1.178 |
-| Berging Pi | ✅ Online | up 2 weeks, 6 days, 23 hours, 24 minutes | 192.168.1.87 |
+| Zolder Pi | ✅ Online | up 2 weeks, 6 days, 23 hours, 41 minutes | 192.168.1.178 |
+| Berging Pi | ✅ Online | up 2 weeks, 6 days, 23 hours, 38 minutes | 192.168.1.87 |
 | NAS Database | ✅ Online | - | 192.168.1.25 |
 
 ### ✅ Geen Kritieke Problemen Gevonden
@@ -28,9 +28,9 @@
 | IP Adres | 192.168.1.178 |
 | OS | Debian GNU/Linux 13 (trixie) |
 | Kernel | 6.12.47+rpt-rpi-2712 |
-| Uptime | up 2 weeks, 6 days, 23 hours, 27 minutes |
+| Uptime | up 2 weeks, 6 days, 23 hours, 41 minutes |
 | Online sinds | 2025-11-25 19:28:01 |
-| Load Average | 0.26 0.40 0.42 |
+| Load Average | 0.58 0.36 0.35 |
 
 ### Disk Usage
 
@@ -67,6 +67,7 @@
 | flysafe-radar.service | ⚪ inactive | dead | FlySafe Radar Scraper - Bird Migration Monitoring... |
 | hardware-metrics.service | ✅ active | running | EMSN Hardware Metrics Collector... |
 | hardware-monitor.service | ⚪ inactive | dead | EMSN Hardware Monitor - Zolder Station... |
+| lifetime-sync.service | ⚪ inactive | dead | EMSN Lifetime Sync - Zolder Station... |
 | mqtt-bridge-monitor.service | ✅ active | running | EMSN MQTT Bridge Monitor... |
 | mqtt-cooldown-publisher.service | ✅ active | running | EMSN MQTT Cooldown Publisher... |
 | mqtt-failover.service | ⚪ inactive | dead | EMSN MQTT Failover Check... |
@@ -80,19 +81,20 @@
 
 | Timer | Details |
 |-------|---------|
-| hardware-monitor.timer | Tue 2025-12-16 18:56:00 CET                50s Tue 2025-12-16 18:55:00 CET      ... |
-| emsn-dbmirror-zolder.timer | Tue 2025-12-16 18:57:39 CET           2min 29s Tue 2025-12-16 18:52:39 CET  2min... |
-| mqtt-failover.timer | Tue 2025-12-16 18:57:49 CET           2min 39s Tue 2025-12-16 18:52:49 CET  2min... |
-| dual-detection.timer | Tue 2025-12-16 18:58:39 CET           3min 29s Tue 2025-12-16 18:53:39 CET  1min... |
-| anomaly-datagap-check.timer | Tue 2025-12-16 19:07:59 CET              12min Tue 2025-12-16 18:52:59 CET  2min... |
-| anomaly-hardware-check.timer | Tue 2025-12-16 19:07:59 CET              12min Tue 2025-12-16 18:52:59 CET  2min... |
-| flysafe-radar-night.timer | Tue 2025-12-16 22:00:00 CET            3h 4min Tue 2025-12-16 04:00:00 CET      ... |
-| dpkg-db-backup.timer | Wed 2025-12-17 00:00:00 CET            5h 4min Tue 2025-12-16 00:00:00 CET      ... |
-| screenshot-cleanup.timer | Wed 2025-12-17 03:00:00 CET                 8h Tue 2025-12-16 03:00:00 CET      ... |
-| rarity-cache.timer | Wed 2025-12-17 04:00:36 CET                 9h Tue 2025-12-16 04:04:00 CET      ... |
-| flysafe-radar-day.timer | Wed 2025-12-17 06:00:00 CET                11h Tue 2025-12-16 18:00:00 CET     5... |
+| hardware-monitor.timer | Tue 2025-12-16 19:10:00 CET                33s Tue 2025-12-16 19:09:00 CET      ... |
+| lifetime-sync.timer | Tue 2025-12-16 19:10:09 CET                42s Tue 2025-12-16 19:05:19 CET   4mi... |
+| emsn-dbmirror-zolder.timer | Tue 2025-12-16 19:12:39 CET           3min 12s Tue 2025-12-16 19:07:39 CET  1min... |
+| mqtt-failover.timer | Tue 2025-12-16 19:12:49 CET           3min 22s Tue 2025-12-16 19:07:49 CET  1min... |
+| dual-detection.timer | Tue 2025-12-16 19:13:39 CET           4min 12s Tue 2025-12-16 19:08:39 CET      ... |
+| anomaly-datagap-check.timer | Tue 2025-12-16 19:22:59 CET              13min Tue 2025-12-16 19:07:59 CET  1min... |
+| anomaly-hardware-check.timer | Tue 2025-12-16 19:22:59 CET              13min Tue 2025-12-16 19:07:59 CET  1min... |
+| flysafe-radar-night.timer | Tue 2025-12-16 22:00:00 CET           2h 50min Tue 2025-12-16 04:00:00 CET      ... |
+| dpkg-db-backup.timer | Wed 2025-12-17 00:00:00 CET           4h 50min Tue 2025-12-16 00:00:00 CET      ... |
+| screenshot-cleanup.timer | Wed 2025-12-17 03:00:00 CET                 7h Tue 2025-12-16 03:00:00 CET      ... |
+| rarity-cache.timer | Wed 2025-12-17 04:02:55 CET                 8h Tue 2025-12-16 04:04:00 CET      ... |
+| flysafe-radar-day.timer | Wed 2025-12-17 06:00:00 CET                10h Tue 2025-12-16 18:00:00 CET   1h ... |
 | anomaly-baseline-learn.timer | Sun 2025-12-21 03:00:00 CET             4 days Sun 2025-12-14 03:00:00 CET    2 ... |
-| backup-cleanup.timer | Sun 2025-12-21 04:04:48 CET             4 days Sun 2025-12-14 04:00:56 CET    2 ... |
+| backup-cleanup.timer | Sun 2025-12-21 04:04:22 CET             4 days Sun 2025-12-14 04:00:56 CET    2 ... |
 | emsn-weekly-report.timer | Mon 2025-12-22 07:00:00 CET             5 days Mon 2025-12-15 07:00:00 CET 1 day... |
 | emsn-monthly-report.timer | Thu 2026-01-01 08:00:00 CET      2 weeks 1 day -                                ... |
 | emsn-yearly-report.timer | Fri 2026-01-02 08:00:00 CET     2 weeks 2 days -                                ... |
@@ -100,7 +102,6 @@
 | emsn-seasonal-report-spring.timer | Mon 2026-06-01 07:00:00 CEST  5 months 14 days -                                ... |
 | emsn-seasonal-report-summer.timer | Tue 2026-09-01 07:00:00 CEST  8 months 14 days -                                ... |
 | emsn-seasonal-report-autumn.timer | Tue 2026-12-01 07:00:00 CET  11 months 14 days -                                ... |
-| lifetime-sync.timer | -                                            - Tue 2025-12-16 18:55:09 CET     3... |
 
 ### MQTT Broker (Mosquitto)
 
@@ -111,8 +112,8 @@
 ### Git Repository
 
 - **Branch:** main
-- **Laatste commit:** c784f4b feat: add per-recipient writing style preferences
-- **Uncommitted changes:** 3 bestanden
+- **Laatste commit:** fd67bad feat: add central system inventory script and handbook
+- **Uncommitted changes:** 7 bestanden
 
 
 ### Python Scripts
@@ -162,7 +163,7 @@
 | IP Adres | 192.168.1.87 fd64:5d33:8fcf:e2ec:c541:a2d7:2db5:8c37 |
 | OS | N/A |
 | Kernel | 6.12.47+rpt-rpi-v8 |
-| Uptime | up 2 weeks, 6 days, 23 hours, 24 minutes |
+| Uptime | up 2 weeks, 6 days, 23 hours, 38 minutes |
 | Online sinds | 2025-11-25 19:30:45 |
 
 ### Disk Usage
@@ -196,26 +197,26 @@
 ### Database Overzicht
 
 - **Database:** emsn
-- **Grootte:** 136 MB
-- **Laatste vogeldetectie:** 2025-12-16 18:37:22
-- **Laatste health check:** 2025-12-16 18:55:03.592068
+- **Grootte:** 137 MB
+- **Laatste vogeldetectie:** 2025-12-16 19:00:37
+- **Laatste health check:** 2025-12-16 19:09:03.635978
 
 ### Tabellen
 
 | Tabel | Grootte | Kolommen | Rijen |
 |-------|---------|----------|-------|
-| bird_detections | 103 MB | 22 | 53,293 |
-| system_health | 8048 kB | 18 | 37,706 |
-| weather_data | 6880 kB | 24 | 29,983 |
+| bird_detections | 103 MB | 22 | 53,294 |
+| system_health | 8064 kB | 18 | 37,748 |
+| weather_data | 6880 kB | 24 | 29,997 |
 | dual_detections | 2704 kB | 14 | 7,473 |
 | species_reference | 2456 kB | 15 | 148 |
-| ulanzi_notification_log | 1576 kB | 9 | 9,512 |
-| performance_metrics | 1400 kB | 9 | 10,290 |
-| moon_observations | 280 kB | 10 | 1,231 |
-| sky_observations | 264 kB | 12 | 614 |
-| anomaly_check_log | 232 kB | 6 | 961 |
+| ulanzi_notification_log | 1576 kB | 9 | 9,513 |
+| performance_metrics | 1400 kB | 9 | 10,311 |
+| moon_observations | 280 kB | 10 | 1,234 |
+| sky_observations | 264 kB | 12 | 616 |
+| anomaly_check_log | 232 kB | 6 | 963 |
 | ulanzi_screenshots | 208 kB | 8 | 565 |
-| atmosbird_health | 160 kB | 12 | 614 |
+| atmosbird_health | 160 kB | 12 | 616 |
 | species_baselines | 136 kB | 13 | 47 |
 | system_events | 128 kB | 11 | 2 |
 | ulanzi_cooldown_status | 104 kB | 7 | 72 |
@@ -241,7 +242,7 @@
 | astronomical_events | 8192 bytes | 10 | 0 |
 | bat_detections | 8192 bytes | 14 | 0 |
 | daily_statistics | 0 bytes | 7 | 22 |
-| bird_weather_correlation | 0 bytes | 14 | 53,293 |
+| bird_weather_correlation | 0 bytes | 14 | 53,294 |
 | anomaly_summary_24h | 0 bytes | 6 | 0 |
 | station_comparison | 0 bytes | 5 | 2 |
 | active_anomalies | 0 bytes | 11 | 7 |
