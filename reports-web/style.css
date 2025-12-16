@@ -384,14 +384,21 @@ h1 {
     padding: 2rem;
 }
 
+.progress-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
 .progress-spinner {
-    width: 50px;
-    height: 50px;
-    border: 4px solid var(--border);
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--border);
     border-top-color: var(--primary);
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin: 0 auto 1rem;
 }
 
 @keyframes spin {
@@ -401,12 +408,90 @@ h1 {
 .progress-text {
     font-size: 1.1rem;
     color: var(--text);
-    margin-bottom: 0.5rem;
+    margin: 0;
 }
 
 .progress-subtext {
     font-size: 0.9rem;
     color: var(--text-light);
+    margin-top: 1rem;
+}
+
+/* Progress steps */
+.progress-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: left;
+    max-width: 350px;
+    margin: 0 auto 1.5rem;
+    background: var(--bg);
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+}
+
+.progress-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.4rem 0;
+    opacity: 0.5;
+    transition: all 0.3s ease;
+}
+
+.progress-step.active {
+    opacity: 1;
+}
+
+.progress-step.completed {
+    opacity: 1;
+}
+
+.progress-step.completed .step-icon {
+    color: var(--accent);
+}
+
+.progress-step.active .step-icon {
+    animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+
+.step-icon {
+    font-size: 1.1rem;
+    width: 24px;
+    text-align: center;
+}
+
+.step-text {
+    font-size: 0.95rem;
+    color: var(--text);
+}
+
+.progress-step.completed .step-text {
+    color: var(--text-light);
+}
+
+/* Progress bar */
+.progress-bar-container {
+    width: 100%;
+    max-width: 350px;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    margin: 0 auto;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    width: 0%;
+    transition: width 0.5s ease;
+    border-radius: 3px;
 }
 
 /* Result container */

@@ -314,6 +314,96 @@ async function loadSpeciesList() {
     }
 }
 
+// Progress tracking
+let progressTimer = null;
+let elapsedTimer = null;
+let startTime = null;
+
+// Update progress step
+function updateProgressStep(stepName, status) {
+    const step = document.querySelector(`.progress-step[data-step="${stepName}"]`);
+    if (!step) return;
+
+    // Remove previous states
+    step.classList.remove('active', 'completed');
+
+    if (status === 'active') {
+        step.classList.add('active');
+        step.querySelector('.step-icon').textContent = '⏳';
+    } else if (status === 'completed') {
+        step.classList.add('completed');
+        step.querySelector('.step-icon').textContent = '✓';
+    }
+}
+
+// Update progress bar
+function updateProgressBar(percent) {
+    const bar = document.getElementById('generation-progress-bar');
+    if (bar) {
+        bar.style.width = `${percent}%`;
+    }
+}
+
+// Update elapsed time display
+function updateElapsedTime() {
+    if (!startTime) return;
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const display = document.getElementById('progress-elapsed');
+    if (display) {
+        display.textContent = `Verstreken tijd: ${elapsed}s`;
+    }
+}
+
+// Reset progress UI
+function resetProgressUI() {
+    const steps = document.querySelectorAll('.progress-step');
+    steps.forEach(step => {
+        step.classList.remove('active', 'completed');
+        step.querySelector('.step-icon').textContent = '⏳';
+    });
+    updateProgressBar(0);
+
+    if (progressTimer) {
+        clearTimeout(progressTimer);
+        progressTimer = null;
+    }
+    if (elapsedTimer) {
+        clearInterval(elapsedTimer);
+        elapsedTimer = null;
+    }
+}
+
+// Simulate progress steps with realistic timing
+function simulateProgress() {
+    const steps = [
+        { name: 'connect', delay: 500, percent: 5 },
+        { name: 'collect', delay: 2000, percent: 20 },
+        { name: 'highlights', delay: 1500, percent: 30 },
+        { name: 'claude', delay: 25000, percent: 75 },  // Claude takes longest
+        { name: 'charts', delay: 5000, percent: 90 },
+        { name: 'save', delay: 2000, percent: 100 }
+    ];
+
+    let totalDelay = 0;
+
+    steps.forEach((step, index) => {
+        // Mark as active
+        progressTimer = setTimeout(() => {
+            // Complete previous step
+            if (index > 0) {
+                updateProgressStep(steps[index - 1].name, 'completed');
+            }
+            // Mark current as active
+            updateProgressStep(step.name, 'active');
+            updateProgressBar(step.percent - 10);
+        }, totalDelay);
+
+        totalDelay += step.delay;
+    });
+
+    // Final completion will be handled when API returns
+}
+
 // Generate report
 async function generateReport() {
     const form = document.getElementById('generate-form');
@@ -348,11 +438,19 @@ async function generateReport() {
         }
     }
 
-    // Show progress
+    // Reset and show progress
+    resetProgressUI();
     form.classList.add('hidden');
     progress.classList.remove('hidden');
     result.classList.add('hidden');
     generateBtn.disabled = true;
+
+    // Start timing
+    startTime = Date.now();
+    elapsedTimer = setInterval(updateElapsedTime, 1000);
+
+    // Start simulated progress
+    simulateProgress();
 
     try {
         const response = await fetch(getApiUrl('api/generate', true), {
@@ -365,6 +463,20 @@ async function generateReport() {
 
         const data = await response.json();
 
+        // Stop timers
+        if (progressTimer) clearTimeout(progressTimer);
+        if (elapsedTimer) clearInterval(elapsedTimer);
+
+        // Complete all steps on success
+        if (data.success) {
+            const allSteps = ['connect', 'collect', 'highlights', 'claude', 'charts', 'save'];
+            allSteps.forEach(step => updateProgressStep(step, 'completed'));
+            updateProgressBar(100);
+
+            // Small delay before showing result
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
         // Hide progress
         progress.classList.add('hidden');
 
@@ -374,7 +486,9 @@ async function generateReport() {
 
         if (data.success) {
             result.classList.add('success');
-            result.querySelector('.result-message').textContent = 'Rapport succesvol gegenereerd';
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            result.querySelector('.result-message').textContent =
+                `Rapport succesvol gegenereerd in ${elapsed} seconden`;
 
             // Refresh reports list
             await loadReports();
@@ -397,6 +511,11 @@ async function generateReport() {
         }
     } catch (error) {
         console.error('Error generating report:', error);
+
+        // Stop timers
+        if (progressTimer) clearTimeout(progressTimer);
+        if (elapsedTimer) clearInterval(elapsedTimer);
+
         progress.classList.add('hidden');
         result.classList.remove('hidden');
         result.classList.add('error');
@@ -406,6 +525,7 @@ async function generateReport() {
     }
 
     generateBtn.disabled = false;
+    startTime = null;
 
     // Add button to try again
     setTimeout(() => {

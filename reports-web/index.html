@@ -176,11 +176,44 @@
                     </button>
                 </form>
 
-                <!-- Progress indicator -->
+                <!-- Progress indicator with steps -->
                 <div id="generation-progress" class="progress-container hidden">
-                    <div class="progress-spinner"></div>
-                    <p class="progress-text">Rapport wordt gegenereerd met Claude AI...</p>
-                    <p class="progress-subtext">Dit kan 30-60 seconden duren</p>
+                    <div class="progress-header">
+                        <div class="progress-spinner"></div>
+                        <p class="progress-text">Rapport wordt gegenereerd...</p>
+                    </div>
+
+                    <div class="progress-steps">
+                        <div class="progress-step" data-step="connect">
+                            <span class="step-icon">⏳</span>
+                            <span class="step-text">Verbinden met database</span>
+                        </div>
+                        <div class="progress-step" data-step="collect">
+                            <span class="step-icon">⏳</span>
+                            <span class="step-text">Verzamelen vogeldata</span>
+                        </div>
+                        <div class="progress-step" data-step="highlights">
+                            <span class="step-icon">⏳</span>
+                            <span class="step-text">Detecteren highlights</span>
+                        </div>
+                        <div class="progress-step" data-step="claude">
+                            <span class="step-icon">⏳</span>
+                            <span class="step-text">Genereren tekst met Claude AI</span>
+                        </div>
+                        <div class="progress-step" data-step="charts">
+                            <span class="step-icon">⏳</span>
+                            <span class="step-text">Maken grafieken</span>
+                        </div>
+                        <div class="progress-step" data-step="save">
+                            <span class="step-icon">⏳</span>
+                            <span class="step-text">Opslaan rapport</span>
+                        </div>
+                    </div>
+
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="generation-progress-bar"></div>
+                    </div>
+                    <p class="progress-subtext" id="progress-elapsed">Verstreken tijd: 0s</p>
                 </div>
 
                 <!-- Result message -->
