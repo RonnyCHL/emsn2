@@ -7,6 +7,7 @@ Generates narrative monthly reports using Claude API
 import sys
 import os
 import json
+import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 import psycopg2
@@ -154,7 +155,7 @@ class MonthlyReportGenerator:
                 COUNT(*) as count
             FROM bird_detections
             WHERE detection_timestamp BETWEEN %s AND %s
-            GROUP BY week
+            GROUP BY EXTRACT(WEEK FROM detection_timestamp)
             ORDER BY week
         """, (start_date, end_date))
         data["activity_by_week"] = [
