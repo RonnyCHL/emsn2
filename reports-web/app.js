@@ -184,14 +184,8 @@ function createReportCard(report) {
             </div>
 
             <div class="report-actions">
-                <a href="view-interactive.html?report=${encodeURIComponent(report.filename)}" class="btn btn-primary" title="Interactieve versie met grafieken">
-                    Interactief
-                </a>
-                <a href="view.html?report=${encodeURIComponent(report.filename)}" class="btn btn-secondary" title="Volledige tekst versie">
-                    Tekst
-                </a>
-                <a href="api/pdf?file=${encodeURIComponent(report.filename)}" class="btn btn-secondary" download title="Download als PDF">
-                    PDF
+                <a href="api/pdf?file=${encodeURIComponent(report.filename)}" class="btn btn-primary" download title="Download als PDF">
+                    Download PDF
                 </a>
             </div>
         </div>
