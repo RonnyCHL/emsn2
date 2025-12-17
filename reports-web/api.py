@@ -1511,6 +1511,262 @@ def send_pending_report_notification(report_id, report_type, report_title):
         return False
 
 
+# =============================================================================
+# MANUAL BIRD DETECTION API - Home Assistant Integration
+# =============================================================================
+
+@app.route('/api/manual-detection', methods=['POST'])
+def add_manual_detection():
+    """
+    Add a manually observed bird detection from Home Assistant.
+
+    Expected JSON payload:
+    {
+        "common_name": "Ekster",
+        "scientific_name": "Pica pica",  # Optional, will be looked up if not provided
+        "timestamp": "2025-12-17T14:30:00",  # Optional, defaults to now
+        "signal_quality": "duidelijk",  # duidelijk, zwak, ver_weg
+        "notes": "Vloog over de tuin"  # Optional
+    }
+    """
+    try:
+        data = request.json
+
+        if not data:
+            return jsonify({'error': 'Geen data ontvangen'}), 400
+
+        common_name = data.get('common_name', '').strip()
+        if not common_name:
+            return jsonify({'error': 'Soort naam is verplicht'}), 400
+
+        signal_quality = data.get('signal_quality', 'duidelijk')
+        if signal_quality not in ['duidelijk', 'zwak', 'ver_weg']:
+            return jsonify({'error': 'Ongeldige geluidskwaliteit'}), 400
+
+        notes = data.get('notes', '').strip()
+
+        # Parse timestamp or use current time
+        from datetime import datetime
+        timestamp_str = data.get('timestamp')
+        if timestamp_str:
+            try:
+                detection_time = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            except ValueError:
+                return jsonify({'error': 'Ongeldig tijdstip formaat'}), 400
+        else:
+            detection_time = datetime.now()
+
+        # Get scientific name - first try from request, then lookup
+        scientific_name = data.get('scientific_name', '').strip()
+
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        if not scientific_name:
+            # Look up scientific name from existing detections
+            cur.execute("""
+                SELECT species FROM bird_detections
+                WHERE common_name = %s
+                LIMIT 1
+            """, (common_name,))
+            result = cur.fetchone()
+            if result:
+                scientific_name = result['species']
+            else:
+                # Try case-insensitive match
+                cur.execute("""
+                    SELECT species, common_name FROM bird_detections
+                    WHERE LOWER(common_name) = LOWER(%s)
+                    LIMIT 1
+                """, (common_name,))
+                result = cur.fetchone()
+                if result:
+                    scientific_name = result['species']
+                    common_name = result['common_name']  # Use correct casing
+                else:
+                    scientific_name = 'Unknown species'
+
+        # Build notes with metadata
+        full_notes = f"[HANDMATIG] Kwaliteit: {signal_quality}"
+        if notes:
+            full_notes += f" | {notes}"
+
+        # Insert into bird_detections
+        # Note: We use file_name to store metadata since the table might not have
+        # the source/signal_quality/notes columns yet
+        cur.execute("""
+            INSERT INTO bird_detections (
+                station,
+                detection_timestamp,
+                date,
+                time,
+                species,
+                common_name,
+                confidence,
+                latitude,
+                longitude,
+                cutoff,
+                week,
+                sensitivity,
+                overlap,
+                file_name,
+                detected_by_zolder,
+                detected_by_berging,
+                dual_detection,
+                rarity_score,
+                rarity_tier,
+                added_to_db
+            ) VALUES (
+                'berging',
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                1.0000,
+                52.3676,
+                6.4673,
+                0.0,
+                %s,
+                1.0,
+                0.0,
+                %s,
+                FALSE,
+                TRUE,
+                FALSE,
+                0,
+                NULL,
+                NOW()
+            )
+            RETURNING id
+        """, (
+            detection_time,
+            detection_time.date(),
+            detection_time.time(),
+            scientific_name,
+            common_name,
+            detection_time.isocalendar()[1],  # Week number
+            full_notes  # Store in file_name as metadata marker
+        ))
+
+        new_id = cur.fetchone()['id']
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': f'{common_name} toegevoegd aan database',
+            'detection_id': new_id,
+            'timestamp': detection_time.isoformat(),
+            'scientific_name': scientific_name
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/bird-species')
+def get_bird_species_list():
+    """
+    Get list of bird species for the Home Assistant dropdown.
+    Returns the most common species observed + allows searching.
+    """
+    try:
+        search = request.args.get('search', '').strip().lower()
+        limit = request.args.get('limit', 200, type=int)
+
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        if search:
+            # Search mode - find matching species
+            cur.execute("""
+                SELECT DISTINCT common_name, species as scientific_name, COUNT(*) as count
+                FROM bird_detections
+                WHERE LOWER(common_name) LIKE %s
+                  AND common_name NOT IN ('Dog', 'Engine', 'Human vocal', 'Human whistle', 'Siren', 'Fireworks', 'Power tools')
+                GROUP BY common_name, species
+                ORDER BY count DESC
+                LIMIT %s
+            """, (f'%{search}%', limit))
+        else:
+            # Default - return most common species
+            cur.execute("""
+                SELECT DISTINCT common_name, species as scientific_name, COUNT(*) as count
+                FROM bird_detections
+                WHERE common_name NOT IN ('Dog', 'Engine', 'Human vocal', 'Human whistle', 'Siren', 'Fireworks', 'Power tools')
+                  AND common_name NOT LIKE '%%(%%'
+                GROUP BY common_name, species
+                ORDER BY count DESC
+                LIMIT %s
+            """, (limit,))
+
+        species = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        # Format for Home Assistant input_select
+        species_list = [
+            {
+                'name': s['common_name'],
+                'scientific': s['scientific_name'],
+                'label': f"{s['common_name']} ({s['scientific_name']})",
+                'count': s['count']
+            }
+            for s in species
+        ]
+
+        return jsonify({
+            'species': species_list,
+            'total': len(species_list)
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/manual-detections')
+def get_manual_detections():
+    """Get list of manually added detections"""
+    try:
+        limit = request.args.get('limit', 50, type=int)
+
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            SELECT
+                id,
+                common_name,
+                species as scientific_name,
+                detection_timestamp,
+                file_name as notes,
+                confidence
+            FROM bird_detections
+            WHERE file_name LIKE '[HANDMATIG]%%'
+            ORDER BY detection_timestamp DESC
+            LIMIT %s
+        """, (limit,))
+
+        detections = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        # Format timestamps
+        for d in detections:
+            if d['detection_timestamp']:
+                d['detection_timestamp'] = d['detection_timestamp'].isoformat()
+
+        return jsonify({
+            'detections': detections,
+            'total': len(detections)
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Run development server
     app.run(host='0.0.0.0', port=8081, debug=False)
