@@ -26,8 +26,12 @@
 \usepackage{polyglossia}
 \setdefaultlanguage{dutch}
 
-% Graphics for logo
+% Graphics for logo and images
 \usepackage{graphicx}
+
+% Background watermark package
+\usepackage{eso-pic}
+\usepackage{tikz}
 
 % Colors
 \usepackage{xcolor}
@@ -39,10 +43,10 @@
 \pagestyle{fancy}
 \fancyhf{}
 
-% Header configuration
+% Header configuration (small logo left, text right)
 \fancyhead[L]{%
 $if(logo-path)$
-    \raisebox{-0.4\height}{\includegraphics[height=1cm]{$logo-path$}}%
+    \raisebox{-0.3\height}{\includegraphics[height=0.8cm]{$logo-path$}}%
 $endif$
 }
 \fancyhead[R]{%
@@ -86,9 +90,17 @@ $endif$
     {\normalsize\bfseries\color{emsngreen}}
     {\thesubsubsection}{1em}{}
 
-% Images
+% Images - constrain to text width
 \usepackage{float}
 \floatplacement{figure}{H}
+
+% Force all images to fit within text width
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>0.7\textheight 0.7\textheight\else\Gin@nat@height\fi}
+\makeatother
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+
 
 % Code highlighting (from pandoc)
 $if(highlighting-macros)$
@@ -99,13 +111,10 @@ $endif$
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 
-% Title page styling
+% Title page styling (no logo here - watermark is on background)
 $if(title)$
 \title{%
-    \vspace{-2cm}%
-$if(logo-path)$
-    \includegraphics[height=2.5cm]{$logo-path$}\\[1em]%
-$endif$
+    \vspace{-1cm}%
     {\Huge\bfseries\color{emsngreen}$title$}%
 $if(subtitle)$
     \\[0.5em]{\Large\color{emsngray}$subtitle$}%
@@ -119,6 +128,19 @@ $endif$
 \date{\color{emsngray}$date$}
 
 \begin{document}
+
+% Add watermark to every page EXCEPT page 1 (full page background logo - 28cm for A4)
+$if(logo-path)$
+\AddToShipoutPictureBG{%
+    \ifnum\value{page}>1
+        \AtPageCenter{%
+            \begin{tikzpicture}[remember picture,overlay]
+                \node[opacity=0.04] at (0,0) {\includegraphics[height=28cm]{$logo-path$}};
+            \end{tikzpicture}%
+        }%
+    \fi
+}
+$endif$
 
 $if(title)$
 \maketitle
@@ -135,11 +157,11 @@ $body$
 \textcolor{emsngray}{%
 \textbf{Disclaimer}\\[0.5em]
 Dit rapport is automatisch gegenereerd op basis van geluidsopnames die zijn geanalyseerd
-met BirdNET, een AI-systeem voor vogelgeluidsherkenning. Hoewel BirdNET een hoge nauwkeurigheid
-heeft, kunnen er fouten voorkomen bij de soortdeterminatie.\\[0.5em]
+met BirdNET, een AI-systeem voor het herkennen van vogelzang en vogelgeluiden. Hoewel
+BirdNET een hoge nauwkeurigheid heeft, kunnen er fouten voorkomen bij de soortdeterminatie.
+Zeldzame en opvallende soorten worden altijd getoetst door de gebruiker.\\[0.5em]
 De gegevens zijn afkomstig van het Ecologisch Monitoring Systeem Nijverdal (EMSN), een
-citizen science project van Ronny Hullegie. Voor vragen of opmerkingen:
-\href{mailto:ronny@ronnyhullegie.nl}{ronny@ronnyhullegie.nl}
+citizen science project van Ronny Hullegie.
 }
 
 \end{document}

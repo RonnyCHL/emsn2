@@ -857,7 +857,7 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 ---
 
-## 📊 Grafieken
+## Grafieken
 
 """
 
@@ -943,7 +943,7 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                 markdown += f"{i}. **{name}**: {species['count']:,} detecties\n"
 
         if data['rare_sightings']:
-            markdown += "\n### 🦅 Zeldzame Waarnemingen\n\n"
+            markdown += "\n### Zeldzame Waarnemingen\n\n"
             for sighting in data['rare_sightings']:
                 name = sighting['species']
                 scientific = sighting.get('scientific_name', '')
@@ -954,23 +954,23 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                 markdown += f"- {species_str} op {sighting['time']} ({sighting['confidence']:.1%} zekerheid, station {sighting['station']})\n"
 
         if data['milestones']:
-            markdown += "\n### 🎉 Mijlpalen\n\n"
+            markdown += "\n### Mijlpalen\n\n"
             for milestone in data['milestones']:
                 markdown += f"- {milestone}\n"
 
-        markdown += f"\n### 🔢 Overige Gegevens\n\n"
+        markdown += f"\n### Overige Gegevens\n\n"
         markdown += f"- **Dual detections:** {data['dual_detections']:,}\n"
         markdown += f"- **Drukste uur:** {data['busiest_hour']} ({data.get('busiest_hour_count', 0):,} detecties)\n"
         markdown += f"- **Rustigste uur:** {data['quietest_hour']} ({data.get('quietest_hour_count', 0):,} detecties)\n"
         markdown += f"- **Totaal t/m deze week:** {data['total_all_time']:,} detecties\n"
 
         if data['comparison_last_week']['detections_change'] != 'N/A':
-            markdown += f"\n### 📈 Vergelijking met vorige week\n\n"
+            markdown += f"\n### Vergelijking met vorige week\n\n"
             markdown += f"- **Detecties:** {data['comparison_last_week']['detections_change']}\n"
             markdown += f"- **Nieuwe soorten:** {data['comparison_last_week']['species_change']}\n"
 
         # Weather statistics section
-        markdown += f"\n### 🌤️ Weerdata\n\n"
+        markdown += f"\n### Weerdata\n\n"
 
         temp_stats = data.get('temperature_stats', {})
         if temp_stats.get('week_avg'):

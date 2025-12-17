@@ -696,7 +696,7 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 ---
 
-## 📊 Statistieken
+## Statistieken
 
 ### Top 15 Soorten
 """
@@ -705,36 +705,36 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             markdown += f"{i}. **{species['name']}**: {species['count']:,} detecties\n"
 
         if data['rare_sightings']:
-            markdown += "\n### 🦅 Zeldzame Waarnemingen\n\n"
+            markdown += "\n### Zeldzame Waarnemingen\n\n"
             for sighting in data['rare_sightings']:
                 markdown += f"- **{sighting['species']}** op {sighting['time']} ({sighting['confidence']:.1%} zekerheid, station {sighting['station']})\n"
 
         if data.get('new_species_this_month'):
-            markdown += "\n### 🎉 Nieuwe Soorten deze Maand\n\n"
+            markdown += "\n### Nieuwe Soorten deze Maand\n\n"
             for species in data['new_species_this_month']:
                 markdown += f"- {species}\n"
 
-        markdown += "\n### 📈 Activiteit per Week\n\n"
+        markdown += "\n### Activiteit per Week\n\n"
         for week_data in data['activity_by_week']:
             markdown += f"- **Week {week_data['week']}**: {week_data['detections']:,} detecties\n"
 
         if data.get('busiest_day'):
-            markdown += f"\n### 📅 Drukste Dag\n\n"
+            markdown += f"\n### Drukste Dag\n\n"
             markdown += f"**{data['busiest_day']['date']}**: {data['busiest_day']['count']:,} detecties\n"
 
-        markdown += f"\n### 🔢 Overige Gegevens\n\n"
+        markdown += f"\n### Overige Gegevens\n\n"
         markdown += f"- **Dual detections:** {data['dual_detections']:,}\n"
         markdown += f"- **Totaal dit jaar:** {data['year_to_date']['total_detections']:,} detecties\n"
         markdown += f"- **Soorten dit jaar:** {data['year_to_date']['unique_species']}\n"
         markdown += f"- **Totaal all-time:** {data['total_all_time']:,} detecties\n"
 
         if data['comparison_last_month']['detections_change'] != 'N/A':
-            markdown += f"\n### 📊 Vergelijking met vorige maand\n\n"
+            markdown += f"\n### Vergelijking met vorige maand\n\n"
             markdown += f"- **Detecties:** {data['comparison_last_month']['detections_change']}\n"
             markdown += f"- **Soorten:** {data['comparison_last_month']['species_change']}\n"
 
         # Weather statistics section
-        markdown += f"\n### 🌤️ Weerdata\n\n"
+        markdown += f"\n### Weerdata\n\n"
 
         temp_stats = data.get('temperature_stats', {})
         if temp_stats.get('month_avg'):
@@ -839,14 +839,14 @@ Licentie: CC BY-NC 4.0 (gebruik toegestaan met bronvermelding, niet commercieel)
         start_date, end_date = self.get_month_dates()
         month_name = ["januari", "februari", "maart", "april", "mei", "juni",
                       "juli", "augustus", "september", "oktober", "november", "december"][start_date.month - 1]
-        print(f"📅 Maand: {month_name} {start_date.year}")
+        print(f"Maand: {month_name} {start_date.year}")
         print(f"   Periode: {start_date.strftime('%Y-%m-%d')} tot {end_date.strftime('%Y-%m-%d')}")
 
         # Connect to database
         if not self.connect_db():
             return False
 
-        print("📊 Verzamelen data...")
+        print("Verzamelen data...")
         data = self.collect_data(start_date, end_date)
         print(f"   - {data['total_detections']:,} detecties")
         print(f"   - {data['unique_species']} soorten")

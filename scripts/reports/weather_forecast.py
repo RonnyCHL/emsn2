@@ -185,26 +185,26 @@ def _weather_code_to_description(code: Optional[int]) -> str:
 
 
 def _weather_code_to_icon(code: Optional[int]) -> str:
-    """Convert WMO weather code to emoji icon."""
+    """Convert WMO weather code to text description."""
     if code is None:
-        return "❓"
+        return "onbekend"
 
     if code == 0:
-        return "☀️"
+        return "zonnig"
     elif code in [1, 2]:
-        return "🌤️"
+        return "licht bewolkt"
     elif code == 3:
-        return "☁️"
+        return "bewolkt"
     elif code in [45, 48]:
-        return "🌫️"
+        return "mist"
     elif code in [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82]:
-        return "🌧️"
+        return "regen"
     elif code in [71, 73, 75, 77, 85, 86]:
-        return "🌨️"
+        return "sneeuw"
     elif code in [95, 96, 99]:
-        return "⛈️"
+        return "onweer"
     else:
-        return "🌡️"
+        return "wisselend"
 
 
 def format_forecast_for_report(forecast: Dict) -> str:
@@ -223,7 +223,7 @@ def format_forecast_for_report(forecast: Dict) -> str:
     days = forecast["days"]
     summary = forecast.get("summary", {})
 
-    markdown = "### 🌤️ Weersverwachting Komende Week\n\n"
+    markdown = "### Weersverwachting Komende Week\n\n"
 
     # Summary line
     if summary:
