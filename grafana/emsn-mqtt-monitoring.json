@@ -16,7 +16,7 @@
       {
         "datasource": {
           "type": "postgresql",
-          "uid": "emsn-postgres"
+          "uid": "emsn_postgres"
         },
         "enable": true,
         "hide": false,
@@ -70,7 +70,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -102,7 +102,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "group": [],
           "metricColumn": "none",
@@ -115,7 +115,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -147,7 +147,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT COUNT(*) as shown FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '24 hours' AND was_shown = true",
@@ -158,7 +158,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -190,7 +190,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT COUNT(*) as skipped FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '24 hours' AND was_shown = false",
@@ -201,7 +201,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -238,7 +238,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT ROUND(SUM(CASE WHEN was_shown THEN 1 ELSE 0 END)::numeric * 100 / NULLIF(COUNT(*), 0), 1) as success_rate FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '24 hours'",
@@ -249,7 +249,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -281,7 +281,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT COUNT(*) as active_cooldowns FROM ulanzi_cooldown_status WHERE expires_at > NOW()",
@@ -292,7 +292,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -325,7 +325,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT CASE WHEN event_type = 'connected' THEN 1 ELSE 0 END as status FROM mqtt_bridge_events WHERE bridge_name = 'berging-to-zolder' ORDER BY timestamp DESC LIMIT 1",
@@ -340,11 +340,11 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
       "id": 101,
       "panels": [],
-      "title": "📈 Berichten Flow",
+      "title": "📈 Berichten Stroom",
       "type": "row"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -406,7 +406,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT date_trunc('hour', timestamp) as time, SUM(CASE WHEN was_shown THEN 1 ELSE 0 END) as \"Getoond\", SUM(CASE WHEN skip_reason = 'cooldown' THEN 1 ELSE 0 END) as \"Cooldown\", SUM(CASE WHEN skip_reason = 'anti_spam' THEN 1 ELSE 0 END) as \"Anti-spam\", SUM(CASE WHEN skip_reason LIKE '%burst%' THEN 1 ELSE 0 END) as \"Burst\", SUM(CASE WHEN skip_reason = 'send_failed' THEN 1 ELSE 0 END) as \"Failed\" FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) GROUP BY 1 ORDER BY 1",
@@ -417,7 +417,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -446,7 +446,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT SUM(CASE WHEN was_shown THEN 1 ELSE 0 END) as \"Getoond\", SUM(CASE WHEN NOT was_shown THEN 1 ELSE 0 END) as \"Geskipt\" FROM ulanzi_notification_log WHERE $__timeFilter(timestamp)",
@@ -457,7 +457,7 @@
       "type": "piechart"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -490,7 +490,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT station, COUNT(*) as count FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) GROUP BY station ORDER BY count DESC",
@@ -505,11 +505,11 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
       "id": 102,
       "panels": [],
-      "title": "🎯 Rarity & Skip Analyse",
+      "title": "🎯 Zeldzaamheid & Skip Analyse",
       "type": "row"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -536,7 +536,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT rarity_tier, COUNT(*) as count FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) AND rarity_tier IS NOT NULL GROUP BY rarity_tier ORDER BY count DESC",
@@ -547,7 +547,7 @@
       "type": "piechart"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -585,18 +585,18 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT COALESCE(skip_reason, 'success') as reason, COUNT(*) as count FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) GROUP BY skip_reason ORDER BY count DESC",
           "refId": "A"
         }
       ],
-      "title": "Skip Reasons",
+      "title": "Skip Redenen",
       "type": "barchart"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -624,7 +624,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT species_nl as species, SUM(CASE WHEN was_shown THEN 1 ELSE 0 END) as shown, SUM(CASE WHEN NOT was_shown THEN 1 ELSE 0 END) as skipped, COUNT(*) as total FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) GROUP BY species_nl ORDER BY skipped DESC LIMIT 15",
@@ -635,7 +635,7 @@
       "type": "table"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -658,7 +658,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT species_nl as species, rarity_tier, cooldown_seconds/60 as cooldown_min, ROUND(EXTRACT(EPOCH FROM (expires_at - NOW()))/60) as remaining_min, expires_at FROM ulanzi_cooldown_status WHERE expires_at > NOW() ORDER BY expires_at LIMIT 20",
@@ -677,7 +677,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -708,7 +708,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "WITH events AS (SELECT timestamp, event_type, LEAD(timestamp) OVER (ORDER BY timestamp) as next_time FROM mqtt_bridge_events WHERE bridge_name = 'berging-to-zolder' AND timestamp >= NOW() - INTERVAL '7 days'), durations AS (SELECT event_type, EXTRACT(EPOCH FROM COALESCE(next_time, NOW()) - timestamp) as seconds FROM events) SELECT ROUND(SUM(CASE WHEN event_type = 'connected' THEN seconds ELSE 0 END) * 100 / NULLIF(SUM(seconds), 0), 2) as uptime FROM durations",
@@ -719,7 +719,7 @@
       "type": "gauge"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -750,7 +750,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "WITH events AS (SELECT timestamp, event_type, LEAD(timestamp) OVER (ORDER BY timestamp) as next_time FROM mqtt_bridge_events WHERE bridge_name = 'zolder-to-berging' AND timestamp >= NOW() - INTERVAL '7 days'), durations AS (SELECT event_type, EXTRACT(EPOCH FROM COALESCE(next_time, NOW()) - timestamp) as seconds FROM events) SELECT ROUND(SUM(CASE WHEN event_type = 'connected' THEN seconds ELSE 0 END) * 100 / NULLIF(SUM(seconds), 0), 2) as uptime FROM durations",
@@ -761,7 +761,7 @@
       "type": "gauge"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -784,18 +784,18 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT COUNT(*) FROM mqtt_bridge_events WHERE event_type = 'connected' AND timestamp >= NOW() - INTERVAL '24 hours'",
           "refId": "A"
         }
       ],
-      "title": "Connects (24u)",
+      "title": "Verbindingen (24u)",
       "type": "stat"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -818,18 +818,18 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT COUNT(*) FROM mqtt_bridge_events WHERE event_type = 'disconnected' AND timestamp >= NOW() - INTERVAL '24 hours'",
           "refId": "A"
         }
       ],
-      "title": "Disconnects (24u)",
+      "title": "Verbroken (24u)",
       "type": "stat"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -852,18 +852,18 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT timestamp, bridge_name, event_type, message FROM mqtt_bridge_events WHERE timestamp >= NOW() - INTERVAL '7 days' ORDER BY timestamp DESC LIMIT 20",
           "refId": "A"
         }
       ],
-      "title": "Recente Bridge Events",
+      "title": "Recente Bridge Gebeurtenissen",
       "type": "table"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -906,14 +906,14 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT timestamp as time, bridge_name, CASE WHEN event_type = 'connected' THEN 1 ELSE 0 END as value FROM mqtt_bridge_events WHERE $__timeFilter(timestamp) AND bridge_name IN ('berging-to-zolder', 'zolder-to-berging') ORDER BY timestamp",
           "refId": "A"
         }
       ],
-      "title": "Bridge Status Timeline",
+      "title": "Bridge Status Tijdlijn",
       "type": "timeseries"
     },
     {
@@ -925,7 +925,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -963,18 +963,18 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT date_trunc('hour', timestamp) as time, ROUND(SUM(CASE WHEN was_shown THEN 1 ELSE 0 END)::numeric * 100 / NULLIF(COUNT(*), 0), 1) as \"Success Rate\" FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) GROUP BY 1 ORDER BY 1",
           "refId": "A"
         }
       ],
-      "title": "Success Rate over Tijd",
+      "title": "Succespercentage over Tijd",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -1012,18 +1012,18 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT date_trunc('hour', timestamp) as time, AVG(confidence) as \"Gemiddelde Confidence\" FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) AND was_shown = true GROUP BY 1 ORDER BY 1",
           "refId": "A"
         }
       ],
-      "title": "Gemiddelde Confidence (Getoonde Berichten)",
+      "title": "Gemiddelde Zekerheid (Getoonde Berichten)",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -1052,18 +1052,18 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT EXTRACT(DOW FROM timestamp) as dayofweek, EXTRACT(HOUR FROM timestamp) as hour, COUNT(*) as count FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '30 days' GROUP BY 1, 2 ORDER BY 1, 2",
           "refId": "A"
         }
       ],
-      "title": "Heatmap: Berichten per Dag/Uur (30d)",
+      "title": "Warmtekaart: Berichten per Dag/Uur (30d)",
       "type": "heatmap"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -1101,7 +1101,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT DATE(timestamp) as date, SUM(CASE WHEN was_shown THEN 1 ELSE 0 END) as \"Getoond\", SUM(CASE WHEN NOT was_shown THEN 1 ELSE 0 END) as \"Geskipt\" FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '14 days' GROUP BY 1 ORDER BY 1",
@@ -1116,11 +1116,11 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 55 },
       "id": 105,
       "panels": [],
-      "title": "📋 Recent Activity",
+      "title": "📋 Recente Activiteit",
       "type": "row"
     },
     {
-      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -1145,7 +1145,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT timestamp, species_nl, station, confidence, rarity_tier, was_shown, skip_reason, notification_type FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) ORDER BY timestamp DESC LIMIT 50",

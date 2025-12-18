@@ -62,8 +62,17 @@ Email contact point: ronny@ronnyhullegie.nl
 
 ### 5. Homer Dashboard Link
 
-Link toegevoegd aan Homer dashboard in Monitoring sectie:
+Link toegevoegd aan Homer dashboard in "Systeem Monitoring" sectie:
 - **MQTT Monitoring** - Bridge status & message flow
+
+Homer config geherstructureerd met logische groepen:
+- Vogel Dashboards, Weer & Omgeving, Systeem Monitoring, Data Kwaliteit
+- Vogelstations, AI Rapporten, Hardware & IoT, Documentatie
+
+### 6. Bugfixes
+
+- **Datasource UID:** Gecorrigeerd van `emsn-postgres` naar `emsn_postgres`
+- **Nederlandse vertalingen:** Dashboard titels en labels vertaald naar Nederlands
 
 ## Bestanden
 
