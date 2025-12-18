@@ -1,0 +1,260 @@
+{
+  "annotations": { "list": [{ "builtIn": 1, "datasource": { "type": "grafana", "uid": "-- Grafana --" }, "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard" }] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "panels": [],
+      "title": "Overzicht",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "orange", "value": 5 }, { "color": "red", "value": 10 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT COUNT(*) FROM anomalies WHERE detected_at >= NOW() - INTERVAL '24 hours'", "refId": "A" }],
+      "title": "Anomalies (24u)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "orange", "value": 3 }, { "color": "red", "value": 5 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "id": 2,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT COUNT(*) FROM system_events WHERE timestamp >= NOW() - INTERVAL '24 hours'", "refId": "A" }],
+      "title": "Systeem Events (24u)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 3 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "id": 3,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT COUNT(*) FROM mqtt_bridge_events WHERE event_type = 'disconnected' AND timestamp >= NOW() - INTERVAL '24 hours'", "refId": "A" }],
+      "title": "Bridge Disconnects (24u)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "orange", "value": 20 }, { "color": "red", "value": 50 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "id": 4,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT COUNT(*) FROM ulanzi_notification_log WHERE was_shown = false AND timestamp >= NOW() - INTERVAL '24 hours'", "refId": "A" }],
+      "title": "MQTT Skip/Fail (24u)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "id": 5,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT COUNT(*) FROM anomalies", "refId": "A" }],
+      "title": "Totaal Anomalies",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "id": 6,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT COUNT(*) FROM system_events", "refId": "A" }],
+      "title": "Totaal Systeem Events",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "panels": [],
+      "title": "Anomalies",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "bars", "fillOpacity": 80, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "normal" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "id": 10,
+      "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "time_series", "rawQuery": true, "rawSql": "SELECT date_trunc('day', detected_at) as time, anomaly_type, COUNT(*) as count FROM anomalies WHERE detected_at >= NOW() - INTERVAL '30 days' GROUP BY date_trunc('day', detected_at), anomaly_type ORDER BY time", "refId": "A" }],
+      "title": "Anomalies per Dag (30d)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } }, "mappings": [] }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 6 },
+      "id": 11,
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT anomaly_type, COUNT(*) as count FROM anomalies GROUP BY anomaly_type ORDER BY count DESC", "refId": "A" }],
+      "title": "Anomaly Types",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } }, "mappings": [] }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 6 },
+      "id": 12,
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT severity, COUNT(*) as count FROM anomalies GROUP BY severity ORDER BY count DESC", "refId": "A" }],
+      "title": "Anomaly Severity",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [{ "matcher": { "id": "byName", "options": "severity" }, "properties": [{ "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "mappings", "value": [{ "options": { "critical": { "color": "red", "index": 0, "text": "Critical" }, "high": { "color": "orange", "index": 1, "text": "High" }, "medium": { "color": "yellow", "index": 2, "text": "Medium" }, "low": { "color": "green", "index": 3, "text": "Low" } }, "type": "value" }] }] }, { "matcher": { "id": "byName", "options": "detected_at" }, "properties": [{ "id": "custom.width", "value": 180 }] }] },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 14 },
+      "id": 13,
+      "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": true, "displayName": "detected_at" }] },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT detected_at, anomaly_type, severity, COALESCE(station_id, '-') as station, COALESCE(species, '-') as soort, description, ROUND(metric_value::numeric, 2) as waarde FROM anomalies ORDER BY detected_at DESC LIMIT 50", "refId": "A" }],
+      "title": "Recente Anomalies",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "id": 102,
+      "panels": [],
+      "title": "Systeem Events",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "bars", "fillOpacity": 80, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "normal" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 25 },
+      "id": 20,
+      "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "time_series", "rawQuery": true, "rawSql": "SELECT date_trunc('day', timestamp) as time, event_type, COUNT(*) as count FROM system_events WHERE timestamp >= NOW() - INTERVAL '30 days' GROUP BY date_trunc('day', timestamp), event_type ORDER BY time", "refId": "A" }],
+      "title": "Systeem Events per Dag (30d)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } }, "mappings": [] }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 25 },
+      "id": 21,
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT event_type, COUNT(*) as count FROM system_events GROUP BY event_type ORDER BY count DESC", "refId": "A" }],
+      "title": "Event Types",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } }, "mappings": [] }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 25 },
+      "id": 22,
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT COALESCE(station, 'System') as station, COUNT(*) as count FROM system_events GROUP BY station ORDER BY count DESC", "refId": "A" }],
+      "title": "Events per Station",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [{ "matcher": { "id": "byName", "options": "severity" }, "properties": [{ "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "mappings", "value": [{ "options": { "critical": { "color": "red", "index": 0, "text": "Critical" }, "error": { "color": "orange", "index": 1, "text": "Error" }, "warning": { "color": "yellow", "index": 2, "text": "Warning" }, "info": { "color": "blue", "index": 3, "text": "Info" } }, "type": "value" }] }] }, { "matcher": { "id": "byName", "options": "timestamp" }, "properties": [{ "id": "custom.width", "value": 180 }] }] },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 33 },
+      "id": 23,
+      "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": true, "displayName": "timestamp" }] },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT timestamp, event_type, severity, COALESCE(station, 'System') as station, message, details FROM system_events ORDER BY timestamp DESC LIMIT 50", "refId": "A" }],
+      "title": "Recente Systeem Events",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 },
+      "id": 103,
+      "panels": [],
+      "title": "MQTT Bridge Events",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "bars", "fillOpacity": 80, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "normal" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },
+      "id": 30,
+      "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "time_series", "rawQuery": true, "rawSql": "SELECT date_trunc('day', timestamp) as time, event_type, COUNT(*) as count FROM mqtt_bridge_events WHERE timestamp >= NOW() - INTERVAL '30 days' GROUP BY date_trunc('day', timestamp), event_type ORDER BY time", "refId": "A" }],
+      "title": "Bridge Events per Dag (30d)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [{ "matcher": { "id": "byName", "options": "event_type" }, "properties": [{ "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "mappings", "value": [{ "options": { "connected": { "color": "green", "index": 0, "text": "Connected" }, "disconnected": { "color": "red", "index": 1, "text": "Disconnected" }, "startup": { "color": "blue", "index": 2, "text": "Startup" } }, "type": "value" }] }] }, { "matcher": { "id": "byName", "options": "timestamp" }, "properties": [{ "id": "custom.width", "value": 180 }] }, { "matcher": { "id": "byName", "options": "duration_seconds" }, "properties": [{ "id": "unit", "value": "s" }] }] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 44 },
+      "id": 31,
+      "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": true, "displayName": "timestamp" }] },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT timestamp, bridge_name, event_type, source, COALESCE(duration_seconds, 0) as duration_seconds, message FROM mqtt_bridge_events ORDER BY timestamp DESC LIMIT 30", "refId": "A" }],
+      "title": "Recente Bridge Events",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 52 },
+      "id": 104,
+      "panels": [],
+      "title": "MQTT Notificatie Failures",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "bars", "fillOpacity": 80, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "normal" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 53 },
+      "id": 40,
+      "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "time_series", "rawQuery": true, "rawSql": "SELECT date_trunc('hour', timestamp) as time, skip_reason, COUNT(*) as count FROM ulanzi_notification_log WHERE was_shown = false AND timestamp >= NOW() - INTERVAL '7 days' GROUP BY date_trunc('hour', timestamp), skip_reason ORDER BY time", "refId": "A" }],
+      "title": "Skip/Fail Reasons per Uur (7d)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } }, "mappings": [] }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 53 },
+      "id": 41,
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT COALESCE(skip_reason, 'unknown') as reden, COUNT(*) as count FROM ulanzi_notification_log WHERE was_shown = false GROUP BY skip_reason ORDER BY count DESC", "refId": "A" }],
+      "title": "Skip Reasons Verdeling",
+      "type": "piechart"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 38,
+  "tags": ["alerts", "events", "monitoring", "emsn"],
+  "templating": { "list": [] },
+  "time": { "from": "now-7d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "EMSN Alerts & Events",
+  "uid": "emsn-alerts-events",
+  "version": 1,
+  "weekStart": "monday"
+}

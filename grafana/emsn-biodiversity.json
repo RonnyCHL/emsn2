@@ -1,0 +1,178 @@
+{
+  "annotations": { "list": [{ "builtIn": 1, "datasource": { "type": "grafana", "uid": "-- Grafana --" }, "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard" }] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "panels": [],
+      "title": "Biodiversiteit Indices",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "description": "Shannon Diversity Index (H'): Hogere waarden = meer diversiteit. Typisch 1.5-3.5 voor vogelpopulaties.",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 1.5 }, { "color": "yellow", "value": 2 }, { "color": "green", "value": 2.5 }, { "color": "dark-green", "value": 3 }] }, "unit": "short", "max": 4, "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "WITH species_counts AS (SELECT species, COUNT(*) as n FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '30 days' GROUP BY species), totals AS (SELECT SUM(n) as total FROM species_counts), proportions AS (SELECT n::float / total as p FROM species_counts, totals) SELECT -SUM(p * LN(p)) as shannon_index FROM proportions WHERE p > 0", "refId": "A" }],
+      "title": "Shannon Index (30d)",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "description": "Simpson's Diversity Index (1-D): 0-1 schaal, hogere waarde = meer divers",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 0.5 }, { "color": "yellow", "value": 0.7 }, { "color": "green", "value": 0.85 }, { "color": "dark-green", "value": 0.95 }] }, "unit": "percentunit", "max": 1, "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "id": 2,
+      "options": { "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "WITH species_counts AS (SELECT species, COUNT(*) as n FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '30 days' GROUP BY species), totals AS (SELECT SUM(n) as total FROM species_counts) SELECT 1 - SUM((n::float / total) * (n::float / total)) as simpson_index FROM species_counts, totals", "refId": "A" }],
+      "title": "Simpson Index (30d)",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "description": "Evenness (Pielou's J): Hoe gelijk verdeeld zijn de soorten? 0-1 schaal",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 0.4 }, { "color": "yellow", "value": 0.6 }, { "color": "green", "value": 0.75 }, { "color": "dark-green", "value": 0.9 }] }, "unit": "percentunit", "max": 1, "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "id": 3,
+      "options": { "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "WITH species_counts AS (SELECT species, COUNT(*) as n FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '30 days' GROUP BY species), totals AS (SELECT SUM(n) as total, COUNT(*) as s FROM species_counts), proportions AS (SELECT n::float / total as p FROM species_counts, totals), shannon AS (SELECT -SUM(p * LN(p)) as h FROM proportions WHERE p > 0) SELECT h / LN(s) as evenness FROM shannon, totals WHERE s > 1", "refId": "A" }],
+      "title": "Evenness (30d)",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "description": "Species Richness: Totaal aantal unieke soorten gedetecteerd",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "id": 4,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT COUNT(DISTINCT species) as species_richness FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '30 days'", "refId": "A" }],
+      "title": "Species Richness (30d)",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "id": 101,
+      "panels": [],
+      "title": "Diversiteit Trends",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 20, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "id": 10,
+      "options": { "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "time_series", "rawQuery": true, "rawSql": "WITH daily_data AS (SELECT date_trunc('day', detection_timestamp) as day, species, COUNT(*) as n FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '90 days' GROUP BY date_trunc('day', detection_timestamp), species), daily_totals AS (SELECT day, SUM(n) as total FROM daily_data GROUP BY day), daily_proportions AS (SELECT d.day, d.species, d.n::float / t.total as p FROM daily_data d JOIN daily_totals t ON d.day = t.day) SELECT day as time, -SUM(p * LN(p)) as shannon_index FROM daily_proportions WHERE p > 0 GROUP BY day ORDER BY day", "refId": "A" }],
+      "title": "Shannon Index Trend (90d)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 20, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "id": 11,
+      "options": { "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "time_series", "rawQuery": true, "rawSql": "SELECT date_trunc('day', detection_timestamp) as time, COUNT(DISTINCT species) as soorten FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '90 days' GROUP BY date_trunc('day', detection_timestamp) ORDER BY time", "refId": "A" }],
+      "title": "Soorten per Dag (90d)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "id": 102,
+      "panels": [],
+      "title": "Soorten Verdeling",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "description": "Rank-Abundance curve: Hoe gelijk zijn soorten verdeeld?",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "Aantal detecties", "axisPlacement": "auto", "fillOpacity": 80, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineWidth": 1, "scaleDistribution": { "type": "linear" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 16 },
+      "id": 12,
+      "options": { "barRadius": 0.1, "barWidth": 0.8, "groupWidth": 0.7, "legend": { "calcs": [], "displayMode": "hidden", "placement": "bottom", "showLegend": false }, "orientation": "horizontal", "showValue": "always", "stacking": "none", "tooltip": { "mode": "single", "sort": "none" }, "xTickLabelRotation": 0, "xTickLabelSpacing": 0 },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT species as soort, COUNT(*) as detecties FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '30 days' GROUP BY species ORDER BY detecties DESC LIMIT 20", "refId": "A" }],
+      "title": "Top 20 Soorten (30d)",
+      "type": "barchart"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } }, "mappings": [] }, "overrides": [] },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 16 },
+      "id": 13,
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT COALESCE(rarity_tier, 'algemeen') as zeldzaamheid, COUNT(*) as count FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '30 days' GROUP BY rarity_tier ORDER BY count DESC", "refId": "A" }],
+      "title": "Zeldzaamheid Verdeling (30d)",
+      "type": "piechart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+      "id": 103,
+      "panels": [],
+      "title": "Seizoenspatronen",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "description": "Activiteitspatroon per uur van de dag",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "custom": { "cellGap": 1, "filterValues": { "le": 1e-9 }, "hideFrom": { "legend": false, "tooltip": false, "viz": false } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }, { "color": "light-blue", "value": 1 }, { "color": "blue", "value": 10 }, { "color": "light-green", "value": 50 }, { "color": "green", "value": 100 }, { "color": "yellow", "value": 200 }, { "color": "orange", "value": 500 }, { "color": "red", "value": 1000 }] } }, "overrides": [] },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 27 },
+      "id": 20,
+      "options": { "calculate": false, "cellGap": 1, "color": { "exponent": 0.5, "fill": "dark-orange", "mode": "scheme", "reverse": false, "scale": "exponential", "scheme": "Turbo", "steps": 64 }, "exemplars": { "color": "rgba(255,0,255,0.7)" }, "filterValues": { "le": 1e-9 }, "legend": { "show": true }, "rowsFrame": { "layout": "auto" }, "tooltip": { "show": true, "yHistogram": false }, "yAxis": { "axisPlacement": "left", "reverse": false } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT EXTRACT(HOUR FROM detection_timestamp)::text || ':00' as uur, TO_CHAR(detection_timestamp, 'Dy') as dag, COUNT(*) as detecties FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '30 days' GROUP BY EXTRACT(HOUR FROM detection_timestamp), TO_CHAR(detection_timestamp, 'Dy'), EXTRACT(DOW FROM detection_timestamp) ORDER BY EXTRACT(DOW FROM detection_timestamp), EXTRACT(HOUR FROM detection_timestamp)", "refId": "A" }],
+      "title": "Activiteit Heatmap (30d)",
+      "type": "heatmap"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 37 },
+      "id": 104,
+      "panels": [],
+      "title": "Maandelijkse Vergelijking",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [{ "matcher": { "id": "byName", "options": "shannon_index" }, "properties": [{ "id": "custom.cellOptions", "value": { "mode": "gradient", "type": "gauge" } }, { "id": "max", "value": 4 }, { "id": "decimals", "value": 2 }] }, { "matcher": { "id": "byName", "options": "simpson_index" }, "properties": [{ "id": "custom.cellOptions", "value": { "mode": "gradient", "type": "gauge" } }, { "id": "max", "value": 1 }, { "id": "decimals", "value": 2 }] }] },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 38 },
+      "id": 30,
+      "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": true, "displayName": "maand" }] },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "WITH monthly_data AS (SELECT TO_CHAR(detection_timestamp, 'YYYY-MM') as maand, species, COUNT(*) as n FROM bird_detections GROUP BY TO_CHAR(detection_timestamp, 'YYYY-MM'), species), monthly_totals AS (SELECT maand, SUM(n) as total, COUNT(DISTINCT species) as species_count FROM monthly_data GROUP BY maand), monthly_proportions AS (SELECT d.maand, d.species, d.n::float / t.total as p FROM monthly_data d JOIN monthly_totals t ON d.maand = t.maand), monthly_shannon AS (SELECT maand, -SUM(p * LN(p)) as shannon FROM monthly_proportions WHERE p > 0 GROUP BY maand), monthly_simpson AS (SELECT maand, 1 - SUM(p * p) as simpson FROM monthly_proportions GROUP BY maand) SELECT t.maand, t.total as detecties, t.species_count as soorten, ROUND(sh.shannon::numeric, 3) as shannon_index, ROUND(si.simpson::numeric, 3) as simpson_index FROM monthly_totals t LEFT JOIN monthly_shannon sh ON t.maand = sh.maand LEFT JOIN monthly_simpson si ON t.maand = si.maand ORDER BY t.maand DESC LIMIT 12", "refId": "A" }],
+      "title": "Biodiversiteit per Maand",
+      "type": "table"
+    }
+  ],
+  "refresh": "1h",
+  "schemaVersion": 38,
+  "tags": ["biodiversiteit", "ecologie", "emsn"],
+  "templating": { "list": [] },
+  "time": { "from": "now-90d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "EMSN Biodiversiteit Index",
+  "uid": "emsn-biodiversity",
+  "version": 1,
+  "weekStart": "monday"
+}
