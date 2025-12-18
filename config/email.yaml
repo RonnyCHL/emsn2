@@ -41,6 +41,12 @@ recipients:
   style: wetenschappelijk
   report_types:
   - seasonal
+- email: aterborg80@gmail.com
+  name: Alethea
+  mode: auto
+  style: populair
+  report_types:
+  - monthly
 reports:
   auto_send:
     weekly: true

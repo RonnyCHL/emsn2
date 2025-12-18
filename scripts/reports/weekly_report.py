@@ -18,18 +18,25 @@ from report_charts import ReportCharts
 from report_highlights import ReportHighlights
 from report_spectrograms import ReportSpectrograms
 from weather_forecast import get_forecast_for_report
+from species_images import get_images_for_species_list, generate_species_gallery_markdown
 
 
 class WeeklyReportGenerator(ReportBase):
     """Generate weekly narrative bird activity reports"""
 
+    # Smart scheduling configuration
+    MIN_DETECTIONS_WEEKLY = 50  # Minimum detections needed for a weekly report
+    MIN_SPECIES_WEEKLY = 5  # Minimum unique species needed
+    ADMIN_EMAIL = "rapporten@ronnyhullegie.nl"  # Admin for error notifications
+
     def __init__(self, style=None, report_format='uitgebreid', include_spectrograms=False,
-                 pending_mode=False):
+                 pending_mode=False, skip_min_check=False):
         super().__init__()
         self.get_style(style)
         self.report_format = report_format  # 'kort' or 'uitgebreid'
         self.include_spectrograms = include_spectrograms
         self.pending_mode = pending_mode  # If True, add to review queue instead of sending
+        self.skip_min_check = skip_min_check  # Skip minimum detections check (for manual generation)
 
     def create_pending_report(self, report_type, report_title, report_filename,
                               markdown_path, pdf_path=None, expires_hours=24,
@@ -184,6 +191,89 @@ EMSN Vogelmonitoring
         except Exception as e:
             print(f"   WARNING: Email notification failed: {e}")
             return False
+
+    def _send_admin_error_notification(self, error_type, error_message, context=None):
+        """Send error notification to admin"""
+        import smtplib
+        import yaml
+        from email.mime.text import MIMEText
+        from datetime import datetime
+
+        try:
+            config_path = Path(__file__).parent.parent.parent / 'config' / 'email.yaml'
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+
+            smtp_password = os.environ.get('EMSN_SMTP_PASSWORD')
+            if not smtp_password:
+                print("   WARNING: SMTP password not set, cannot send error notification")
+                return False
+
+            smtp_config = config.get('smtp', {})
+            email_config = config.get('email', {})
+            admin_email = email_config.get('admin_email', self.ADMIN_EMAIL)
+
+            # Build context info
+            context_str = ""
+            if context:
+                context_str = "\n\nContext:\n"
+                for key, value in context.items():
+                    context_str += f"  - {key}: {value}\n"
+
+            msg = MIMEText(f"""EMSN Foutmelding
+
+Er is een fout opgetreden bij het genereren van een rapport.
+
+Type fout: {error_type}
+Tijdstip: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+Foutmelding:
+{error_message}
+{context_str}
+---
+Dit bericht is automatisch verzonden door EMSN Vogelmonitoring.
+""", 'plain', 'utf-8')
+
+            msg['Subject'] = f"EMSN FOUT: {error_type}"
+            msg['From'] = f"{email_config.get('from_name', 'EMSN')} <{email_config.get('from_address', smtp_config.get('username'))}>"
+            msg['To'] = admin_email
+
+            server = smtplib.SMTP(smtp_config.get('host'), smtp_config.get('port', 587))
+            if smtp_config.get('use_tls', True):
+                server.starttls()
+            server.login(smtp_config.get('username'), smtp_password)
+            server.sendmail(
+                email_config.get('from_address', smtp_config.get('username')),
+                [admin_email],
+                msg.as_string()
+            )
+            server.quit()
+
+            print(f"   Admin notification sent to {admin_email}")
+            return True
+
+        except Exception as e:
+            print(f"   WARNING: Could not send admin notification: {e}")
+            return False
+
+    def _check_minimum_data(self, data):
+        """
+        Check if there's enough data for a meaningful report.
+        Returns (ok, reason) tuple.
+        """
+        if self.skip_min_check:
+            return True, "Minimum check overgeslagen (handmatig)"
+
+        total = data.get('total_detections', 0)
+        species = data.get('unique_species', 0)
+
+        if total < self.MIN_DETECTIONS_WEEKLY:
+            return False, f"Te weinig detecties: {total} (minimum: {self.MIN_DETECTIONS_WEEKLY})"
+
+        if species < self.MIN_SPECIES_WEEKLY:
+            return False, f"Te weinig soorten: {species} (minimum: {self.MIN_SPECIES_WEEKLY})"
+
+        return True, "Voldoende data aanwezig"
 
     def get_week_dates(self):
         """Get start and end dates for last week"""
@@ -887,6 +977,12 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         if spectrograms_markdown:
             markdown += spectrograms_markdown
 
+        # Add species images gallery if available
+        species_images = data.get('species_images', [])
+        if species_images and self.report_format == 'uitgebreid':
+            markdown += "---\n\n"
+            markdown += generate_species_gallery_markdown(species_images)
+
         # Add highlights section
         highlights = data.get('highlights', {})
         if any(highlights.values()):
@@ -1072,6 +1168,34 @@ Licentie: CC BY-NC 4.0 (gebruik toegestaan met bronvermelding, niet commercieel)
         print(f"   - {data['unique_species']} soorten")
         print(f"   - {data['dual_detections']:,} dual detections")
 
+        # Smart scheduling: check minimum data requirements
+        data_ok, reason = self._check_minimum_data(data)
+        if not data_ok:
+            print(f"\nSKIP: {reason}")
+            print("Rapport generatie wordt overgeslagen (slimme scheduling)")
+            # Log this skip (for monitoring)
+            skip_log = REPORTS_PATH / "skip_log.json"
+            try:
+                import json
+                logs = []
+                if skip_log.exists():
+                    with open(skip_log, 'r') as f:
+                        logs = json.load(f)
+                logs.append({
+                    'timestamp': datetime.now().isoformat(),
+                    'period': f"{start_date.strftime('%Y-%m-%d')} - {end_date.strftime('%Y-%m-%d')}",
+                    'reason': reason,
+                    'detections': data['total_detections'],
+                    'species': data['unique_species']
+                })
+                # Keep last 50 entries
+                logs = logs[-50:]
+                with open(skip_log, 'w') as f:
+                    json.dump(logs, f, indent=2)
+            except Exception as e:
+                print(f"   WARNING: Could not write skip log: {e}")
+            return 'skipped'  # Return 'skipped' instead of False to indicate normal skip
+
         # Generate highlights
         print("Detecteren highlights...")
         highlights_detector = ReportHighlights(self.conn)
@@ -1079,12 +1203,48 @@ Licentie: CC BY-NC 4.0 (gebruik toegestaan met bronvermelding, niet commercieel)
         highlight_count = sum(len(v) for v in data['highlights'].values())
         print(f"   - {highlight_count} highlights gedetecteerd")
 
+        # Fetch species images for top 5 species
+        print("Ophalen vogelfoto's...")
+        try:
+            top_species_for_images = [
+                {'name': s['name'], 'scientific_name': s.get('scientific_name', '')}
+                for s in data['top_species'][:5]
+            ]
+            data['species_images'] = get_images_for_species_list(top_species_for_images, max_images=5)
+            print(f"   - {len(data['species_images'])} foto's opgehaald")
+        except Exception as e:
+            print(f"   WARNING: Kon vogelfoto's niet ophalen: {e}")
+            data['species_images'] = []
+
         # Generate report with Claude
         print("Genereren rapport met Claude AI...")
-        report = self.generate_report(data)
+        try:
+            report = self.generate_report(data)
+        except Exception as e:
+            error_msg = f"Exception bij rapport generatie: {str(e)}"
+            print(f"ERROR: {error_msg}")
+            self._send_admin_error_notification(
+                "Claude API Fout",
+                error_msg,
+                context={
+                    'periode': f"{start_date.strftime('%Y-%m-%d')} - {end_date.strftime('%Y-%m-%d')}",
+                    'detecties': data['total_detections'],
+                    'soorten': data['unique_species']
+                }
+            )
+            return False
 
         if not report:
             print("ERROR: Rapport generatie mislukt")
+            self._send_admin_error_notification(
+                "Rapport Generatie Mislukt",
+                "Claude API retourneerde geen rapport (leeg antwoord)",
+                context={
+                    'periode': f"{start_date.strftime('%Y-%m-%d')} - {end_date.strftime('%Y-%m-%d')}",
+                    'detecties': data['total_detections'],
+                    'soorten': data['unique_species']
+                }
+            )
             return False
 
         print(f"   - {len(report)} karakters gegenereerd")
@@ -1233,6 +1393,8 @@ def main():
                         help='Include spectrograms from BirdNET-Pi recordings')
     parser.add_argument('--pending', action='store_true',
                         help='Add report to review queue instead of sending directly')
+    parser.add_argument('--force', action='store_true',
+                        help='Skip minimum detections check (force generation)')
     parser.add_argument('--list-styles', action='store_true',
                         help='List available writing styles and exit')
 
@@ -1249,10 +1411,19 @@ def main():
         style=args.style,
         report_format=args.format,
         include_spectrograms=args.spectrograms,
-        pending_mode=args.pending
+        pending_mode=args.pending,
+        skip_min_check=args.force
     )
-    success = generator.run()
-    sys.exit(0 if success else 1)
+    result = generator.run()
+
+    # Handle different return values
+    if result == 'skipped':
+        print("\nRapport overgeslagen (slimme scheduling)")
+        sys.exit(0)  # Exit 0 because this is expected behavior
+    elif result:
+        sys.exit(0)
+    else:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

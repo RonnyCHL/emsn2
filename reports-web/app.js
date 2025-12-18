@@ -1,7 +1,30 @@
 // EMSN Reports Web Interface
 let allReports = [];
 let currentFilter = 'all';
+let currentSearchQuery = '';
 let availableStyles = [];
+
+// Favorites stored in localStorage
+function getFavorites() {
+    return JSON.parse(localStorage.getItem('favoriteReports') || '[]');
+}
+
+function isFavorite(filename) {
+    return getFavorites().includes(filename);
+}
+
+function toggleFavorite(filename) {
+    const favorites = getFavorites();
+    const index = favorites.indexOf(filename);
+    if (index > -1) {
+        favorites.splice(index, 1);
+    } else {
+        favorites.push(filename);
+    }
+    localStorage.setItem('favoriteReports', JSON.stringify(favorites));
+    // Re-render to update star
+    displayReports(filterReports(allReports));
+}
 
 // API configuration - direct connection to Pi for POST requests (NAS proxy blocks POST)
 const PI_API_BASE = 'http://192.168.1.178:8081';
@@ -62,30 +85,75 @@ function setupFilters() {
 
             // Apply filter
             currentFilter = btn.dataset.filter;
-            filterReports();
+            displayReports(filterReports(allReports));
         });
     });
+
+    // Setup search on Enter key
+    const searchInput = document.getElementById('report-search');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchReports();
+            }
+        });
+    }
 }
 
-function filterReports() {
-    const cards = document.querySelectorAll('.report-card');
-    const sections = document.querySelectorAll('.report-section');
+function filterReports(reports) {
+    let filtered = reports;
 
-    cards.forEach(card => {
-        const type = card.dataset.type;
+    // Filter by type
+    if (currentFilter === 'favorites') {
+        const favorites = getFavorites();
+        filtered = filtered.filter(r => favorites.includes(r.filename));
+    } else if (currentFilter !== 'all') {
+        filtered = filtered.filter(r => r.type === currentFilter);
+    }
 
-        if (currentFilter === 'all' || currentFilter === type) {
-            card.classList.remove('hidden');
-        } else {
-            card.classList.add('hidden');
-        }
+    // Filter by search query
+    if (currentSearchQuery) {
+        const query = currentSearchQuery.toLowerCase();
+        filtered = filtered.filter(r => {
+            // Search in filename, title, and top species
+            const searchText = [
+                r.filename,
+                r.title || '',
+                r.period || '',
+                ...(r.top_species || [])
+            ].join(' ').toLowerCase();
+            return searchText.includes(query);
+        });
+    }
+
+    return filtered;
+}
+
+function searchReports() {
+    const searchInput = document.getElementById('report-search');
+    currentSearchQuery = searchInput ? searchInput.value.trim() : '';
+    displayReports(filterReports(allReports));
+}
+
+function clearSearch() {
+    const searchInput = document.getElementById('report-search');
+    if (searchInput) searchInput.value = '';
+    currentSearchQuery = '';
+    displayReports(filterReports(allReports));
+}
+
+function filterFavorites() {
+    const checkbox = document.getElementById('show-favorites-only');
+    if (checkbox && checkbox.checked) {
+        currentFilter = 'favorites';
+    } else {
+        currentFilter = 'all';
+    }
+    // Update filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === currentFilter);
     });
-
-    // Hide empty sections
-    sections.forEach(section => {
-        const visibleCards = section.querySelectorAll('.report-card:not(.hidden)');
-        section.style.display = visibleCards.length === 0 ? 'none' : 'block';
-    });
+    displayReports(filterReports(allReports));
 }
 
 function displayReports(reports) {
@@ -157,6 +225,11 @@ function createReportCard(report) {
     const isUnread = !readReports.includes(report.filename);
     const isNew = genDate && (Date.now() - genDate.getTime()) < 24 * 60 * 60 * 1000 && isUnread;
 
+    // Check if favorite
+    const favorite = isFavorite(report.filename);
+    const starClass = favorite ? 'favorite-star active' : 'favorite-star';
+    const starTitle = favorite ? 'Verwijder uit favorieten' : 'Voeg toe aan favorieten';
+
     return `
         <div class="report-card" data-type="${report.type}">
             <div class="report-header">
@@ -164,6 +237,9 @@ function createReportCard(report) {
                     ${typeLabel}
                 </span>
                 ${isNew ? '<span class="badge-new">Nieuw</span>' : ''}
+                <button class="${starClass}" onclick="toggleFavorite('${escapeHtml(report.filename)}')" title="${starTitle}">
+                    ${favorite ? '★' : '☆'}
+                </button>
             </div>
 
             <h2 class="report-title">
@@ -184,9 +260,9 @@ function createReportCard(report) {
             </div>
 
             <div class="report-actions">
-                <a href="api/pdf?file=${encodeURIComponent(report.filename)}" class="btn btn-primary" download title="Download als PDF">
+                <button class="btn btn-primary" onclick="downloadPdfWithProgress('${escapeHtml(report.filename)}')" title="Download als PDF">
                     Download PDF
-                </a>
+                </button>
             </div>
         </div>
     `;
@@ -570,6 +646,7 @@ function setupEmailManagement() {
             if (tab.dataset.tab === 'email') {
                 loadEmailRecipients();
                 loadReportsForCopy();
+                loadEmailHistory();
             }
         });
     });
@@ -805,9 +882,13 @@ async function handleSendCopy(e) {
         if (data.success) {
             resultEl.classList.add('success');
             resultEl.textContent = data.message;
+            // Refresh email history
+            loadEmailHistory();
         } else {
             resultEl.classList.add('error');
             resultEl.textContent = 'Fout: ' + (data.error || 'Onbekende fout');
+            // Refresh history to show failed attempt
+            loadEmailHistory();
         }
     } catch (error) {
         console.error('Error sending copy:', error);
@@ -848,6 +929,68 @@ async function handleTestEmail(e) {
     }
 }
 
+// Load email send history
+async function loadEmailHistory() {
+    const container = document.getElementById('email-history-list');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading">Laden...</div>';
+
+    try {
+        const response = await fetch(getApiUrl('api/email/history', false));
+        const data = await response.json();
+
+        if (data.error) {
+            container.innerHTML = `<div class="error">${data.error}</div>`;
+            return;
+        }
+
+        const history = data.history || [];
+
+        if (history.length === 0) {
+            container.innerHTML = '<p class="no-data">Nog geen rapporten verzonden per e-mail</p>';
+            return;
+        }
+
+        let html = '<table class="email-history-table"><thead><tr>';
+        html += '<th>Datum</th><th>Rapport</th><th>Ontvangers</th><th>Status</th>';
+        html += '</tr></thead><tbody>';
+
+        history.forEach(h => {
+            const date = new Date(h.timestamp);
+            const dateStr = date.toLocaleDateString('nl-NL', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            const statusClass = h.status === 'success' ? 'success' : 'error';
+            const statusText = h.status === 'success' ? 'Verzonden' : 'Mislukt';
+            const recipients = h.recipients.join(', ');
+            const reportName = h.report.replace('.md', '');
+
+            html += `<tr>
+                <td>${escapeHtml(dateStr)}</td>
+                <td>${escapeHtml(reportName)}</td>
+                <td>${escapeHtml(recipients)}</td>
+                <td>
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                    ${h.error ? `<span class="error-hint" title="${escapeHtml(h.error)}">ℹ️</span>` : ''}
+                </td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error loading email history:', error);
+        container.innerHTML = '<div class="error">Kon verzendhistorie niet laden</div>';
+    }
+}
+
 // =============================================================================
 // SCHEDULE TAB
 // =============================================================================
@@ -864,6 +1007,7 @@ function setupScheduleTab() {
             if (tab.dataset.tab === 'schedule') {
                 loadSchedule();
                 loadGenerationHistory();
+                loadSkippedReports();
             }
         });
     });
@@ -954,6 +1098,56 @@ async function loadGenerationHistory() {
     } catch (error) {
         console.error('Error loading history:', error);
         container.innerHTML = '<div class="error">Kon geschiedenis niet laden</div>';
+    }
+}
+
+async function loadSkippedReports() {
+    const container = document.getElementById('skipped-reports-list');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading">Laden...</div>';
+
+    try {
+        const response = await fetch(getApiUrl('api/schedule/skipped', false));
+        const data = await response.json();
+
+        if (data.error) {
+            container.innerHTML = `<div class="error">${data.error}</div>`;
+            return;
+        }
+
+        if (!data.skipped || data.skipped.length === 0) {
+            container.innerHTML = '<p class="no-data">Geen overgeslagen rapporten (goed nieuws!)</p>';
+            return;
+        }
+
+        // Show most recent first
+        const skipped = data.skipped.slice().reverse();
+
+        let html = '<table class="skipped-table"><thead><tr>';
+        html += '<th>Datum/Tijd</th><th>Periode</th><th>Reden</th><th>Detecties</th><th>Soorten</th>';
+        html += '</tr></thead><tbody>';
+
+        skipped.forEach(s => {
+            const timestamp = new Date(s.timestamp).toLocaleString('nl-NL', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+            html += `<tr>
+                <td>${escapeHtml(timestamp)}</td>
+                <td>${escapeHtml(s.period)}</td>
+                <td class="skip-reason">${escapeHtml(s.reason)}</td>
+                <td class="number">${s.detections}</td>
+                <td class="number">${s.species}</td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error loading skipped reports:', error);
+        container.innerHTML = '<div class="error">Kon overgeslagen rapporten niet laden</div>';
     }
 }
 
@@ -1317,6 +1511,140 @@ async function rejectReport() {
         console.error('Error rejecting report:', error);
         alert('Fout bij afwijzen: ' + error.message);
     }
+}
+
+// =============================================================================
+// PDF DOWNLOAD WITH PROGRESS
+// =============================================================================
+
+// Create progress modal if it doesn't exist
+function createDownloadProgressModal() {
+    if (document.getElementById('download-progress-modal')) return;
+
+    const modal = document.createElement('div');
+    modal.id = 'download-progress-modal';
+    modal.className = 'download-modal hidden';
+    modal.innerHTML = `
+        <div class="download-modal-content">
+            <h3>PDF Downloaden</h3>
+            <p id="download-filename"></p>
+            <div class="download-progress-bar">
+                <div id="download-progress-fill" class="download-progress-fill"></div>
+            </div>
+            <p id="download-status">Verbinding maken...</p>
+            <p id="download-size"></p>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+// Download PDF with progress indicator
+async function downloadPdfWithProgress(filename) {
+    createDownloadProgressModal();
+
+    const modal = document.getElementById('download-progress-modal');
+    const filenameEl = document.getElementById('download-filename');
+    const progressFill = document.getElementById('download-progress-fill');
+    const statusEl = document.getElementById('download-status');
+    const sizeEl = document.getElementById('download-size');
+
+    // Show modal
+    modal.classList.remove('hidden');
+    filenameEl.textContent = filename;
+    progressFill.style.width = '0%';
+    statusEl.textContent = 'Verbinding maken...';
+    sizeEl.textContent = '';
+
+    // Mark report as read
+    const readReports = JSON.parse(localStorage.getItem('readReports') || '[]');
+    if (!readReports.includes(filename)) {
+        readReports.push(filename);
+        localStorage.setItem('readReports', JSON.stringify(readReports));
+    }
+
+    try {
+        const response = await fetch(`api/pdf?file=${encodeURIComponent(filename)}`);
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const contentLength = response.headers.get('Content-Length');
+        const totalSize = contentLength ? parseInt(contentLength, 10) : null;
+
+        if (totalSize) {
+            sizeEl.textContent = `Grootte: ${formatFileSize(totalSize)}`;
+        }
+
+        statusEl.textContent = 'Downloaden...';
+
+        // Read the response as a stream
+        const reader = response.body.getReader();
+        const chunks = [];
+        let receivedSize = 0;
+
+        while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) break;
+
+            chunks.push(value);
+            receivedSize += value.length;
+
+            // Update progress
+            if (totalSize) {
+                const percent = Math.round((receivedSize / totalSize) * 100);
+                progressFill.style.width = `${percent}%`;
+                statusEl.textContent = `Downloaden... ${percent}%`;
+            } else {
+                // No content length, show received size
+                statusEl.textContent = `Downloaden... ${formatFileSize(receivedSize)}`;
+                // Indeterminate progress animation
+                progressFill.style.width = '100%';
+                progressFill.classList.add('indeterminate');
+            }
+        }
+
+        progressFill.classList.remove('indeterminate');
+        progressFill.style.width = '100%';
+        statusEl.textContent = 'Bestand opslaan...';
+
+        // Combine chunks into blob
+        const blob = new Blob(chunks, { type: 'application/pdf' });
+
+        // Create download link
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename.replace('.md', '.pdf');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        statusEl.textContent = 'Download voltooid!';
+
+        // Hide modal after brief delay
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            // Refresh reports to update "Nieuw" badge
+            loadReports();
+        }, 1000);
+
+    } catch (error) {
+        console.error('Download error:', error);
+        progressFill.style.width = '0%';
+        progressFill.style.backgroundColor = '#ef4444';
+        statusEl.textContent = `Fout: ${error.message}`;
+        sizeEl.innerHTML = '<button class="btn btn-small" onclick="document.getElementById(\'download-progress-modal\').classList.add(\'hidden\')">Sluiten</button>';
+    }
+}
+
+// Format file size
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
 // Load review history

@@ -30,7 +30,12 @@ SCRIPTS_DIR = Path("/home/ronny/emsn2/scripts/reports")
 CONFIG_DIR = Path("/home/ronny/emsn2/config")
 ASSETS_DIR = Path("/home/ronny/emsn2/assets")
 EMAIL_CONFIG_FILE = CONFIG_DIR / "email.yaml"
+EMAIL_LOG_FILE = REPORTS_DIR / "email_history.json"
+EMAIL_TRACKING_FILE = REPORTS_DIR / "email_tracking.json"
 VENV_PYTHON = "/home/ronny/emsn2/venv/bin/python3"
+
+# Base URL for email links
+BASE_URL = "http://192.168.1.178:8081"
 
 # PDF Template and Logo paths
 PDF_TEMPLATE = WEB_DIR / "emsn-template.tex"
@@ -213,6 +218,22 @@ def get_styles():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/schedule/skipped')
+def get_skipped_reports():
+    """Get log of skipped report generations (smart scheduling)"""
+    try:
+        skip_log = REPORTS_DIR / "skip_log.json"
+        if not skip_log.exists():
+            return jsonify({'skipped': []})
+
+        with open(skip_log, 'r') as f:
+            logs = json.load(f)
+
+        return jsonify({'skipped': logs})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/generate', methods=['POST'])
 def generate_report():
     """Generate a report on demand"""
@@ -232,6 +253,8 @@ def generate_report():
     if report_type == 'week':
         script = SCRIPTS_DIR / 'weekly_report.py'
         cmd = [VENV_PYTHON, str(script), '--style', style]
+        # Manual generation via web UI always forces (skips minimum check)
+        cmd.append('--force')
 
     elif report_type == 'month':
         script = SCRIPTS_DIR / 'monthly_report.py'
@@ -449,6 +472,279 @@ def save_email_config(config):
         yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
 
+def load_email_history():
+    """Load email send history from JSON file"""
+    import json
+    if not EMAIL_LOG_FILE.exists():
+        return []
+    try:
+        with open(EMAIL_LOG_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except:
+        return []
+
+
+def log_email_sent(report_file, recipients, status='success', error=None):
+    """Log an email send event"""
+    import json
+    from datetime import datetime
+
+    history = load_email_history()
+
+    entry = {
+        'timestamp': datetime.now().isoformat(),
+        'report': report_file,
+        'recipients': recipients if isinstance(recipients, list) else [recipients],
+        'status': status,
+        'error': error
+    }
+
+    # Add to beginning (newest first)
+    history.insert(0, entry)
+
+    # Keep only last 100 entries
+    history = history[:100]
+
+    with open(EMAIL_LOG_FILE, 'w', encoding='utf-8') as f:
+        json.dump(history, f, indent=2, ensure_ascii=False)
+
+    return entry
+
+
+@app.route('/api/email/history')
+def get_email_history():
+    """Get email send history"""
+    history = load_email_history()
+    return jsonify({
+        'history': history,
+        'count': len(history)
+    })
+
+
+# =============================================================================
+# EMAIL TRACKING & UNSUBSCRIBE
+# =============================================================================
+
+def generate_unsubscribe_token(email):
+    """Generate a simple token for unsubscribe links"""
+    import hashlib
+    # Simple hash - not cryptographically secure but sufficient for this use case
+    secret = "emsn2024vogelmonitoring"
+    return hashlib.sha256(f"{email}:{secret}".encode()).hexdigest()[:16]
+
+
+def verify_unsubscribe_token(email, token):
+    """Verify an unsubscribe token"""
+    return token == generate_unsubscribe_token(email)
+
+
+def load_email_tracking():
+    """Load email tracking data"""
+    import json
+    if not EMAIL_TRACKING_FILE.exists():
+        return {'opens': [], 'clicks': []}
+    try:
+        with open(EMAIL_TRACKING_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except:
+        return {'opens': [], 'clicks': []}
+
+
+def log_email_open(email, report):
+    """Log when an email is opened (via tracking pixel)"""
+    import json
+    from datetime import datetime
+
+    tracking = load_email_tracking()
+    tracking['opens'].append({
+        'timestamp': datetime.now().isoformat(),
+        'email': email,
+        'report': report
+    })
+    # Keep last 500 entries
+    tracking['opens'] = tracking['opens'][-500:]
+
+    with open(EMAIL_TRACKING_FILE, 'w', encoding='utf-8') as f:
+        json.dump(tracking, f, indent=2, ensure_ascii=False)
+
+
+@app.route('/api/email/track/<report>/<email_hash>.gif')
+def track_email_open(report, email_hash):
+    """Tracking pixel endpoint - logs when email is opened"""
+    from flask import Response
+
+    # Log the open (we can't verify email here, just log the hash)
+    try:
+        tracking = load_email_tracking()
+        from datetime import datetime
+        tracking['opens'].append({
+            'timestamp': datetime.now().isoformat(),
+            'email_hash': email_hash,
+            'report': report
+        })
+        tracking['opens'] = tracking['opens'][-500:]
+
+        import json
+        with open(EMAIL_TRACKING_FILE, 'w', encoding='utf-8') as f:
+            json.dump(tracking, f, indent=2, ensure_ascii=False)
+    except:
+        pass
+
+    # Return a 1x1 transparent GIF
+    gif_data = b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;'
+    return Response(gif_data, mimetype='image/gif')
+
+
+@app.route('/api/email/tracking')
+def get_email_tracking():
+    """Get email tracking statistics"""
+    tracking = load_email_tracking()
+
+    # Aggregate opens by report
+    opens_by_report = {}
+    for entry in tracking.get('opens', []):
+        report = entry.get('report', 'unknown')
+        if report not in opens_by_report:
+            opens_by_report[report] = {'count': 0, 'last_open': None}
+        opens_by_report[report]['count'] += 1
+        opens_by_report[report]['last_open'] = entry.get('timestamp')
+
+    return jsonify({
+        'total_opens': len(tracking.get('opens', [])),
+        'opens_by_report': opens_by_report,
+        'recent_opens': tracking.get('opens', [])[-20:]
+    })
+
+
+@app.route('/unsubscribe')
+def unsubscribe_page():
+    """Show unsubscribe confirmation page"""
+    email = request.args.get('email', '')
+    token = request.args.get('token', '')
+
+    if not email or not token:
+        return """
+        <html><head><title>EMSN - Afmelden</title>
+        <style>body{font-family:sans-serif;max-width:600px;margin:50px auto;padding:20px;}</style>
+        </head><body>
+        <h1>Ongeldige link</h1>
+        <p>De afmeldlink is ongeldig of verlopen.</p>
+        </body></html>
+        """, 400
+
+    if not verify_unsubscribe_token(email, token):
+        return """
+        <html><head><title>EMSN - Afmelden</title>
+        <style>body{font-family:sans-serif;max-width:600px;margin:50px auto;padding:20px;}</style>
+        </head><body>
+        <h1>Ongeldige token</h1>
+        <p>De afmeldlink is ongeldig. Neem contact op met emsn@ronnyhullegie.nl</p>
+        </body></html>
+        """, 400
+
+    return f"""
+    <html><head><title>EMSN - Afmelden</title>
+    <style>
+        body{{font-family:sans-serif;max-width:600px;margin:50px auto;padding:20px;text-align:center;}}
+        .btn{{background:#22c55e;color:white;padding:15px 30px;border:none;border-radius:8px;font-size:16px;cursor:pointer;margin:10px;}}
+        .btn-danger{{background:#ef4444;}}
+        .btn:hover{{opacity:0.9;}}
+    </style>
+    </head><body>
+    <h1>EMSN Vogelrapporten - Afmelden</h1>
+    <p>Wilt u zich afmelden voor automatische rapportverzending?</p>
+    <p><strong>{email}</strong></p>
+    <form method="POST" action="/api/email/unsubscribe">
+        <input type="hidden" name="email" value="{email}">
+        <input type="hidden" name="token" value="{token}">
+        <button type="submit" class="btn btn-danger">Ja, afmelden</button>
+        <a href="/" class="btn" style="text-decoration:none;display:inline-block;">Annuleren</a>
+    </form>
+    <p style="margin-top:30px;color:#666;font-size:14px;">
+        U kunt zich later opnieuw aanmelden via de beheerder.
+    </p>
+    </body></html>
+    """
+
+
+@app.route('/api/email/unsubscribe', methods=['POST'])
+def process_unsubscribe():
+    """Process unsubscribe request"""
+    email = request.form.get('email', '')
+    token = request.form.get('token', '')
+
+    if not email or not verify_unsubscribe_token(email, token):
+        return """
+        <html><head><title>EMSN - Fout</title>
+        <style>body{font-family:sans-serif;max-width:600px;margin:50px auto;padding:20px;}</style>
+        </head><body>
+        <h1>Fout</h1>
+        <p>Ongeldige afmeldverzoek.</p>
+        </body></html>
+        """, 400
+
+    # Update recipient to manual mode
+    config = load_email_config()
+    if config:
+        recipients = config.get('recipients', [])
+        for r in recipients:
+            if isinstance(r, dict) and r.get('email', '').lower() == email.lower():
+                r['mode'] = 'manual'
+                r['unsubscribed_at'] = datetime.now().isoformat()
+                break
+
+        save_email_config(config)
+
+        # Log the unsubscribe
+        log_email_sent(
+            'UNSUBSCRIBE',
+            [email],
+            status='unsubscribed',
+            error=None
+        )
+
+    return f"""
+    <html><head><title>EMSN - Afgemeld</title>
+    <style>
+        body{{font-family:sans-serif;max-width:600px;margin:50px auto;padding:20px;text-align:center;}}
+        .success{{color:#22c55e;font-size:48px;}}
+    </style>
+    </head><body>
+    <div class="success">✓</div>
+    <h1>Uitgeschreven</h1>
+    <p>U bent afgemeld voor automatische EMSN vogelrapporten.</p>
+    <p><strong>{email}</strong></p>
+    <p style="margin-top:30px;color:#666;">
+        U ontvangt geen automatische rapporten meer.<br>
+        U kunt nog wel handmatig rapporten ontvangen van de beheerder.
+    </p>
+    </body></html>
+    """
+
+
+def get_email_footer(recipient_email, report_name):
+    """Generate email footer with unsubscribe link and tracking pixel"""
+    token = generate_unsubscribe_token(recipient_email)
+    email_hash = generate_unsubscribe_token(recipient_email)[:8]
+
+    unsubscribe_url = f"{BASE_URL}/unsubscribe?email={recipient_email}&token={token}"
+    tracking_url = f"{BASE_URL}/api/email/track/{report_name}/{email_hash}.gif"
+
+    footer = f"""
+
+---
+
+U ontvangt deze email omdat u zich heeft aangemeld voor EMSN vogelrapporten.
+Wilt u geen automatische rapporten meer ontvangen? Klik hier om af te melden:
+{unsubscribe_url}
+
+EMSN Vogelmonitoring Nijverdal | www.ronnyhullegie.nl
+
+<img src="{tracking_url}" width="1" height="1" alt="">
+"""
+    return footer
+
+
 @app.route('/api/email/recipients')
 def get_email_recipients():
     """Get list of all email recipients with their settings"""
@@ -621,8 +917,8 @@ def send_report_copy():
         msg['From'] = f"{email_config.get('from_name', 'EMSN')} <{email_config.get('from_address', smtp_config.get('username'))}>"
         msg['To'] = ', '.join(recipient_emails)
 
-        # Email body
-        body = f"""Beste vogelliefhebber,
+        # Email body with personalized footer per recipient
+        base_body = f"""Beste vogelliefhebber,
 
 Hierbij ontvangt u het EMSN vogelrapport: {title}
 
@@ -646,6 +942,11 @@ Ronny Hullegie
 EMSN Vogelmonitoring Nijverdal
 https://www.ronnyhullegie.nl
 """
+        # Add unsubscribe footer for first recipient (simplified - same email to all)
+        report_name = report_file.replace('.md', '').replace(' ', '_')
+        footer = get_email_footer(recipient_emails[0], report_name)
+        body = base_body + footer
+
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
         # Generate PDF from markdown with EMSN logo
@@ -680,14 +981,19 @@ https://www.ronnyhullegie.nl
         )
         server.quit()
 
+        # Log successful send
+        log_email_sent(report_file, recipient_emails, status='success')
+
         return jsonify({
             'success': True,
             'message': f'Rapport verstuurd naar {len(recipient_emails)} ontvanger(s)'
         })
 
     except smtplib.SMTPAuthenticationError:
+        log_email_sent(report_file, recipient_emails, status='failed', error='SMTP authenticatie mislukt')
         return jsonify({'error': 'SMTP authenticatie mislukt'}), 500
     except Exception as e:
+        log_email_sent(report_file, recipient_emails, status='failed', error=str(e))
         return jsonify({'error': f'Verzenden mislukt: {str(e)}'}), 500
 
 

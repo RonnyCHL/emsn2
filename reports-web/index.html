@@ -24,12 +24,28 @@
 
         <!-- Reports view tab -->
         <div id="reports-tab" class="tab-content active">
+            <!-- Search and filter bar -->
+            <div class="search-filter-bar">
+                <div class="search-box">
+                    <input type="text" id="report-search" placeholder="Zoek in rapporten (soort, datum, periode...)" />
+                    <button class="btn btn-small" onclick="searchReports()">Zoeken</button>
+                    <button class="btn btn-small btn-secondary" onclick="clearSearch()">Wissen</button>
+                </div>
+                <div class="filter-toggles">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="show-favorites-only" onchange="filterFavorites()">
+                        <span>Alleen favorieten</span>
+                    </label>
+                </div>
+            </div>
+
             <div class="filters">
                 <button class="filter-btn active" data-filter="all">Alle</button>
                 <button class="filter-btn" data-filter="week">Wekelijks</button>
                 <button class="filter-btn" data-filter="month">Maandelijks</button>
                 <button class="filter-btn" data-filter="season">Seizoen</button>
                 <button class="filter-btn" data-filter="year">Jaarlijks</button>
+                <button class="filter-btn" data-filter="favorites">★ Favorieten</button>
             </div>
 
             <div id="reports-list" class="reports-container">
@@ -248,6 +264,15 @@
                         <div class="loading">Laden...</div>
                     </div>
                 </div>
+
+                <!-- Skipped reports (smart scheduling) -->
+                <div class="schedule-section">
+                    <h3>Overgeslagen Rapporten</h3>
+                    <p class="section-intro">Rapporten die niet gegenereerd zijn door slimme scheduling (te weinig data). Minimum: 50 detecties en 5 soorten per week.</p>
+                    <div id="skipped-reports-list" class="skipped-list">
+                        <div class="loading">Laden...</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -344,6 +369,15 @@
                         <button type="submit" class="btn btn-secondary">Test versturen</button>
                     </form>
                     <div id="test-email-result" class="result-message hidden"></div>
+                </div>
+
+                <!-- Email send history -->
+                <div class="email-section">
+                    <h3>Verzendhistorie</h3>
+                    <p class="section-intro">Overzicht van recent verzonden rapporten per e-mail.</p>
+                    <div id="email-history-list">
+                        <div class="loading">Laden...</div>
+                    </div>
                 </div>
             </div>
         </div>
