@@ -336,8 +336,142 @@
       "type": "stat"
     },
     {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 5 },
+      "id": 7,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CASE WHEN event_type = 'connected' THEN 1 ELSE 0 END as status FROM mqtt_bridge_events WHERE bridge_name = 'zolder-to-berging' ORDER BY timestamp DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "title": "🔗 Bridge Zolder→Berging",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 5 },
+      "id": 8,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as count FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '24 hours' AND timestamp >= NOW() - INTERVAL '1 hour' GROUP BY date_trunc('hour', timestamp) ORDER BY count DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "title": "⚡ Piek/uur (24u)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": -10 },
+              { "color": "green", "value": 10 }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 5 },
+      "id": 9,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH this_week AS (SELECT COUNT(*) as cnt FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '7 days'), last_week AS (SELECT COUNT(*) as cnt FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '14 days' AND timestamp < NOW() - INTERVAL '7 days') SELECT ROUND(((this_week.cnt - last_week.cnt)::numeric / NULLIF(last_week.cnt, 0)) * 100, 1) as change FROM this_week, last_week",
+          "refId": "A"
+        }
+      ],
+      "title": "📊 Week Δ",
+      "type": "stat"
+    },
+    {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
       "id": 101,
       "panels": [],
       "title": "📈 Berichten Stroom",
@@ -1154,6 +1288,275 @@
       ],
       "title": "Recente MQTT Berichten",
       "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 67 },
+      "id": 106,
+      "panels": [],
+      "title": "🏆 Top Soorten & Zeldzame Vondsten",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "count" }, "properties": [{ "id": "custom.cellOptions", "value": { "mode": "gradient", "type": "gauge" } }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 68 },
+      "id": 60,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "count" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT species_nl as soort, COUNT(*) as count, ROUND(AVG(confidence) * 100, 0) as \"avg_conf%\" FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) AND was_shown = true GROUP BY species_nl ORDER BY count DESC LIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "🏆 Top 10 Getoonde Soorten",
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "rarity_tier" }, "properties": [{ "id": "mappings", "value": [{ "options": { "legendary": { "color": "gold", "index": 0, "text": "⭐ legendary" }, "rare": { "color": "purple", "index": 1, "text": "💎 rare" }, "uncommon": { "color": "blue", "index": 2, "text": "🔷 uncommon" } }, "type": "value" }] }] },
+          { "matcher": { "id": "byName", "options": "confidence" }, "properties": [{ "id": "unit", "value": "percentunit" }, { "id": "decimals", "value": 0 }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 68 },
+      "id": 61,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "timestamp" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp, species_nl as soort, rarity_tier, confidence, station FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) AND was_shown = true AND rarity_tier IN ('legendary', 'rare', 'uncommon') ORDER BY timestamp DESC LIMIT 15",
+          "refId": "A"
+        }
+      ],
+      "title": "💎 Laatste Zeldzame Detecties (getoond)",
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "zolder" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "berging" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 68 },
+      "id": 62,
+      "options": {
+        "legend": { "calcs": ["sum", "mean"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('day', timestamp) as time, station, COUNT(*) as count FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '14 days' GROUP BY 1, 2 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "📊 Station Vergelijking (14d)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 76 },
+      "id": 107,
+      "panels": [],
+      "title": "⚡ Burst & Piek Analyse",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Berichten per 5 min",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "line+area", "value": 10 }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 10 }, { "color": "red", "value": 20 }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 77 },
+      "id": 63,
+      "options": {
+        "legend": { "calcs": ["max", "mean"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('hour', timestamp) + INTERVAL '5 min' * (EXTRACT(MINUTE FROM timestamp)::int / 5) as time, COUNT(*) as berichten FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "⚡ Burst Detectie (5 min intervallen)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "berichten" }, "properties": [{ "id": "custom.cellOptions", "value": { "mode": "gradient", "type": "gauge" } }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }, { "id": "max", "value": 50 }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 77 },
+      "id": 64,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "berichten" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('hour', timestamp) as uur, COUNT(*) as berichten, COUNT(DISTINCT species_nl) as soorten FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) GROUP BY 1 ORDER BY berichten DESC LIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "🔥 Drukste Uren",
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 77 },
+      "id": 65,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('hour', timestamp) as time, COUNT(*) as \"Totaal\", SUM(CASE WHEN was_shown THEN 1 ELSE 0 END) as \"Getoond\" FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "📈 Berichten per Uur (trend)",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",
