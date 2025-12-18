@@ -22,7 +22,7 @@
       "id": 1,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '1 hour'", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM bird_detections WHERE station = 'zolder' AND detection_timestamp >= NOW() - INTERVAL '6 hours'", "refId": "A" }],
       "title": "Zolder",
       "type": "stat"
     },
@@ -33,7 +33,7 @@
       "id": 2,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM bird_detections WHERE station_id = 'berging' AND detection_timestamp >= NOW() - INTERVAL '1 hour'", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM bird_detections WHERE station = 'berging' AND detection_timestamp >= NOW() - INTERVAL '6 hours'", "refId": "A" }],
       "title": "Berging",
       "type": "stat"
     },
@@ -44,7 +44,7 @@
       "id": 3,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT CASE WHEN COUNT(*) > 0 AND (SELECT event_type FROM mqtt_bridge_events ORDER BY timestamp DESC LIMIT 1) = 'connected' THEN 1 ELSE 0 END FROM mqtt_bridge_events WHERE timestamp >= NOW() - INTERVAL '1 hour'", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT CASE WHEN (SELECT event_type FROM mqtt_bridge_events ORDER BY timestamp DESC LIMIT 1) IN ('connected', 'startup') AND (SELECT timestamp FROM mqtt_bridge_events ORDER BY timestamp DESC LIMIT 1) >= NOW() - INTERVAL '24 hours' THEN 1 ELSE 0 END", "refId": "A" }],
       "title": "MQTT Bridge",
       "type": "stat"
     },
@@ -55,7 +55,7 @@
       "id": 4,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '1 hour'", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '6 hours'", "refId": "A" }],
       "title": "Ulanzi Display",
       "type": "stat"
     },
@@ -66,19 +66,30 @@
       "id": 5,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM weather_data WHERE timestamp >= NOW() - INTERVAL '1 hour'", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM weather_data WHERE measurement_timestamp >= NOW() - INTERVAL '1 hour'", "refId": "A" }],
       "title": "Weerstation",
       "type": "stat"
     },
     {
       "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
-      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 1 },
-      "id": 6,
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "decimals": 0, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "d" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 2, "x": 20, "y": 1 },
+      "id": 99,
       "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT (NOW() - MIN(detection_timestamp))::interval as uptime FROM bird_detections", "refId": "A" }],
-      "title": "Systeem Uptime",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT NOW() as time, EXTRACT(EPOCH FROM (NOW() - MIN(detection_timestamp))) / 86400 as value FROM bird_detections WHERE station = 'zolder'", "refId": "A" }],
+      "title": "Zolder Uptime",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "decimals": 0, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "d" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 2, "x": 22, "y": 1 },
+      "id": 98,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT NOW() as time, EXTRACT(EPOCH FROM (NOW() - MIN(detection_timestamp))) / 86400 as value FROM bird_detections WHERE station = 'berging'", "refId": "A" }],
+      "title": "Berging Uptime",
       "type": "stat"
     },
     {
@@ -151,7 +162,7 @@
       "id": 15,
       "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT COUNT(*) FROM weather_data WHERE timestamp >= CURRENT_DATE", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT COUNT(*) FROM weather_data WHERE measurement_timestamp >= CURRENT_DATE", "refId": "A" }],
       "title": "Weermetingen",
       "type": "stat"
     },
@@ -244,7 +255,7 @@
       "id": 30,
       "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "time_series", "rawQuery": true, "rawSql": "SELECT date_trunc('day', detection_timestamp) as time, station_id, COUNT(*) as detecties FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '30 days' GROUP BY date_trunc('day', detection_timestamp), station_id ORDER BY time", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "time_series", "rawQuery": true, "rawSql": "SELECT date_trunc('day', detection_timestamp) as time, station, COUNT(*) as detecties FROM bird_detections WHERE detection_timestamp >= NOW() - INTERVAL '30 days' GROUP BY date_trunc('day', detection_timestamp), station ORDER BY time", "refId": "A" }],
       "title": "Detecties per Station (30d)",
       "type": "timeseries"
     },
@@ -304,7 +315,7 @@
       "id": 50,
       "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": true, "displayName": "detection_timestamp" }] },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT detection_timestamp, species as soort, station_id as station, ROUND(confidence * 100, 1) as confidence, COALESCE(rarity_tier, 'algemeen') as zeldzaamheid FROM bird_detections ORDER BY detection_timestamp DESC LIMIT 20", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "postgresql", "uid": "emsn_postgres" }, "format": "table", "rawQuery": true, "rawSql": "SELECT detection_timestamp, species as soort, station, ROUND(confidence * 100, 1) as confidence, COALESCE(rarity_tier, 'algemeen') as zeldzaamheid FROM bird_detections ORDER BY detection_timestamp DESC LIMIT 20", "refId": "A" }],
       "title": "Laatste 20 Detecties",
       "type": "table"
     }

@@ -46,6 +46,7 @@ Hall of Fame voor bijzondere momenten:
 
 Executive KPI dashboard:
 - Station status (Zolder, Berging, MQTT Bridge, Ulanzi, Weerstation)
+- **Uptime per station** (Zolder Uptime, Berging Uptime in dagen)
 - KPI's vandaag (detecties, soorten, zeldzaam, confidence)
 - Totaal statistieken
 - Trends (30d)
@@ -127,6 +128,13 @@ curl -s http://192.168.1.25:8181/ | grep -c "Systeem Overzicht"
 - **Homer:** http://192.168.1.25:8181/
 - **Grafana:** http://192.168.1.25:3000/
 - **Nieuwe dashboards:** Zie URLs hierboven
+
+## Bugfixes & Verbeteringen (sessie 2)
+
+- **MQTT Bridge status**: Query aangepast om laatste event status te checken (connected/startup) i.p.v. events in laatste uur
+- **Systeem Uptime**: Gesplitst in twee panels - Zolder Uptime (blauw) en Berging Uptime (groen)
+- **Uptime berekening**: Tijd sinds eerste detectie per station (in dagen)
+- **Grafana stat panels**: Geleerd dat string output niet werkt in stat panels - numerieke waarde met unit formatting is vereist
 
 ## Opmerkingen
 
