@@ -1,0 +1,1171 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "postgresql",
+          "uid": "emsn-postgres"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "#FF5722",
+        "name": "Bridge Disconnects",
+        "query": "SELECT timestamp as time, bridge_name || ': ' || message as text, 'Disconnected' as tags FROM mqtt_bridge_events WHERE event_type = 'disconnected' AND $__timeFilter(timestamp)",
+        "rawQuery": "SELECT timestamp as time, bridge_name || ': ' || message as text, 'Disconnected' as tags FROM mqtt_bridge_events WHERE event_type = 'disconnected' AND $__timeFilter(timestamp)",
+        "showIn": 0,
+        "type": "alert"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Ulanzi Notificaties",
+      "tooltip": "",
+      "type": "link",
+      "url": "http://192.168.1.25:3000/d/emsn-ulanzi-notifications/"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Database Monitoring",
+      "tooltip": "",
+      "type": "link",
+      "url": "http://192.168.1.25:3000/d/emsn-database-monitoring/"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "panels": [],
+      "title": "📊 Overzicht",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as total FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '24 hours'",
+          "refId": "A"
+        }
+      ],
+      "title": "Berichten (24u)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as shown FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '24 hours' AND was_shown = true",
+          "refId": "A"
+        }
+      ],
+      "title": "✅ Getoond (24u)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "orange", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as skipped FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '24 hours' AND was_shown = false",
+          "refId": "A"
+        }
+      ],
+      "title": "⏸️ Geskipt (24u)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "decimals": 1,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "green", "value": 95 }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT ROUND(SUM(CASE WHEN was_shown THEN 1 ELSE 0 END)::numeric * 100 / NULLIF(COUNT(*), 0), 1) as success_rate FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '24 hours'",
+          "refId": "A"
+        }
+      ],
+      "title": "📈 Success Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as active_cooldowns FROM ulanzi_cooldown_status WHERE expires_at > NOW()",
+          "refId": "A"
+        }
+      ],
+      "title": "⏱️ Actieve Cooldowns",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "id": 6,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CASE WHEN event_type = 'connected' THEN 1 ELSE 0 END as status FROM mqtt_bridge_events WHERE bridge_name = 'berging-to-zolder' ORDER BY timestamp DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "title": "🔗 Bridge Berging→Zolder",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "panels": [],
+      "title": "📈 Berichten Flow",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "normal" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Getoond" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Cooldown" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Anti-spam" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Burst" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Failed" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 6 },
+      "id": 10,
+      "options": {
+        "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('hour', timestamp) as time, SUM(CASE WHEN was_shown THEN 1 ELSE 0 END) as \"Getoond\", SUM(CASE WHEN skip_reason = 'cooldown' THEN 1 ELSE 0 END) as \"Cooldown\", SUM(CASE WHEN skip_reason = 'anti_spam' THEN 1 ELSE 0 END) as \"Anti-spam\", SUM(CASE WHEN skip_reason LIKE '%burst%' THEN 1 ELSE 0 END) as \"Burst\", SUM(CASE WHEN skip_reason = 'send_failed' THEN 1 ELSE 0 END) as \"Failed\" FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Berichten per Uur (gestapeld)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Getoond" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Geskipt" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 4, "x": 16, "y": 6 },
+      "id": 11,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "pieType": "donut",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT SUM(CASE WHEN was_shown THEN 1 ELSE 0 END) as \"Getoond\", SUM(CASE WHEN NOT was_shown THEN 1 ELSE 0 END) as \"Geskipt\" FROM ulanzi_notification_log WHERE $__timeFilter(timestamp)",
+          "refId": "A"
+        }
+      ],
+      "title": "Getoond vs Geskipt",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "zolder" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "berging" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "dual" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 4, "x": 20, "y": 6 },
+      "id": 12,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "pieType": "pie",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT station, COUNT(*) as count FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) GROUP BY station ORDER BY count DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Per Station",
+      "type": "piechart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 102,
+      "panels": [],
+      "title": "🎯 Rarity & Skip Analyse",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "legendary" }, "properties": [{ "id": "color", "value": { "fixedColor": "gold", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "rare" }, "properties": [{ "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "uncommon" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "common" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "abundant" }, "properties": [{ "id": "color", "value": { "fixedColor": "gray", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "special" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 15 },
+      "id": 20,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"] },
+        "pieType": "donut",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT rarity_tier, COUNT(*) as count FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) AND rarity_tier IS NOT NULL GROUP BY rarity_tier ORDER BY count DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Verdeling per Rarity Tier",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineWidth": 1,
+            "scaleDistribution": { "type": "linear" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 15 },
+      "id": 21,
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.8,
+        "groupWidth": 0.7,
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": false },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(skip_reason, 'success') as reason, COUNT(*) as count FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) GROUP BY skip_reason ORDER BY count DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Skip Reasons",
+      "type": "barchart"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "skipped" }, "properties": [{ "id": "custom.cellOptions", "value": { "mode": "basic", "type": "gauge" } }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "shown" }, "properties": [{ "id": "custom.cellOptions", "value": { "mode": "basic", "type": "gauge" } }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 15 },
+      "id": 22,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "skipped" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT species_nl as species, SUM(CASE WHEN was_shown THEN 1 ELSE 0 END) as shown, SUM(CASE WHEN NOT was_shown THEN 1 ELSE 0 END) as skipped, COUNT(*) as total FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) GROUP BY species_nl ORDER BY skipped DESC LIMIT 15",
+          "refId": "A"
+        }
+      ],
+      "title": "Top 15 Meest Gefilterde Soorten",
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "remaining_min" }, "properties": [{ "id": "custom.cellOptions", "value": { "mode": "gradient", "type": "gauge" } }, { "id": "max", "value": 120 }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 15 },
+      "id": 23,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
+        "showHeader": true,
+        "sortBy": [{ "desc": false, "displayName": "expires_at" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT species_nl as species, rarity_tier, cooldown_seconds/60 as cooldown_min, ROUND(EXTRACT(EPOCH FROM (expires_at - NOW()))/60) as remaining_min, expires_at FROM ulanzi_cooldown_status WHERE expires_at > NOW() ORDER BY expires_at LIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "title": "Actieve Cooldowns",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "id": 103,
+      "panels": [],
+      "title": "🔗 MQTT Bridge Status",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "decimals": 1,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 95 },
+              { "color": "green", "value": 99 }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 24 },
+      "id": 30,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH events AS (SELECT timestamp, event_type, LEAD(timestamp) OVER (ORDER BY timestamp) as next_time FROM mqtt_bridge_events WHERE bridge_name = 'berging-to-zolder' AND timestamp >= NOW() - INTERVAL '7 days'), durations AS (SELECT event_type, EXTRACT(EPOCH FROM COALESCE(next_time, NOW()) - timestamp) as seconds FROM events) SELECT ROUND(SUM(CASE WHEN event_type = 'connected' THEN seconds ELSE 0 END) * 100 / NULLIF(SUM(seconds), 0), 2) as uptime FROM durations",
+          "refId": "A"
+        }
+      ],
+      "title": "Uptime Berging→Zolder (7d)",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "decimals": 1,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 95 },
+              { "color": "green", "value": 99 }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 24 },
+      "id": 31,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH events AS (SELECT timestamp, event_type, LEAD(timestamp) OVER (ORDER BY timestamp) as next_time FROM mqtt_bridge_events WHERE bridge_name = 'zolder-to-berging' AND timestamp >= NOW() - INTERVAL '7 days'), durations AS (SELECT event_type, EXTRACT(EPOCH FROM COALESCE(next_time, NOW()) - timestamp) as seconds FROM events) SELECT ROUND(SUM(CASE WHEN event_type = 'connected' THEN seconds ELSE 0 END) * 100 / NULLIF(SUM(seconds), 0), 2) as uptime FROM durations",
+          "refId": "A"
+        }
+      ],
+      "title": "Uptime Zolder→Berging (7d)",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 3, "x": 12, "y": 24 },
+      "id": 32,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) FROM mqtt_bridge_events WHERE event_type = 'connected' AND timestamp >= NOW() - INTERVAL '24 hours'",
+          "refId": "A"
+        }
+      ],
+      "title": "Connects (24u)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 5 }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 3, "x": 15, "y": 24 },
+      "id": 33,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) FROM mqtt_bridge_events WHERE event_type = 'disconnected' AND timestamp >= NOW() - INTERVAL '24 hours'",
+          "refId": "A"
+        }
+      ],
+      "title": "Disconnects (24u)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "event_type" }, "properties": [{ "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "mappings", "value": [{ "options": { "connected": { "color": "green", "index": 0 }, "disconnected": { "color": "red", "index": 1 }, "error": { "color": "orange", "index": 2 } }, "type": "value" }] }] }
+        ]
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 24 },
+      "id": 34,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "timestamp" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp, bridge_name, event_type, message FROM mqtt_bridge_events WHERE timestamp >= NOW() - INTERVAL '7 days' ORDER BY timestamp DESC LIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "title": "Recente Bridge Events",
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [
+            { "options": { "connected": { "color": "green", "index": 0, "text": "Connected" } }, "type": "value" },
+            { "options": { "disconnected": { "color": "red", "index": 1, "text": "Disconnected" } }, "type": "value" }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "berging-to-zolder" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "zolder-to-berging" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 30 },
+      "id": 35,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp as time, bridge_name, CASE WHEN event_type = 'connected' THEN 1 ELSE 0 END as value FROM mqtt_bridge_events WHERE $__timeFilter(timestamp) AND bridge_name IN ('berging-to-zolder', 'zolder-to-berging') ORDER BY timestamp",
+          "refId": "A"
+        }
+      ],
+      "title": "Bridge Status Timeline",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 38 },
+      "id": 104,
+      "panels": [],
+      "title": "📊 Statistieken & Trends",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 39 },
+      "id": 40,
+      "options": {
+        "legend": { "calcs": ["mean", "last"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('hour', timestamp) as time, ROUND(SUM(CASE WHEN was_shown THEN 1 ELSE 0 END)::numeric * 100 / NULLIF(COUNT(*), 0), 1) as \"Success Rate\" FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Success Rate over Tijd",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 39 },
+      "id": 41,
+      "options": {
+        "legend": { "calcs": ["mean", "last"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('hour', timestamp) as time, AVG(confidence) as \"Gemiddelde Confidence\" FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) AND was_shown = true GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Gemiddelde Confidence (Getoonde Berichten)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "scaleDistribution": { "type": "linear" }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 47 },
+      "id": 42,
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "cellValues": {},
+        "color": { "exponent": 0.5, "fill": "dark-orange", "mode": "scheme", "reverse": false, "scale": "exponential", "scheme": "Oranges", "steps": 64 },
+        "exemplars": { "color": "rgba(255,0,255,0.7)" },
+        "filterValues": { "le": 1e-9 },
+        "legend": { "show": true },
+        "rowsFrame": { "layout": "auto" },
+        "tooltip": { "show": true, "yHistogram": false },
+        "yAxis": { "axisPlacement": "left", "reverse": false }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT EXTRACT(DOW FROM timestamp) as dayofweek, EXTRACT(HOUR FROM timestamp) as hour, COUNT(*) as count FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '30 days' GROUP BY 1, 2 ORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Heatmap: Berichten per Dag/Uur (30d)",
+      "type": "heatmap"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineWidth": 1,
+            "scaleDistribution": { "type": "linear" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 47 },
+      "id": 43,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.9,
+        "groupWidth": 0.7,
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT DATE(timestamp) as date, SUM(CASE WHEN was_shown THEN 1 ELSE 0 END) as \"Getoond\", SUM(CASE WHEN NOT was_shown THEN 1 ELSE 0 END) as \"Geskipt\" FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '14 days' GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Dagelijkse Berichten (14 dagen)",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 55 },
+      "id": 105,
+      "panels": [],
+      "title": "📋 Recent Activity",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "was_shown" }, "properties": [{ "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "mappings", "value": [{ "options": { "false": { "color": "orange", "index": 1, "text": "❌" }, "true": { "color": "green", "index": 0, "text": "✅" } }, "type": "value" }] }] },
+          { "matcher": { "id": "byName", "options": "confidence" }, "properties": [{ "id": "unit", "value": "percentunit" }, { "id": "decimals", "value": 0 }] },
+          { "matcher": { "id": "byName", "options": "rarity_tier" }, "properties": [{ "id": "mappings", "value": [{ "options": { "legendary": { "color": "gold", "index": 0 }, "rare": { "color": "purple", "index": 1 }, "uncommon": { "color": "blue", "index": 2 }, "common": { "color": "green", "index": 3 }, "abundant": { "color": "gray", "index": 4 } }, "type": "value" }] }] }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 56 },
+      "id": 50,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "timestamp" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgresql", "uid": "emsn-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp, species_nl, station, confidence, rarity_tier, was_shown, skip_reason, notification_type FROM ulanzi_notification_log WHERE $__timeFilter(timestamp) ORDER BY timestamp DESC LIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "title": "Recente MQTT Berichten",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["mqtt", "monitoring", "emsn"],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "EMSN MQTT Monitoring",
+  "uid": "emsn-mqtt-monitoring",
+  "version": 1,
+  "weekStart": "monday"
+}

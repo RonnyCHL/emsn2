@@ -1,0 +1,233 @@
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "MQTT Monitoring Alerts",
+      "folder": "EMSN Alerts",
+      "interval": "5m",
+      "rules": [
+        {
+          "uid": "mqtt-success-rate-low",
+          "title": "MQTT Success Rate Laag",
+          "condition": "C",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 3600,
+                "to": 0
+              },
+              "datasourceUid": "emsn-postgres",
+              "model": {
+                "rawSql": "SELECT NOW() as time, ROUND(SUM(CASE WHEN was_shown THEN 1 ELSE 0 END)::numeric * 100 / NULLIF(COUNT(*), 0), 1) as success_rate FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '1 hour'",
+                "format": "table"
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "expression": "A",
+                "reducer": "last",
+                "type": "reduce"
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "expression": "$B < 80",
+                "type": "math"
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "Alerting",
+          "for": "10m",
+          "annotations": {
+            "summary": "MQTT Success Rate is onder 80%",
+            "description": "De success rate voor MQTT berichten is gedaald onder 80% in het afgelopen uur. Dit kan wijzen op problemen met de Ulanzi display of netwerk."
+          },
+          "labels": {
+            "severity": "warning",
+            "component": "mqtt"
+          }
+        },
+        {
+          "uid": "mqtt-bridge-disconnect",
+          "title": "MQTT Bridge Disconnected",
+          "condition": "C",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "emsn-postgres",
+              "model": {
+                "rawSql": "SELECT NOW() as time, COUNT(*) as disconnects FROM mqtt_bridge_events WHERE event_type = 'disconnected' AND timestamp >= NOW() - INTERVAL '15 minutes'",
+                "format": "table"
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "expression": "A",
+                "reducer": "last",
+                "type": "reduce"
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "expression": "$B >= 1",
+                "type": "math"
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "OK",
+          "for": "0s",
+          "annotations": {
+            "summary": "MQTT Bridge verbinding verbroken",
+            "description": "Er is een MQTT bridge disconnectie gedetecteerd in de afgelopen 15 minuten. Controleer de Mosquitto services op beide Pi's."
+          },
+          "labels": {
+            "severity": "critical",
+            "component": "mqtt-bridge"
+          }
+        },
+        {
+          "uid": "mqtt-send-failures",
+          "title": "MQTT Send Failures Hoog",
+          "condition": "C",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 3600,
+                "to": 0
+              },
+              "datasourceUid": "emsn-postgres",
+              "model": {
+                "rawSql": "SELECT NOW() as time, COUNT(*) as failures FROM ulanzi_notification_log WHERE skip_reason = 'send_failed' AND timestamp >= NOW() - INTERVAL '1 hour'",
+                "format": "table"
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "expression": "A",
+                "reducer": "last",
+                "type": "reduce"
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "expression": "$B >= 5",
+                "type": "math"
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "OK",
+          "for": "5m",
+          "annotations": {
+            "summary": "Meerdere MQTT send failures",
+            "description": "Er zijn 5 of meer send failures in het afgelopen uur. De Ulanzi display is mogelijk niet bereikbaar."
+          },
+          "labels": {
+            "severity": "warning",
+            "component": "ulanzi"
+          }
+        },
+        {
+          "uid": "mqtt-no-messages",
+          "title": "Geen MQTT Berichten",
+          "condition": "C",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 7200,
+                "to": 0
+              },
+              "datasourceUid": "emsn-postgres",
+              "model": {
+                "rawSql": "SELECT NOW() as time, COUNT(*) as message_count FROM ulanzi_notification_log WHERE timestamp >= NOW() - INTERVAL '2 hours'",
+                "format": "table"
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "expression": "A",
+                "reducer": "last",
+                "type": "reduce"
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "expression": "$B == 0",
+                "type": "math"
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "OK",
+          "for": "30m",
+          "annotations": {
+            "summary": "Geen MQTT berichten ontvangen",
+            "description": "Er zijn geen MQTT berichten ontvangen in de afgelopen 2 uur. Dit kan wijzen op problemen met BirdNET-Pi of de MQTT publisher service."
+          },
+          "labels": {
+            "severity": "warning",
+            "component": "mqtt-publisher"
+          }
+        }
+      ]
+    }
+  ]
+}

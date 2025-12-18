@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-EMSN MQTT Bridge Monitor
-Monitors bridge status and sends alerts on disconnection
+EMSN MQTT Bridge Monitor v2.0
+Monitors bridge status, sends alerts on disconnection, and logs events to PostgreSQL
 """
 
 import os
@@ -15,12 +15,23 @@ from email.mime.multipart import MIMEMultipart
 from pathlib import Path
 import paho.mqtt.client as mqtt
 import yaml
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 # Configuration
 MQTT_BROKER = "192.168.1.178"
 MQTT_PORT = 1883
 MQTT_USER = "ecomonitor"
 MQTT_PASS = "REDACTED_DB_PASS"
+
+# Database configuration
+DB_CONFIG = {
+    'host': '192.168.1.25',
+    'port': 5433,
+    'database': 'emsn',
+    'user': 'birdpi_zolder',
+    'password': os.getenv('EMSN_DB_PASSWORD', 'REDACTED_DB_PASS')
+}
 
 # Topics to monitor
 BRIDGE_TOPICS = [
@@ -52,12 +63,53 @@ logger = logging.getLogger(__name__)
 class BridgeMonitor:
     def __init__(self):
         self.bridge_status = {
-            "berging-to-zolder": {"connected": False, "last_seen": None},
-            "zolder-to-berging": {"connected": False, "last_seen": None},
+            "berging-to-zolder": {"connected": False, "last_seen": None, "connected_since": None},
+            "zolder-to-berging": {"connected": False, "last_seen": None, "connected_since": None},
         }
         self.last_alert_time = {}
         self.alert_cooldown = timedelta(hours=1)  # Don't spam alerts
+        self.db_conn = None
         self.load_state()
+        self.connect_db()
+
+    def connect_db(self):
+        """Connect to PostgreSQL database"""
+        try:
+            self.db_conn = psycopg2.connect(**DB_CONFIG)
+            self.db_conn.autocommit = True
+            logger.info("Connected to PostgreSQL database")
+        except Exception as e:
+            logger.warning(f"Could not connect to database: {e}")
+            self.db_conn = None
+
+    def ensure_db_connection(self):
+        """Ensure database connection is alive"""
+        if self.db_conn is None:
+            self.connect_db()
+            return
+        try:
+            with self.db_conn.cursor() as cur:
+                cur.execute("SELECT 1")
+        except Exception:
+            logger.warning("Database connection lost, reconnecting...")
+            self.connect_db()
+
+    def log_bridge_event(self, bridge_name, event_type, message=None, duration_seconds=None):
+        """Log bridge event to PostgreSQL"""
+        self.ensure_db_connection()
+        if not self.db_conn:
+            return
+
+        try:
+            with self.db_conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO mqtt_bridge_events
+                    (bridge_name, event_type, source, message, duration_seconds)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (bridge_name, event_type, 'monitor', message, duration_seconds))
+            logger.info(f"Logged bridge event: {bridge_name} -> {event_type}")
+        except Exception as e:
+            logger.error(f"Failed to log bridge event: {e}")
 
     def load_state(self):
         """Load previous state from file"""
@@ -170,18 +222,39 @@ class BridgeMonitor:
                 return
 
             connected = payload == "1"
+            was_connected = self.bridge_status[bridge_name]["connected"]
+            now = datetime.now()
+
+            # State changed - log event
+            if connected != was_connected:
+                if connected:
+                    # Just connected
+                    self.bridge_status[bridge_name]["connected_since"] = now
+                    self.log_bridge_event(bridge_name, 'connected',
+                                          f"Bridge {bridge_name} connected")
+                else:
+                    # Just disconnected - calculate how long it was connected
+                    connected_since = self.bridge_status[bridge_name].get("connected_since")
+                    duration = None
+                    if connected_since:
+                        duration = int((now - connected_since).total_seconds())
+                    self.log_bridge_event(bridge_name, 'disconnected',
+                                          f"Bridge {bridge_name} disconnected",
+                                          duration_seconds=duration)
+                    self.bridge_status[bridge_name]["connected_since"] = None
+
             self.bridge_status[bridge_name]["connected"] = connected
-            self.bridge_status[bridge_name]["last_seen"] = datetime.now()
+            self.bridge_status[bridge_name]["last_seen"] = now
 
             if not connected and self.should_alert(bridge_name):
                 self.send_alert(
                     f"MQTT Bridge Disconnected: {bridge_name}",
                     f"De MQTT bridge {bridge_name} is losgekoppeld.\n\n"
-                    f"Tijdstip: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                    f"Tijdstip: {now.strftime('%Y-%m-%d %H:%M:%S')}\n"
                     f"Topic: {topic}\n\n"
                     f"Controleer de Mosquitto service op beide Pi's."
                 )
-                self.last_alert_time[bridge_name] = datetime.now()
+                self.last_alert_time[bridge_name] = now
 
             self.save_state()
 
@@ -195,6 +268,9 @@ class BridgeMonitor:
         client.on_connect = self.on_connect
         client.on_message = self.on_message
 
+        # Log startup event
+        self.log_bridge_event('monitor', 'startup', 'Bridge monitor service started')
+
         try:
             client.connect(MQTT_BROKER, MQTT_PORT, 60)
             logger.info("Starting bridge monitor...")
@@ -204,6 +280,9 @@ class BridgeMonitor:
         except Exception as e:
             logger.error(f"Error: {e}")
         finally:
+            self.log_bridge_event('monitor', 'shutdown', 'Bridge monitor service stopped')
+            if self.db_conn:
+                self.db_conn.close()
             client.disconnect()
 
 
