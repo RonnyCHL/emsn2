@@ -46,7 +46,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 3,
+        "h": 5,
         "w": 24,
         "x": 0,
         "y": 0
@@ -63,7 +63,11 @@
           "values": false
         },
         "showPercentChange": false,
-        "textMode": "auto",
+        "text": {
+          "titleSize": 18,
+          "valueSize": 36
+        },
+        "textMode": "value_and_name",
         "wideLayout": true
       },
       "pluginVersion": "11.0.0",
@@ -76,7 +80,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  'Nu: ' || TO_CHAR(NOW() AT TIME ZONE 'Europe/Amsterdam', 'HH24:MI:SS') as time,\n  COUNT(*) FILTER (WHERE next_run > NOW() AND next_run < NOW() + INTERVAL '1 hour') as \"Komend uur\",\n  COUNT(*) FILTER (WHERE next_run > NOW() AND next_run < NOW() + INTERVAL '24 hours') as \"Vandaag\",\n  COUNT(*) as \"Totaal EMSN Timers\"\nFROM timer_timeline_current",
+          "rawSql": "SELECT \n  'Nu: ' || TO_CHAR(NOW() AT TIME ZONE 'Europe/Amsterdam', 'HH24:MI:SS') as \"Huidige tijd\",\n  COUNT(*) FILTER (WHERE next_run > NOW() AND next_run < NOW() + INTERVAL '1 hour') as \"Komend uur\",\n  COUNT(*) FILTER (WHERE next_run > NOW() AND next_run < NOW() + INTERVAL '24 hours') as \"Vandaag\",\n  COUNT(*) as \"Totaal EMSN Timers\"\nFROM timer_timeline_current",
           "refId": "A",
           "sql": {
             "columns": [{"parameters": [], "type": "function"}],
@@ -113,7 +117,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 3
+        "y": 5
       },
       "id": 2,
       "options": {
@@ -245,7 +249,7 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 3
+        "y": 5
       },
       "id": 3,
       "options": {
@@ -308,7 +312,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 11
+        "y": 13
       },
       "id": 4,
       "options": {
@@ -391,7 +395,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 21
+        "y": 23
       },
       "id": 5,
       "options": {
@@ -415,7 +419,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  timer_name as \"Timer\",\n  category as \"Categorie\",\n  TO_CHAR(last_run AT TIME ZONE 'Europe/Amsterdam', 'HH24:MI:SS') as \"Laatste run\",\n  CASE \n    WHEN seconds_since_last < 60 THEN ROUND(seconds_since_last) || 's geleden'\n    WHEN seconds_since_last < 3600 THEN ROUND(seconds_since_last/60) || 'm geleden'\n    ELSE ROUND(seconds_since_last/3600, 1) || 'u geleden'\n  END as \"Geleden\"\nFROM timer_timeline_current\nWHERE last_run IS NOT NULL\nORDER BY last_run DESC\nLIMIT 10",
+          "rawSql": "SELECT \n  timer_name as \"Timer\",\n  category as \"Categorie\",\n  TO_CHAR(last_run AT TIME ZONE 'Europe/Amsterdam', 'HH24:MI:SS') as \"Laatste run\",\n  TO_CHAR((INTERVAL '1 second' * ABS(ROUND(seconds_since_last))), 'HH24:MI:SS') as \"Geleden\"\nFROM timer_timeline_current\nWHERE last_run IS NOT NULL\nORDER BY last_run DESC\nLIMIT 10",
           "refId": "A"
         }
       ],
@@ -456,7 +460,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 21
+        "y": 23
       },
       "id": 6,
       "options": {

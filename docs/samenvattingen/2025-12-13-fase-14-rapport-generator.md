@@ -31,7 +31,7 @@ Alle rapport scripts nu met `--style` parameter:
 Alle scripts hebben nu:
 - `--style <naam>` parameter
 - `--list-styles` optie
-- Dynamische stijl prompt loading
+- Dynamische stijl prompt loading                           
 
 ### 2. Fase 14b: Web UI Uitbreidingen
 
