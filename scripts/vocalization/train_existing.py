@@ -202,19 +202,23 @@ def train_species(name, dirname):
             results['accuracy']
         )
 
-        # Save confusion matrix to database
-        save_confusion_matrix(name, results['confusion_matrix'], class_names)
-
         acc = results['accuracy']
         print(f"\n  Test Accuracy: {acc:.2%}", flush=True)
-        
+
+        # Save confusion matrix to database (aparte try-except zodat dit nooit completion blokkeert)
+        try:
+            save_confusion_matrix(name, results['confusion_matrix'], class_names)
+        except Exception as cm_err:
+            print(f"  Warning: Confusion matrix opslaan mislukt: {cm_err}", flush=True)
+
+        # Update status ALTIJD na succesvolle training
         if model_path.exists():
             update_status(name, 'completed', 'Voltooid', 100, accuracy=acc)
             print(f"\n  SUCCESS! Model opgeslagen: {model_path}", flush=True)
         else:
             update_status(name, 'failed', 'Model niet opgeslagen', 0)
             print(f"\n  FAILED - model niet gecreëerd", flush=True)
-            
+
     except Exception as e:
         import traceback
         error_msg = str(e)[:200]
