@@ -81,6 +81,54 @@ def get_pg():
     )
 
 
+def save_confusion_matrix(species_name, cm, class_names):
+    """Save confusion matrix to database for dashboard visualization."""
+    try:
+        conn = get_pg()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM vocalization_confusion_matrix WHERE species_name = %s", (species_name,))
+        for i, true_label in enumerate(class_names):
+            for j, pred_label in enumerate(class_names):
+                count = int(cm[i][j])
+                cur.execute("""
+                    INSERT INTO vocalization_confusion_matrix
+                    (species_name, true_label, predicted_label, count)
+                    VALUES (%s, %s, %s, %s)
+                """, (species_name, true_label, pred_label, count))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"    Confusion matrix saved to database", flush=True)
+    except Exception as e:
+        print(f"    Warning: Could not save confusion matrix: {e}", flush=True)
+
+def save_xeno_canto_metadata(species_name, recordings):
+    """Save Xeno-canto recording metadata to database for world map."""
+    try:
+        conn = get_pg()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM xeno_canto_recordings WHERE species_name = %s", (species_name,))
+        for rec in recordings[:100]:  # Max 100 per species
+            cur.execute("""
+                INSERT INTO xeno_canto_recordings
+                (species_name, xc_id, country, latitude, longitude, vocalization_type, quality)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (
+                species_name,
+                rec.get('id', ''),
+                rec.get('cnt', ''),
+                float(rec.get('lat', 0)) if rec.get('lat') else None,
+                float(rec.get('lng', 0)) if rec.get('lng') else None,
+                rec.get('type', ''),
+                rec.get('q', '')
+            ))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"    Saved {min(len(recordings), 100)} Xeno-canto locations to database", flush=True)
+    except Exception as e:
+        print(f"    Warning: Could not save Xeno-canto metadata: {e}", flush=True)
+
 def update_status(species_name, scientific_name, status, phase, progress, **kwargs):
     """Update training status in database."""
     try:
@@ -95,6 +143,10 @@ def update_status(species_name, scientific_name, status, phase, progress, **kwar
             sql = """UPDATE vocalization_training SET
                      status=%s, phase=%s, progress_pct=%s, updated_at=NOW()"""
             vals = [status, phase, progress]
+
+            # Auto-set completed_at when status is completed
+            if status == 'completed':
+                sql += ", completed_at=NOW()"
 
             for k, v in kwargs.items():
                 sql += f", {k}=%s"
@@ -138,11 +190,34 @@ def check_spectrograms_exist(dirname):
     return total >= 100
 
 
+XENO_CANTO_API_KEY = os.environ.get('XENO_CANTO_API_KEY', '14258afd1c8a8e055387d012f2620e20f59ef3a2')
+
+def fetch_xeno_canto_locations(species_name, scientific_name):
+    """Fetch Xeno-canto recording locations for world map (API v3)."""
+    try:
+        import requests
+        url = f"https://xeno-canto.org/api/3/recordings?query={scientific_name.replace(' ', '+')}&key={XENO_CANTO_API_KEY}"
+        response = requests.get(url, timeout=30)
+        if response.status_code == 200:
+            data = response.json()
+            recordings = data.get('recordings', [])
+            if recordings:
+                save_xeno_canto_metadata(species_name, recordings)
+                return len(recordings)
+        else:
+            logger.warning(f"Xeno-canto API error: {response.status_code}")
+    except Exception as e:
+        logger.warning(f"Could not fetch Xeno-canto locations: {e}")
+    return 0
+
 def download_audio(species_name, scientific_name, dirname):
     """Download audio from Xeno-canto."""
     logger.info(f"Downloading audio for {species_name} ({scientific_name})")
 
     output_dir = RAW_DIR / f'xeno-canto-{dirname}'
+
+    # Fetch locations for world map
+    fetch_xeno_canto_locations(species_name, scientific_name)
 
     client = XenoCantoClient(
         download_dir=str(output_dir),
@@ -297,6 +372,9 @@ def train_model(species_name, scientific_name, dirname):
 
         plot_training_history(results['history'], str(history_path))
         plot_confusion_matrix(results['confusion_matrix'], class_names, str(cm_path), results['accuracy'])
+
+        # Save confusion matrix to database
+        save_confusion_matrix(species_name, results['confusion_matrix'], class_names)
 
         acc = results['accuracy']
         logger.info(f"Model trained successfully: accuracy={acc:.2%}")

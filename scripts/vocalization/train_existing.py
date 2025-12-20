@@ -35,6 +35,29 @@ PG_PASS = os.environ.get('PG_PASS', 'REDACTED_DB_PASS')
 def get_pg():
     return psycopg2.connect(host=PG_HOST, port=PG_PORT, database=PG_DB, user=PG_USER, password=PG_PASS)
 
+def save_confusion_matrix(species_name, cm, class_names):
+    """Save confusion matrix to database for dashboard visualization."""
+    try:
+        conn = get_pg()
+        cur = conn.cursor()
+        # Delete old data for this species
+        cur.execute("DELETE FROM vocalization_confusion_matrix WHERE species_name = %s", (species_name,))
+        # Insert new confusion matrix data
+        for i, true_label in enumerate(class_names):
+            for j, pred_label in enumerate(class_names):
+                count = int(cm[i][j])
+                cur.execute("""
+                    INSERT INTO vocalization_confusion_matrix
+                    (species_name, true_label, predicted_label, count)
+                    VALUES (%s, %s, %s, %s)
+                """, (species_name, true_label, pred_label, count))
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"  Confusion matrix saved to database", flush=True)
+    except Exception as e:
+        print(f"  Warning: Could not save confusion matrix: {e}", flush=True)
+
 def update_status(species, status, phase, progress, **kwargs):
     try:
         conn = get_pg()
@@ -43,6 +66,9 @@ def update_status(species, status, phase, progress, **kwargs):
         if cur.fetchone():
             sql = "UPDATE vocalization_training SET status=%s, phase=%s, progress_pct=%s, updated_at=NOW()"
             vals = [status, phase, progress]
+            # Auto-set completed_at when status is completed
+            if status == 'completed':
+                sql += ", completed_at=NOW()"
             for k,v in kwargs.items():
                 sql += f", {k}=%s"
                 vals.append(v)
@@ -175,7 +201,10 @@ def train_species(name, dirname):
             str(cm_path),
             results['accuracy']
         )
-        
+
+        # Save confusion matrix to database
+        save_confusion_matrix(name, results['confusion_matrix'], class_names)
+
         acc = results['accuracy']
         print(f"\n  Test Accuracy: {acc:.2%}", flush=True)
         
