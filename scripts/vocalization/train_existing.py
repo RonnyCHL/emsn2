@@ -344,7 +344,7 @@ def train_species(name, dirname, force_retrain=False, version=None):
             # Sla versie informatie op en selecteer beste model
             training_samples = len(X)
             epochs_trained = len(results['history']['loss'])
-            save_model_version(name, version, model_filename, acc, training_samples, epochs_trained)
+            save_model_version(name, version, model_filename, float(acc), training_samples, epochs_trained)
 
             print(f"\n  SUCCESS! Model opgeslagen: {model_path}", flush=True)
         else:
