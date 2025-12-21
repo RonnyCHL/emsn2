@@ -1,6 +1,6 @@
 # EMSN 2.0
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14538953.svg)](https://doi.org/10.5281/zenodo.14538953)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18010564.svg)](https://doi.org/10.5281/zenodo.18010564)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Ecologisch Monitoring Systeem Nijverdal**
