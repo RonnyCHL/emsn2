@@ -1,7 +1,9 @@
-# Secrets
+# Secrets - NOOIT COMMITTEN
 secrets.yaml
 *.secret
 .env
+.secrets
+CLAUDE.local.md
 
 # Python
 __pycache__/

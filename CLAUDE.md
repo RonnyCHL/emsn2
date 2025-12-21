@@ -15,6 +15,10 @@ Eigenaar: Ronny Hullegie
 - Daarna committen en pushen naar GitHub
 - Documentatie in het Nederlands
 
+## Credentials
+**Alle credentials staan in `.secrets` (niet in git!)**
+Lees dit bestand voor database, NAS, MQTT, Grafana en email wachtwoorden.
+
 ## Mappenstructuur
 - /docs/ - documentatie en samenvattingen
 - /docs/samenvattingen/ - sessie samenvattingen
@@ -32,7 +36,7 @@ Eigenaar: Ronny Hullegie
 ## Netwerk
 - **Pi Zolder (emsn2-zolder):** 192.168.1.178 - BirdNET-Pi, MQTT broker (hoofd), API server
 - **Pi Berging (emsn2-berging):** 192.168.1.87 - BirdNET-Pi, AtmosBird (Pi Camera NoIR), MQTT bridge
-- **NAS (DS224Plus):** 192.168.1.25 - Opslag, PostgreSQL, Grafana
+- **NAS (DS224Plus):** 192.168.1.25 - Opslag, PostgreSQL (port 5433), Grafana
 - **Homer Dashboard:** http://192.168.1.25:8181/ - Startpagina met alle links
 - **Ulanzi TC001:** 192.168.1.11 - AWTRIX Light LED matrix display
 
@@ -54,7 +58,7 @@ Eigenaar: Ronny Hullegie
 ## MQTT
 - **Hoofdbroker:** Zolder (192.168.1.178:1883)
 - **Bridges:** Bidirectioneel - Berging ↔ Zolder
-- **Credentials:** ecomonitor/REDACTED_DB_PASS
+- **Credentials:** zie `.secrets`
 - **Topics:**
   - emsn2/{station}/# - Systeem data
   - birdnet/{station}/detection - Live detecties
@@ -69,9 +73,9 @@ Eigenaar: Ronny Hullegie
 ## NAS Shares
   - //192.168.1.25/docker → /mnt/nas-docker
   - //192.168.1.25/emsn-AIRapporten → /mnt/nas-reports
-- **Credentials:** /etc/nas-reports-credentials (ronny/REDACTED_DB_PASS)
+- **Credentials:** zie `.secrets`
 - **Let op:** NAS proxy blokkeert POST requests - gebruik directe Pi IP voor API calls
-- **Grafana:** http://192.168.1.25:3000 (admin/emsn2024)
+- **Grafana:** http://192.168.1.25:3000
 
 ## Vocalization Training (NAS Docker)
 - **Container:** emsn-vocalization-pytorch (niet emsn-vocalization-trainer!)
@@ -93,14 +97,13 @@ Eigenaar: Ronny Hullegie
   sudo docker logs -f emsn-vocalization-pytorch
   sudo docker ps | grep vocal
   ```
-- **SSH naar NAS:** `sshpass -p 'REDACTED_DB_PASS' ssh ronny@192.168.1.25`
+- **SSH naar NAS:** credentials in `.secrets`
 - **Let op:** ronny user heeft geen Docker rechten zonder sudo
 - **Versioning:** Modellen gebruiken kwartaal versies (bijv. 2025Q4)
 
 ## Email (Rapporten)
 - **SMTP:** smtp.strato.de:587
-- **Account:** rapporten@ronnyhullegie.nl
-- **Wachtwoord:** REDACTED_SMTP_PASS
+- **Credentials:** zie `.secrets`
 - **Config:** /home/ronny/emsn2/config/email.yaml
 
 ## Commit Stijl
