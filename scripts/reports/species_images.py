@@ -289,7 +289,7 @@ def get_species_image(dutch_name: str, scientific_name: str = None) -> Optional[
         if cache_file.exists():
             # Return cached (we'd need to store attribution separately for full solution)
             return {
-                'local_path': cache_file,
+                'local_path': str(cache_file),
                 'cached': True,
             }
 
@@ -303,7 +303,7 @@ def get_species_image(dutch_name: str, scientific_name: str = None) -> Optional[
         return None
 
     return {
-        'local_path': local_path,
+        'local_path': str(local_path),
         'attribution': image_info.get('artist', 'Unknown'),
         'license': image_info.get('license', 'Unknown'),
         'source_url': image_info.get('description_url'),
@@ -337,7 +337,7 @@ def get_images_for_species_list(species_list: List[Dict], max_images: int = 5) -
                 'scientific_name': scientific,
                 'image': image,
             })
-            print(f"      ✓ Gevonden: {image['local_path'].name}")
+            print(f"      ✓ Gevonden: {Path(image['local_path']).name}")
         else:
             print(f"      ✗ Geen afbeelding gevonden")
 
@@ -372,7 +372,7 @@ def generate_species_gallery_markdown(species_with_images: List[Dict]) -> str:
             continue
 
         # Use relative path for markdown
-        img_path = image['local_path'].name
+        img_path = Path(image['local_path']).name
 
         markdown += f"### {name}"
         if scientific and scientific != name:
@@ -407,7 +407,7 @@ if __name__ == "__main__":
 
     print(f"\nGevonden: {len(results)} afbeeldingen")
     for r in results:
-        print(f"  - {r['name']}: {r['image']['local_path']}")
+        print(f"  - {r['name']}: {Path(r['image']['local_path']).name}")
 
     print("\n" + "="*60)
     print("\nMarkdown output:")
