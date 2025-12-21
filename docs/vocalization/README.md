@@ -4,6 +4,8 @@
 
 Een volledig geautomatiseerde pipeline voor het trainen van CNN-modellen die vogelgeluiden classificeren naar type: **song** (zang), **call** (roep), of **alarm** (alarmroep).
 
+> **Uniek project:** Dit is voor zover bekend het eerste open-source systeem dat automatisch per vogelsoort een vocalisatie classifier traint. BirdNET identificeert soorten, maar maakt geen onderscheid tussen zang, roep en alarm. Dit project vult die leemte.
+
 ## Inhoudsopgave
 
 1. [Overzicht](#overzicht)
@@ -38,8 +40,10 @@ Dit project traint machine learning modellen die vogelgeluiden kunnen classifice
 - **Volledig geautomatiseerd** - Draait dagen zonder tussenkomst
 - **Xeno-canto integratie** - Download automatisch trainingsdata
 - **PyTorch CNN** - Werkt op CPUs zonder AVX ondersteuning
-- **Real-time monitoring** - Grafana dashboard met 54 panels
+- **Real-time monitoring** - Grafana dashboard met voortgang panels
 - **Resume capability** - Hervat waar gestopt na onderbreking
+- **Kwartaal versioning** - Automatische hertraining elk kwartaal (2025Q1, 2025Q2, etc.)
+- **Best model tracking** - Database selecteert automatisch beste model per soort
 
 ### Pipeline stappen
 
@@ -226,6 +230,18 @@ python full_pipeline.py --dry-run
 ```bash
 # Train op data die al gedownload is
 python train_existing.py
+
+# Train specifieke soort
+python train_existing.py --species "Merel"
+
+# Forceer hertraining (ook als model al bestaat)
+python train_existing.py --force
+
+# Train met specifieke versie
+python train_existing.py --version 2025Q4
+
+# Skip species die al completed zijn, start fresh
+python train_existing.py --no-continue
 ```
 
 ### Handmatig spectrogram genereren
@@ -273,6 +289,27 @@ CREATE TABLE vocalization_training (
     completed_at TIMESTAMP
 );
 ```
+
+### Tabel: vocalization_model_versions
+
+Kwartaal versie tracking voor periodieke hertraining.
+
+```sql
+CREATE TABLE vocalization_model_versions (
+    id SERIAL PRIMARY KEY,
+    species_name VARCHAR(100) NOT NULL,
+    version VARCHAR(10) NOT NULL,        -- bijv. '2025Q1', '2025Q4'
+    model_file VARCHAR(255) NOT NULL,    -- bijv. 'merel_cnn_2025Q4.pt'
+    accuracy FLOAT,
+    is_active BOOLEAN DEFAULT FALSE,     -- TRUE = beste model voor deze soort
+    training_samples INTEGER,
+    epochs_trained INTEGER,
+    trained_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(species_name, version)
+);
+```
+
+Het systeem selecteert automatisch het beste model per soort op basis van accuracy.
 
 | Kolom | Type | Beschrijving |
 |-------|------|--------------|
@@ -455,15 +492,17 @@ VocalizationCNN(
 
 ### Training parameters
 
-| Parameter | Waarde |
-|-----------|--------|
-| Epochs | 30 (max) |
-| Batch size | 64 |
-| Early stopping | 7 epochs patience |
-| Learning rate | 0.001 (Adam) |
-| LR scheduler | ReduceLROnPlateau (factor=0.5) |
-| Test split | 20% |
-| Class weighting | Ja (voor imbalance) |
+| Parameter | Waarde | Opmerking |
+|-----------|--------|-----------|
+| Epochs | 25 (max) | Verlaagd van 30, early stopping compenseert |
+| Batch size | 128 | Verhoogd van 64 voor snellere training |
+| Early stopping | 5 epochs patience | Verlaagd van 7 voor snellere convergentie |
+| Learning rate | 0.001 (Adam) | Start learning rate |
+| LR scheduler | ReduceLROnPlateau (patience=3) | Agressievere scheduling |
+| Test split | 20% | Stratified split |
+| Class weighting | Ja | Automatisch berekend voor imbalance |
+| Max samples/klasse | 800 | Voorkomt te grote datasets |
+| DataLoader workers | 2 | Parallel data loading |
 
 ### Nederlandse vogelsoorten
 
@@ -547,4 +586,21 @@ MIT License - vrij te gebruiken met bronvermelding.
 
 ---
 
-*Laatst bijgewerkt: December 2024*
+*Laatst bijgewerkt: December 2025*
+
+---
+
+## Changelog
+
+### v2.0 (December 2025)
+- Kwartaal versioning systeem toegevoegd
+- Training parameters geoptimaliseerd (40-50% sneller)
+- DataLoader verbeteringen (parallel loading, pin_memory)
+- Bug fix: completion status update na confusion matrix save
+- Live volume mount voor train_existing.py
+
+### v1.0 (December 2024)
+- Initiële release
+- PyTorch CNN voor 232 Nederlandse vogelsoorten
+- Xeno-canto integratie
+- Grafana dashboard

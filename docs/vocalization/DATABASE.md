@@ -4,11 +4,12 @@ Uitgebreide documentatie van de PostgreSQL database structuur voor het EMSN 2.0 
 
 ## Overzicht
 
-De vocalization classifier gebruikt drie database tabellen in de `emsn` database:
+De vocalization classifier gebruikt vier database tabellen in de `emsn` database:
 
 | Tabel | Doel | Geschatte grootte |
 |-------|------|-------------------|
 | `vocalization_training` | Training status en voortgang | ~232 rijen (1 per soort) |
+| `vocalization_model_versions` | Kwartaal versie tracking | ~4 rijen per soort per jaar |
 | `xeno_canto_recordings` | Audio metadata voor wereldkaart | ~23.200 rijen (100 per soort) |
 | `vocalization_confusion_matrix` | Model evaluatie resultaten | ~2.088 rijen (9 per soort) |
 
@@ -105,6 +106,86 @@ SELECT species_name, phase, error_message, updated_at
 FROM vocalization_training
 WHERE status = 'failed'
 ORDER BY updated_at DESC;
+```
+
+---
+
+## Tabel: vocalization_model_versions
+
+### Beschrijving
+
+Kwartaal versie tracking voor periodieke hertraining. Elk kwartaal kan een soort opnieuw getraind worden, en het systeem bewaart alle versies met hun accuracy. Het beste model wordt automatisch als "active" gemarkeerd.
+
+### Schema
+
+```sql
+CREATE TABLE vocalization_model_versions (
+    id SERIAL PRIMARY KEY,
+    species_name VARCHAR(100) NOT NULL,
+    version VARCHAR(10) NOT NULL,
+    model_file VARCHAR(255) NOT NULL,
+    accuracy FLOAT,
+    is_active BOOLEAN DEFAULT FALSE,
+    training_samples INTEGER,
+    epochs_trained INTEGER,
+    trained_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(species_name, version)
+);
+
+-- Indexes
+CREATE INDEX idx_mv_species ON vocalization_model_versions(species_name);
+CREATE INDEX idx_mv_active ON vocalization_model_versions(is_active);
+```
+
+### Kolommen
+
+| Kolom | Type | Nullable | Default | Beschrijving |
+|-------|------|----------|---------|--------------|
+| `id` | SERIAL | NO | auto | Primaire sleutel |
+| `species_name` | VARCHAR(100) | NO | - | Nederlandse naam |
+| `version` | VARCHAR(10) | NO | - | Kwartaal versie (bijv. "2025Q4") |
+| `model_file` | VARCHAR(255) | NO | - | Bestandsnaam (bijv. "merel_cnn_2025Q4.pt") |
+| `accuracy` | FLOAT | YES | NULL | Model nauwkeurigheid (0.0-1.0) |
+| `is_active` | BOOLEAN | YES | FALSE | TRUE = beste model voor deze soort |
+| `training_samples` | INTEGER | YES | NULL | Aantal training samples |
+| `epochs_trained` | INTEGER | YES | NULL | Aantal epochs getraind |
+| `trained_at` | TIMESTAMP | YES | NOW() | Training timestamp |
+
+### Versie formaat
+
+Versies volgen het formaat `YYYYQN`:
+- `2025Q1` = Januari - Maart 2025
+- `2025Q2` = April - Juni 2025
+- `2025Q3` = Juli - September 2025
+- `2025Q4` = Oktober - December 2025
+
+### Voorbeeld queries
+
+**Actieve modellen per soort:**
+```sql
+SELECT species_name, version, model_file,
+       ROUND(accuracy * 100, 1) as accuracy_pct
+FROM vocalization_model_versions
+WHERE is_active = TRUE
+ORDER BY species_name;
+```
+
+**Versie historie voor specifieke soort:**
+```sql
+SELECT version, model_file, accuracy, epochs_trained, trained_at
+FROM vocalization_model_versions
+WHERE species_name = 'Merel'
+ORDER BY trained_at DESC;
+```
+
+**Accuracy trend over kwartalen:**
+```sql
+SELECT version,
+       ROUND(AVG(accuracy) * 100, 1) as avg_accuracy,
+       COUNT(*) as models_trained
+FROM vocalization_model_versions
+GROUP BY version
+ORDER BY version;
 ```
 
 ---
@@ -409,4 +490,15 @@ ORDER BY
 
 ---
 
-*Document versie: 1.0 - December 2024*
+*Document versie: 2.0 - December 2025*
+
+---
+
+## Changelog
+
+### v2.0 (December 2025)
+- Tabel `vocalization_model_versions` toegevoegd voor kwartaal versioning
+- PostgreSQL ROUND() queries aangepast met ::numeric cast
+
+### v1.0 (December 2024)
+- Initiële documentatie
