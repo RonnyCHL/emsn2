@@ -1,0 +1,29 @@
+#!/bin/bash
+# BirdNET-Pi: Disable WebUI Authentication
+# Gebruik: bash birdnet-disable-auth.patch
+#
+# Dit script past common.php aan zodat er geen login nodig is
+# wanneer CADDY_PWD leeg is in birdnet.conf
+
+COMMON_PHP="/home/ronny/BirdNET-Pi/scripts/common.php"
+
+# Backup maken
+sudo cp "$COMMON_PHP" "${COMMON_PHP}.backup"
+
+# Zoek en vervang de is_authenticated functie
+sudo sed -i '/^function is_authenticated() {$/,/^}$/c\
+function is_authenticated() {\
+  $config = get_config();\
+  // If no password is set, allow access without authentication\
+  if (empty($config['"'"'CADDY_PWD'"'"'])) {\
+    return true;\
+  }\
+  $ret = false;\
+  if (isset($_SERVER['"'"'PHP_AUTH_USER'"'"'])) {\
+    $ret = ($_SERVER['"'"'PHP_AUTH_PW'"'"'] == $config['"'"'CADDY_PWD'"'"'] \&\& $_SERVER['"'"'PHP_AUTH_USER'"'"'] == '"'"'birdnet'"'"');\
+  }\
+  return $ret;\
+}' "$COMMON_PHP"
+
+echo "✓ Authentication uitgeschakeld op $(hostname)"
+echo "  Backup: ${COMMON_PHP}.backup"
