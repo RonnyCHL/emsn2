@@ -14,7 +14,7 @@ import re
 
 # PyTorch threading optimalisatie
 import torch
-torch.set_num_threads(4)  # Beperk threads
+torch.set_num_threads(6)  # Optimized voor Celeron J4125
 
 # Voeg src toe aan path
 sys.path.insert(0, '/app')
@@ -23,8 +23,8 @@ DATA_DIR = Path('/app/data')
 MODELS_DIR = DATA_DIR / 'models'
 LOGS_DIR = Path('/app/logs')
 
-# Maximum samples per klasse - verlaagd voor snelheid
-MAX_PER_CLASS = 1000
+# Maximum samples per klasse - geoptimaliseerd voor snelheid + kwaliteit
+MAX_PER_CLASS = 800
 
 PG_HOST = os.environ.get('PG_HOST', '192.168.1.25')
 PG_PORT = os.environ.get('PG_PORT', '5433')
@@ -178,13 +178,13 @@ def train_species(name, dirname):
         
         update_status(name, 'training', 'Model training', 70)
         
-        # Kleinere epochs en batch size voor snellere training
+        # Geoptimaliseerde training parameters voor snelheid + betrouwbaarheid
         results = classifier.train(
             X, y,
             test_size=0.2,
-            epochs=30,  # Verlaagd van 50
-            batch_size=64,  # Verhoogd voor betere throughput
-            patience=7,  # Verlaagd van 10
+            epochs=25,      # Verlaagd van 30 - early stopping vangt dit op
+            batch_size=128, # Verhoogd van 64 - snellere epochs, stabielere gradients
+            patience=5,     # Verlaagd van 7 - sneller stoppen bij convergentie
             progress_callback=on_epoch_end
         )
         

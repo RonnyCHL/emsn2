@@ -165,8 +165,22 @@ class CNNVocalizationClassifier:
         train_dataset = TensorDataset(X_train, y_train)
         test_dataset = TensorDataset(X_test, y_test)
 
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size)
+        # Geoptimaliseerde DataLoaders met parallel loading
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=2,      # Parallel data loading
+            pin_memory=True,    # Snellere CPU→GPU transfer (ook nuttig voor CPU)
+            persistent_workers=True  # Behoud workers tussen epochs
+        )
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=batch_size,
+            num_workers=2,
+            pin_memory=True,
+            persistent_workers=True
+        )
 
         if self.model is None:
             self.build_model(input_channels=1)
@@ -182,8 +196,9 @@ class CNNVocalizationClassifier:
 
         criterion = nn.CrossEntropyLoss(weight=class_weights)
         optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        # Agressievere LR scheduling voor snellere convergentie
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='min', factor=0.5, patience=5, min_lr=1e-6
+            optimizer, mode='min', factor=0.5, patience=3, min_lr=1e-6
         )
 
         best_val_loss = float('inf')
