@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
 Train CNN op bestaande spectrogrammen - skip download fase.
-V5: PyTorch versie met optimalisaties voor trage CPUs.
+V6: PyTorch versie met kwartaal versioning en optimalisaties.
 """
 import os
 import sys
 import random
+import argparse
 import numpy as np
 from pathlib import Path
 import psycopg2
@@ -25,6 +26,12 @@ LOGS_DIR = Path('/app/logs')
 
 # Maximum samples per klasse - geoptimaliseerd voor snelheid + kwaliteit
 MAX_PER_CLASS = 800
+
+def get_current_quarter():
+    """Bepaal huidig kwartaal (bijv. '2025Q1')."""
+    now = datetime.now()
+    quarter = (now.month - 1) // 3 + 1
+    return f"{now.year}Q{quarter}"
 
 PG_HOST = os.environ.get('PG_HOST', '192.168.1.25')
 PG_PORT = os.environ.get('PG_PORT', '5433')
@@ -85,6 +92,99 @@ def update_status(species, status, phase, progress, **kwargs):
     except Exception as e:
         print(f"  DB update fout: {e}", flush=True)
 
+def save_model_version(species_name, version, model_file, accuracy, training_samples, epochs_trained):
+    """Sla model versie op in database en activeer als beste."""
+    try:
+        conn = get_pg()
+        cur = conn.cursor()
+
+        # Check of er al een versie bestaat voor dit kwartaal
+        cur.execute("""
+            SELECT id, accuracy FROM vocalization_model_versions
+            WHERE species_name = %s AND version = %s
+        """, (species_name, version))
+        existing = cur.fetchone()
+
+        if existing:
+            # Update bestaande versie
+            cur.execute("""
+                UPDATE vocalization_model_versions
+                SET accuracy = %s, model_file = %s, training_samples = %s,
+                    epochs_trained = %s, trained_at = NOW()
+                WHERE species_name = %s AND version = %s
+            """, (accuracy, model_file, training_samples, epochs_trained, species_name, version))
+            print(f"  Model versie {version} bijgewerkt", flush=True)
+        else:
+            # Insert nieuwe versie
+            cur.execute("""
+                INSERT INTO vocalization_model_versions
+                (species_name, version, model_file, accuracy, training_samples, epochs_trained)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (species_name, version, model_file, accuracy, training_samples, epochs_trained))
+            print(f"  Model versie {version} opgeslagen", flush=True)
+
+        # Bepaal beste model en activeer die
+        cur.execute("""
+            SELECT id, version, accuracy FROM vocalization_model_versions
+            WHERE species_name = %s AND accuracy IS NOT NULL
+            ORDER BY accuracy DESC
+            LIMIT 1
+        """, (species_name,))
+        best = cur.fetchone()
+
+        if best:
+            # Deactiveer alle versies voor deze soort
+            cur.execute("""
+                UPDATE vocalization_model_versions
+                SET is_active = FALSE
+                WHERE species_name = %s
+            """, (species_name,))
+            # Activeer beste versie
+            cur.execute("""
+                UPDATE vocalization_model_versions
+                SET is_active = TRUE
+                WHERE id = %s
+            """, (best[0],))
+            print(f"  Actieve versie: {best[1]} (accuracy: {best[2]:.1%})", flush=True)
+
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"  Warning: Model versie opslaan mislukt: {e}", flush=True)
+
+def get_active_model(species_name, dirname):
+    """Haal actieve model versie op voor een soort."""
+    try:
+        conn = get_pg()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT model_file, version, accuracy FROM vocalization_model_versions
+            WHERE species_name = %s AND is_active = TRUE
+        """, (species_name,))
+        result = cur.fetchone()
+        cur.close()
+        conn.close()
+        return result
+    except:
+        return None
+
+def has_version_this_quarter(species_name, version):
+    """Check of er al een model is voor dit kwartaal."""
+    try:
+        conn = get_pg()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id FROM vocalization_model_versions
+            WHERE species_name = %s AND version = %s
+        """, (species_name, version))
+        result = cur.fetchone() is not None
+        cur.close()
+        conn.close()
+        return result
+    except:
+        return False
+
 def combine_spectrograms(spec_dir, max_per_class=MAX_PER_CLASS):
     """Combineer spectrogrammen met limiet per klasse."""
     X_list, y_list = [], []
@@ -132,24 +232,50 @@ def combine_spectrograms(spec_dir, max_per_class=MAX_PER_CLASS):
     print(f"  Opgeslagen!", flush=True)
     return True
 
-def train_species(name, dirname):
-    spec_dir = DATA_DIR / f'spectrograms-{dirname}'
-    model_path = MODELS_DIR / f'{dirname}_cnn_v1.pt'
+def train_species(name, dirname, force_retrain=False, version=None):
+    """Train een soort met kwartaal versioning.
 
-    if model_path.exists():
-        print(f"SKIP {name} - model bestaat al", flush=True)
-        update_status(name, 'completed', 'Model bestaat al', 100)
-        return
+    Args:
+        name: Nederlandse naam van de soort
+        dirname: Directory naam voor bestanden
+        force_retrain: Forceer hertraining ook als model al bestaat
+        version: Optionele versie string (default: huidig kwartaal)
+    """
+    spec_dir = DATA_DIR / f'spectrograms-{dirname}'
+
+    # Bepaal versie
+    if version is None:
+        version = get_current_quarter()
+
+    # Model bestandsnaam met versie
+    model_filename = f'{dirname}_cnn_{version}.pt'
+    model_path = MODELS_DIR / model_filename
+
+    # Legacy model pad (voor backward compatibility)
+    legacy_model_path = MODELS_DIR / f'{dirname}_cnn_v1.pt'
+
+    # Check of we moeten trainen
+    if not force_retrain:
+        if model_path.exists():
+            print(f"SKIP {name} - model {version} bestaat al", flush=True)
+            update_status(name, 'completed', f'Model {version} bestaat', 100)
+            return
+
+        # Check ook of er al een versie is dit kwartaal in de database
+        if has_version_this_quarter(name, version):
+            print(f"SKIP {name} - versie {version} al getraind dit kwartaal", flush=True)
+            update_status(name, 'completed', f'Model {version} bestaat', 100)
+            return
 
     if not spec_dir.exists():
         print(f"SKIP {name} - geen spectrogrammen directory", flush=True)
         return
 
     print(f"\n{'='*60}", flush=True)
-    print(f"Training: {name}", flush=True)
+    print(f"Training: {name} [{version}]", flush=True)
     print(f"{'='*60}", flush=True)
 
-    update_status(name, 'training', 'Combineren', 55)
+    update_status(name, 'training', f'Combineren ({version})', 55)
 
     # Check of al gecombineerd
     x_file = spec_dir / 'X_spectrograms.npy'
@@ -213,7 +339,13 @@ def train_species(name, dirname):
 
         # Update status ALTIJD na succesvolle training
         if model_path.exists():
-            update_status(name, 'completed', 'Voltooid', 100, accuracy=acc)
+            update_status(name, 'completed', f'Voltooid ({version})', 100, accuracy=acc)
+
+            # Sla versie informatie op en selecteer beste model
+            training_samples = len(X)
+            epochs_trained = len(results['history']['loss'])
+            save_model_version(name, version, model_filename, acc, training_samples, epochs_trained)
+
             print(f"\n  SUCCESS! Model opgeslagen: {model_path}", flush=True)
         else:
             update_status(name, 'failed', 'Model niet opgeslagen', 0)
@@ -245,23 +377,52 @@ SPECIES = [
 ]
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Train vocalisatie classifier met kwartaal versioning')
+    parser.add_argument('--force', '-f', action='store_true',
+                        help='Forceer hertraining ook als model al bestaat')
+    parser.add_argument('--version', '-v', type=str, default=None,
+                        help='Versie string (default: huidig kwartaal, bijv. 2025Q1)')
+    parser.add_argument('--species', '-s', type=str, default=None,
+                        help='Train alleen specifieke soort (bijv. "Merel")')
+    parser.add_argument('--no-continue', action='store_true',
+                        help='Niet automatisch doorgaan met full_pipeline.py')
+    args = parser.parse_args()
+
+    version = args.version or get_current_quarter()
+
     print("=" * 60, flush=True)
-    print("EMSN 2.0 - Train Existing Spectrograms V5 (Optimized PyTorch)", flush=True)
+    print("EMSN 2.0 - Train Existing Spectrograms V6 (Quarterly Versioning)", flush=True)
+    print(f"Versie: {version}", flush=True)
     print(f"Max samples per class: {MAX_PER_CLASS}", flush=True)
     print(f"PyTorch threads: {torch.get_num_threads()}", flush=True)
+    if args.force:
+        print("Mode: FORCE RETRAIN", flush=True)
     print("=" * 60, flush=True)
 
-    for name, dirname in SPECIES:
-        train_species(name, dirname)
+    if args.species:
+        # Train alleen specifieke soort
+        species_found = False
+        for name, dirname in SPECIES:
+            if name.lower() == args.species.lower():
+                train_species(name, dirname, force_retrain=args.force, version=version)
+                species_found = True
+                break
+        if not species_found:
+            print(f"ERROR: Soort '{args.species}' niet gevonden in SPECIES lijst", flush=True)
+    else:
+        # Train alle soorten
+        for name, dirname in SPECIES:
+            train_species(name, dirname, force_retrain=args.force, version=version)
 
     print("\n" + "=" * 60, flush=True)
     print("KLAAR", flush=True)
     print("=" * 60, flush=True)
 
     # Automatisch doorgaan met volledige pipeline voor alle 232 Nederlandse soorten
-    print("\n" + "=" * 60, flush=True)
-    print("STARTEN VOLLEDIGE PIPELINE VOOR 232 SOORTEN", flush=True)
-    print("=" * 60, flush=True)
+    if not args.no_continue:
+        print("\n" + "=" * 60, flush=True)
+        print("STARTEN VOLLEDIGE PIPELINE VOOR 232 SOORTEN", flush=True)
+        print("=" * 60, flush=True)
 
-    import subprocess
-    subprocess.run([sys.executable, '/app/full_pipeline.py'], check=False)
+        import subprocess
+        subprocess.run([sys.executable, '/app/full_pipeline.py'], check=False)
