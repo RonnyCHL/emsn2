@@ -1,7 +1,7 @@
 # EMSN 2.0 - Instructies voor Claude Code
 
 ## Project
-EcoMonitoring Systeem Nijverdal - Biodiversity monitoring met BirdNET-Pi
+Ecologisch Monitoring Systeem Nijverdal - Biodiversity monitoring met BirdNET-Pi
 Eigenaar: Ronny Hullegie
 
 ## Gouden Regels

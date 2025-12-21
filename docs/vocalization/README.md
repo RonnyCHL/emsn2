@@ -568,7 +568,7 @@ Dit is normaal op NAS hardware. PyTorch valt automatisch terug op CPU. Training 
 
 ## Licentie
 
-Dit project is onderdeel van EMSN 2.0 (EcoMonitoring Systeem Nijverdal).
+Dit project is onderdeel van EMSN 2.0 (Ecologisch Monitoring Systeem Nijverdal).
 
 | Component | Licentie | Toelichting |
 |-----------|----------|-------------|
@@ -596,7 +596,7 @@ Zie ook [CITATION.cff](../../CITATION.cff) voor formele citatie-informatie.
 
 ## Contact
 
-**Project:** EMSN 2.0 - EcoMonitoring Systeem Nijverdal
+**Project:** EMSN 2.0 - Ecologisch Monitoring Systeem Nijverdal
 **Auteur:** Ronny Hullegie
 **GitHub:** https://github.com/[username]/emsn2
 

@@ -1,6 +1,6 @@
 # Bijdragen aan EMSN 2.0
 
-Bedankt voor je interesse in het bijdragen aan het EcoMonitoring Systeem Nijverdal! Dit document beschrijft hoe je kunt bijdragen.
+Bedankt voor je interesse in het bijdragen aan het Ecologisch Monitoring Systeem Nijverdal! Dit document beschrijft hoe je kunt bijdragen.
 
 ## Manieren om bij te dragen
 
