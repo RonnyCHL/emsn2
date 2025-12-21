@@ -72,12 +72,12 @@
       "week": 51,
       "title": "Week 51",
       "filename": "2025-W51-Weekrapport.md",
-      "filesize": 9420,
-      "modified": "2025-12-16T21:12:17.764147",
+      "filesize": 10322,
+      "modified": "2025-12-21T19:57:16.832301",
       "period": "2025-12-15 tot 2025-12-21",
-      "total_detections": 9186,
-      "unique_species": 74,
-      "generated": "2025-12-16 21:12:17"
+      "total_detections": 28056,
+      "unique_species": 95,
+      "generated": "2025-12-21 19:57:16"
     },
     {
       "type": "week",
@@ -116,6 +116,6 @@
       "generated": "2025-12-13 18:55:55"
     }
   ],
-  "generated": "2025-12-16T21:12:48.863616",
+  "generated": "2025-12-21T19:57:16.923764",
   "total_reports": 10
 }
