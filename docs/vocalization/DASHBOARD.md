@@ -54,6 +54,15 @@ Het dashboard biedt volledig inzicht in:
 | Top 10 Beste Modellen | Table | Hoogste accuracy scores |
 | Accuracy vs Spectrogrammen | Scatter | Correlatie analyse |
 
+### 5. Model Versies (Kwartaal Tracking)
+
+| Panel | Type | Beschrijving |
+|-------|------|--------------|
+| Actieve Modellen | Table | Huidige actieve versie per soort |
+| Versie Historie | Table | Alle versies met accuracy trend |
+| Versie Vergelijking | Bar Chart | Accuracy per versie per soort |
+| Kwartaal Statistieken | Stat | Modellen per kwartaal |
+
 ---
 
 ## Panel Configuraties
@@ -340,6 +349,147 @@ Het volledige dashboard is geëxporteerd naar:
 
 ---
 
+## Model Versies Panels
+
+### Actieve Modellen Tabel
+
+**Query:**
+```sql
+SELECT
+    v.species_name as "Soort",
+    v.version as "Versie",
+    ROUND(v.accuracy * 100, 1) as "Accuracy %",
+    v.training_samples as "Samples",
+    v.epochs_trained as "Epochs",
+    TO_CHAR(v.trained_at, 'DD-MM-YYYY HH24:MI') as "Getraind"
+FROM vocalization_model_versions v
+WHERE v.is_active = TRUE
+ORDER BY v.accuracy DESC;
+```
+
+**Opties:**
+- Visualisatie: Table
+- Column widths: Soort 120px, Versie 80px
+- Color by value: Accuracy kolom groen > 50%
+
+---
+
+### Versie Historie per Soort
+
+**Query:**
+```sql
+SELECT
+    species_name as "Soort",
+    version as "Versie",
+    ROUND(accuracy * 100, 1) as "Accuracy %",
+    training_samples as "Samples",
+    CASE WHEN is_active THEN '✅' ELSE '' END as "Actief",
+    TO_CHAR(trained_at, 'DD-MM-YYYY') as "Datum"
+FROM vocalization_model_versions
+WHERE species_name = '$species'
+ORDER BY trained_at DESC;
+```
+
+**Opties:**
+- Variable: $species (dropdown)
+- Visualisatie: Table
+
+---
+
+### Versie Vergelijking Bar Chart
+
+**Query:**
+```sql
+SELECT
+    version as "Versie",
+    species_name as "Soort",
+    ROUND(accuracy * 100, 1) as "Accuracy"
+FROM vocalization_model_versions
+WHERE accuracy IS NOT NULL
+ORDER BY version, species_name;
+```
+
+**Opties:**
+- Visualisatie: Bar Chart
+- Group by: version
+- Orientation: Vertical
+- Legend: Bottom
+
+---
+
+### Kwartaal Statistieken
+
+**Query:**
+```sql
+SELECT
+    version as "Kwartaal",
+    COUNT(*) as "Modellen",
+    ROUND(AVG(accuracy) * 100, 1) as "Gem. Accuracy %",
+    SUM(training_samples) as "Totaal Samples"
+FROM vocalization_model_versions
+GROUP BY version
+ORDER BY version DESC;
+```
+
+**Opties:**
+- Visualisatie: Table of Stat panels
+
+---
+
+### Accuracy Trend per Soort
+
+**Query:**
+```sql
+SELECT
+    trained_at as time,
+    species_name as metric,
+    ROUND(accuracy * 100, 1) as value
+FROM vocalization_model_versions
+WHERE accuracy IS NOT NULL
+ORDER BY trained_at;
+```
+
+**Opties:**
+- Visualisatie: Time series
+- Legend: Als tabel rechts
+- Tooltip: All series
+
+---
+
+### Beste vs Slechtste Versies
+
+**Query:**
+```sql
+WITH ranked AS (
+    SELECT
+        species_name,
+        version,
+        accuracy,
+        ROW_NUMBER() OVER (PARTITION BY species_name ORDER BY accuracy DESC) as best_rank,
+        ROW_NUMBER() OVER (PARTITION BY species_name ORDER BY accuracy ASC) as worst_rank
+    FROM vocalization_model_versions
+    WHERE accuracy IS NOT NULL
+)
+SELECT
+    species_name as "Soort",
+    MAX(CASE WHEN best_rank = 1 THEN version END) as "Beste Versie",
+    ROUND(MAX(CASE WHEN best_rank = 1 THEN accuracy END) * 100, 1) as "Beste %",
+    MAX(CASE WHEN worst_rank = 1 THEN version END) as "Slechtste Versie",
+    ROUND(MAX(CASE WHEN worst_rank = 1 THEN accuracy END) * 100, 1) as "Slechtste %",
+    ROUND((MAX(CASE WHEN best_rank = 1 THEN accuracy END) -
+           MAX(CASE WHEN worst_rank = 1 THEN accuracy END)) * 100, 1) as "Verschil %"
+FROM ranked
+GROUP BY species_name
+HAVING COUNT(*) > 1
+ORDER BY "Verschil %" DESC;
+```
+
+**Opties:**
+- Visualisatie: Table
+- Alleen zichtbaar als er meerdere versies zijn per soort
+
+---
+
 ## Custom Panels Toevoegen
 
 ### Nieuwe SQL query panel
@@ -423,4 +573,5 @@ Bij veel data (>100.000 rijen):
 
 ---
 
-*Document versie: 1.0 - December 2024*
+*Document versie: 1.1 - December 2024*
+*Toegevoegd: Model Versies panels voor kwartaal tracking*
