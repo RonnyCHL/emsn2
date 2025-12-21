@@ -1,0 +1,46 @@
+cff-version: 1.2.0
+title: "EMSN 2.0 - EcoMonitoring Systeem Nijverdal"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: "Hullegie"
+    given-names: "Ronny"
+    orcid: ""
+repository-code: "https://github.com/ronnyhull/emsn2"
+url: "https://github.com/ronnyhull/emsn2"
+abstract: >-
+  EMSN 2.0 is an automated bird vocalization classifier that trains
+  CNN models to distinguish between song, call, and alarm vocalizations
+  for 232 Dutch bird species. The system integrates with BirdNET-Pi for
+  species identification and adds vocalization type classification.
+  Training data is sourced from Xeno-canto.
+keywords:
+  - bird-vocalization
+  - machine-learning
+  - pytorch
+  - cnn
+  - bioacoustics
+  - ornithology
+  - birdnet
+  - xeno-canto
+  - citizen-science
+  - biodiversity-monitoring
+license: Apache-2.0
+version: "2.1.0"
+date-released: "2025-12-21"
+references:
+  - type: software
+    authors:
+      - family-names: "Kahl"
+        given-names: "Stefan"
+      - family-names: "Wood"
+        given-names: "Connor M."
+      - family-names: "Eibl"
+        given-names: "Maximilian"
+      - family-names: "Klinck"
+        given-names: "Holger"
+    title: "BirdNET: A deep learning solution for avian diversity monitoring"
+    url: "https://github.com/kahst/BirdNET-Analyzer"
+  - type: data
+    title: "Xeno-canto: Bird sounds from around the world"
+    url: "https://xeno-canto.org"

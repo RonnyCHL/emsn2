@@ -502,7 +502,7 @@ VocalizationCNN(
 | Test split | 20% | Stratified split |
 | Class weighting | Ja | Automatisch berekend voor imbalance |
 | Max samples/klasse | 800 | Voorkomt te grote datasets |
-| DataLoader workers | 2 | Parallel data loading |
+| DataLoader workers | 0 | Inline loading (stabiel op NAS) |
 
 ### Nederlandse vogelsoorten
 
@@ -570,11 +570,27 @@ Dit is normaal op NAS hardware. PyTorch valt automatisch terug op CPU. Training 
 
 Dit project is onderdeel van EMSN 2.0 (EcoMonitoring Systeem Nijverdal).
 
-**Audio data:**
-Xeno-canto opnames vallen onder Creative Commons licenties. Check individuele opnames voor specifieke voorwaarden.
+| Component | Licentie | Toelichting |
+|-----------|----------|-------------|
+| **Code** | [Apache 2.0](../../LICENSE) | Vrij te gebruiken, ook commercieel, met bronvermelding |
+| **Modellen** | [CC BY-NC 4.0](../../MODELS_LICENSE) | Alleen niet-commercieel gebruik; voor commercieel: neem contact op |
+| **Audio data** | Xeno-canto CC licenties | Check individuele opnames voor specifieke voorwaarden |
 
-**Code:**
-MIT License - vrij te gebruiken met bronvermelding.
+### Citeren
+
+Als je dit project gebruikt in onderzoek of publicaties, citeer dan:
+
+```bibtex
+@software{emsn2_vocalization,
+  author       = {Hullegie, Ronny},
+  title        = {EMSN 2.0 Vocalization Classifier},
+  year         = {2025},
+  publisher    = {GitHub},
+  url          = {https://github.com/ronnyhull/emsn2}
+}
+```
+
+Zie ook [CITATION.cff](../../CITATION.cff) voor formele citatie-informatie.
 
 ---
 
@@ -592,12 +608,18 @@ MIT License - vrij te gebruiken met bronvermelding.
 
 ## Changelog
 
+### v2.1 (December 2025)
+- **Bug fix:** numpy float64 naar Python float conversie voor PostgreSQL compatibiliteit
+- **Bug fix:** DataLoader workers van 2 naar 0 voor stabiliteit op NAS (voorkomt worker crashes)
+- **Bug fix:** Volume mount voor train_existing.py zodat code changes live doorwerken
+- Licentie structuur toegevoegd (Apache 2.0 code, CC BY-NC 4.0 modellen)
+- CITATION.cff voor Zenodo DOI
+
 ### v2.0 (December 2025)
 - Kwartaal versioning systeem toegevoegd
 - Training parameters geoptimaliseerd (40-50% sneller)
-- DataLoader verbeteringen (parallel loading, pin_memory)
+- Best model tracking - database selecteert automatisch beste model per soort
 - Bug fix: completion status update na confusion matrix save
-- Live volume mount voor train_existing.py
 
 ### v1.0 (December 2024)
 - Initiële release

@@ -299,7 +299,7 @@ def train_species(name, dirname, force_retrain=False, version=None):
         def on_epoch_end(current_epoch, total_epochs, val_acc):
             progress = 60 + int((current_epoch / total_epochs) * 35)
             phase = f'Epoch {current_epoch}/{total_epochs}'
-            update_status(name, 'training', phase, progress, accuracy=val_acc)
+            update_status(name, 'training', phase, progress, accuracy=float(val_acc))
             print(f"  [Callback] Epoch {current_epoch}/{total_epochs} - val_acc: {val_acc:.4f}", flush=True)
         
         update_status(name, 'training', 'Model training', 70)
