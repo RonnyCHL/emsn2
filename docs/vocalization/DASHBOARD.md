@@ -358,7 +358,7 @@ Het volledige dashboard is geëxporteerd naar:
 SELECT
     v.species_name as "Soort",
     v.version as "Versie",
-    ROUND(v.accuracy * 100, 1) as "Accuracy %",
+    ROUND((v.accuracy * 100)::numeric, 1) as "Accuracy %",
     v.training_samples as "Samples",
     v.epochs_trained as "Epochs",
     TO_CHAR(v.trained_at, 'DD-MM-YYYY HH24:MI') as "Getraind"
@@ -381,7 +381,7 @@ ORDER BY v.accuracy DESC;
 SELECT
     species_name as "Soort",
     version as "Versie",
-    ROUND(accuracy * 100, 1) as "Accuracy %",
+    ROUND((accuracy * 100)::numeric, 1) as "Accuracy %",
     training_samples as "Samples",
     CASE WHEN is_active THEN '✅' ELSE '' END as "Actief",
     TO_CHAR(trained_at, 'DD-MM-YYYY') as "Datum"
@@ -403,7 +403,7 @@ ORDER BY trained_at DESC;
 SELECT
     version as "Versie",
     species_name as "Soort",
-    ROUND(accuracy * 100, 1) as "Accuracy"
+    ROUND((accuracy * 100)::numeric, 1) as "Accuracy"
 FROM vocalization_model_versions
 WHERE accuracy IS NOT NULL
 ORDER BY version, species_name;
@@ -424,7 +424,7 @@ ORDER BY version, species_name;
 SELECT
     version as "Kwartaal",
     COUNT(*) as "Modellen",
-    ROUND(AVG(accuracy) * 100, 1) as "Gem. Accuracy %",
+    ROUND((AVG(accuracy) * 100)::numeric, 1) as "Gem. Accuracy %",
     SUM(training_samples) as "Totaal Samples"
 FROM vocalization_model_versions
 GROUP BY version
@@ -443,7 +443,7 @@ ORDER BY version DESC;
 SELECT
     trained_at as time,
     species_name as metric,
-    ROUND(accuracy * 100, 1) as value
+    ROUND((accuracy * 100)::numeric, 1) as value
 FROM vocalization_model_versions
 WHERE accuracy IS NOT NULL
 ORDER BY trained_at;
@@ -473,11 +473,11 @@ WITH ranked AS (
 SELECT
     species_name as "Soort",
     MAX(CASE WHEN best_rank = 1 THEN version END) as "Beste Versie",
-    ROUND(MAX(CASE WHEN best_rank = 1 THEN accuracy END) * 100, 1) as "Beste %",
+    ROUND((MAX(CASE WHEN best_rank = 1 THEN accuracy END) * 100)::numeric, 1) as "Beste %",
     MAX(CASE WHEN worst_rank = 1 THEN version END) as "Slechtste Versie",
-    ROUND(MAX(CASE WHEN worst_rank = 1 THEN accuracy END) * 100, 1) as "Slechtste %",
-    ROUND((MAX(CASE WHEN best_rank = 1 THEN accuracy END) -
-           MAX(CASE WHEN worst_rank = 1 THEN accuracy END)) * 100, 1) as "Verschil %"
+    ROUND((MAX(CASE WHEN worst_rank = 1 THEN accuracy END) * 100)::numeric, 1) as "Slechtste %",
+    ROUND(((MAX(CASE WHEN best_rank = 1 THEN accuracy END) -
+           MAX(CASE WHEN worst_rank = 1 THEN accuracy END)) * 100)::numeric, 1) as "Verschil %"
 FROM ranked
 GROUP BY species_name
 HAVING COUNT(*) > 1
