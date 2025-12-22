@@ -670,7 +670,7 @@ class UlanziBridge:
 
             # Classify
             result = self.vocalization_classifier.classify(dutch_name, audio_path)
-            if result and result['confidence'] >= 0.5:
+            if result and result['confidence'] >= 0.4:  # Threshold 40% (was 50%)
                 self.logger.info(f"Vocalization: {dutch_name} = {result['type_nl']} ({result['confidence']:.0%})")
                 return result['type_nl']
 

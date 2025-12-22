@@ -51,12 +51,31 @@ class CooldownPublisher:
     def connect_db(self):
         """Connect to PostgreSQL"""
         try:
+            if self.pg_conn:
+                try:
+                    self.pg_conn.close()
+                except:
+                    pass
             self.pg_conn = psycopg2.connect(**PG_CONFIG)
             self.logger.success("Connected to database")
             return True
         except Exception as e:
             self.logger.error(f"Database connection failed: {e}")
             return False
+
+    def ensure_db_connection(self):
+        """Ensure database connection is alive, reconnect if needed"""
+        try:
+            if self.pg_conn is None:
+                return self.connect_db()
+            # Test connection
+            cursor = self.pg_conn.cursor()
+            cursor.execute("SELECT 1")
+            cursor.close()
+            return True
+        except Exception:
+            self.logger.warning("Database connection lost, reconnecting...")
+            return self.connect_db()
 
     def get_rarity_tier(self, species_nl):
         """Get rarity tier for a species based on detection count in last 30 days"""
@@ -212,6 +231,12 @@ class CooldownPublisher:
 
         try:
             while True:
+                # Ensure database connection is alive
+                if not self.ensure_db_connection():
+                    self.logger.error("Failed to connect to database, retrying in 30s...")
+                    time.sleep(30)
+                    continue
+
                 cooldowns = self.get_active_cooldowns()
                 self.publish_cooldowns(cooldowns)
                 time.sleep(30)  # Update every 30 seconds

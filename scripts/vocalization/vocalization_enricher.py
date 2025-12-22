@@ -30,7 +30,7 @@ PG_CONFIG = {
 # BirdNET audio locations per station
 AUDIO_PATHS = {
     'zolder': Path('/home/ronny/BirdSongs/Extracted/By_Date'),
-    'berging': None  # Berging audio not accessible from zolder
+    'berging': Path('/mnt/berging-audio/Extracted/By_Date')  # Via SSHFS mount
 }
 
 LOG_DIR = Path('/mnt/usb/logs')
@@ -79,12 +79,12 @@ class VocalizationEnricher:
             cursor = self.pg_conn.cursor()
 
             # Get recent detections without vocalization type
-            # Only for stations where we have audio access
+            # Both stations now have audio access (berging via SSHFS)
             query = """
                 SELECT id, station, common_name, date, time, file_name
                 FROM bird_detections
                 WHERE vocalization_type IS NULL
-                  AND station = 'zolder'
+                  AND station IN ('zolder', 'berging')
                   AND date >= CURRENT_DATE - INTERVAL '7 days'
                 ORDER BY detection_timestamp DESC
                 LIMIT %s
