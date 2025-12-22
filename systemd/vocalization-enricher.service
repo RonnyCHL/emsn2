@@ -1,0 +1,21 @@
+[Unit]
+Description=EMSN Vocalization Enricher Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2
+Environment=PYTHONUNBUFFERED=1
+# Gebruik venv voor PyTorch/librosa dependencies
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/vocalization/vocalization_enricher.py --continuous --interval 5
+Restart=always
+RestartSec=60
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vocalization-enricher
+
+[Install]
+WantedBy=multi-user.target

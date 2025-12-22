@@ -55,49 +55,52 @@ VOC_TYPE_NL = {
 logger = logging.getLogger(__name__)
 
 
-class ColabVocalizationCNN:
-    """CNN model zoals getraind in Google Colab."""
+def create_cnn_model(num_classes=3):
+    """Create CNN model als nn.Module."""
+    torch = get_torch()
+    nn = torch.nn
 
-    def __init__(self, input_shape=(128, 128), num_classes=3):
-        torch = get_torch()
-        nn = torch.nn
+    class ColabVocalizationCNN(nn.Module):
+        """CNN model zoals getraind in Google Colab."""
 
-        self.features = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Dropout2d(0.25),
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Dropout2d(0.25),
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Dropout2d(0.25),
-        )
+        def __init__(self, input_shape=(128, 128), num_classes=3):
+            super().__init__()
 
-        h, w = input_shape[0] // 8, input_shape[1] // 8
-        flatten_size = 128 * h * w
+            self.features = nn.Sequential(
+                nn.Conv2d(1, 32, kernel_size=3, padding=1),
+                nn.BatchNorm2d(32),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Dropout2d(0.25),
+                nn.Conv2d(32, 64, kernel_size=3, padding=1),
+                nn.BatchNorm2d(64),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Dropout2d(0.25),
+                nn.Conv2d(64, 128, kernel_size=3, padding=1),
+                nn.BatchNorm2d(128),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Dropout2d(0.25),
+            )
 
-        self.classifier = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(flatten_size, 256),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(256, num_classes)
-        )
+            h, w = input_shape[0] // 8, input_shape[1] // 8
+            flatten_size = 128 * h * w
 
-    def forward(self, x):
-        x = self.features(x)
-        x = self.classifier(x)
-        return x
+            self.classifier = nn.Sequential(
+                nn.Flatten(),
+                nn.Linear(flatten_size, 256),
+                nn.ReLU(),
+                nn.Dropout(0.5),
+                nn.Linear(256, num_classes)
+            )
 
-    def __call__(self, x):
-        return self.forward(x)
+        def forward(self, x):
+            x = self.features(x)
+            x = self.classifier(x)
+            return x
+
+    return ColabVocalizationCNN(num_classes=num_classes)
 
 
 class VocalizationClassifier:
@@ -160,7 +163,7 @@ class VocalizationClassifier:
         return None
 
     def _load_model(self, model_path: Path):
-        """Laad model met caching."""
+        """Laad model met caching. Returns (model, metadata)."""
         path_str = str(model_path)
 
         if path_str in self.models_cache:
@@ -171,59 +174,15 @@ class VocalizationClassifier:
             checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
 
             num_classes = checkpoint.get('num_classes', 3)
-            model = ColabVocalizationCNN(input_shape=(128, 128), num_classes=num_classes)
-
-            # Load state dict - handle both nn.Module and regular class
-            if hasattr(model.features, 'load_state_dict'):
-                # It's an nn.Module
-                pass
-            else:
-                # Rebuild as proper nn.Module
-                torch = get_torch()
-                nn = torch.nn
-
-                class CNN(nn.Module):
-                    def __init__(self, num_classes=3):
-                        super().__init__()
-                        self.features = nn.Sequential(
-                            nn.Conv2d(1, 32, kernel_size=3, padding=1),
-                            nn.BatchNorm2d(32),
-                            nn.ReLU(),
-                            nn.MaxPool2d(2),
-                            nn.Dropout2d(0.25),
-                            nn.Conv2d(32, 64, kernel_size=3, padding=1),
-                            nn.BatchNorm2d(64),
-                            nn.ReLU(),
-                            nn.MaxPool2d(2),
-                            nn.Dropout2d(0.25),
-                            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-                            nn.BatchNorm2d(128),
-                            nn.ReLU(),
-                            nn.MaxPool2d(2),
-                            nn.Dropout2d(0.25),
-                        )
-                        h, w = 128 // 8, 128 // 8
-                        flatten_size = 128 * h * w
-                        self.classifier = nn.Sequential(
-                            nn.Flatten(),
-                            nn.Linear(flatten_size, 256),
-                            nn.ReLU(),
-                            nn.Dropout(0.5),
-                            nn.Linear(256, num_classes)
-                        )
-
-                    def forward(self, x):
-                        x = self.features(x)
-                        x = self.classifier(x)
-                        return x
-
-                model = CNN(num_classes)
-
+            model = create_cnn_model(num_classes=num_classes)
             model.load_state_dict(checkpoint['model_state_dict'])
             model.eval()
 
-            self.models_cache[path_str] = model
-            return model
+            # Haal class_names uit checkpoint (voor modellen met <3 klassen)
+            class_names = checkpoint.get('class_names', ['song', 'call', 'alarm'])
+
+            self.models_cache[path_str] = (model, class_names)
+            return (model, class_names)
 
         except Exception as e:
             logger.error(f"Fout bij laden model {model_path}: {e}")
@@ -282,9 +241,11 @@ class VocalizationClassifier:
         if not audio_path.exists():
             return None
 
-        model = self._load_model(model_path)
-        if model is None:
+        result = self._load_model(model_path)
+        if result is None:
             return None
+
+        model, class_names = result
 
         spectrogram = self._audio_to_spectrogram(audio_path)
         if spectrogram is None:
@@ -305,7 +266,7 @@ class VocalizationClassifier:
                 outputs = model(x)
                 probas = torch.softmax(outputs, dim=1)[0]
 
-            class_names = ['song', 'call', 'alarm']
+            # Gebruik class_names uit model (ondersteunt 2 of 3 klassen)
             class_idx = probas.argmax().item()
             confidence = probas[class_idx].item()
             voc_type = class_names[class_idx]
