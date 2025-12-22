@@ -1,0 +1,10 @@
+[Unit]
+Description=EMSN NAS Metrics Collector
+After=network.target
+
+[Service]
+Type=oneshot
+User=ronny
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/nas_metrics_collector.py
+StandardOutput=journal
+StandardError=journal
