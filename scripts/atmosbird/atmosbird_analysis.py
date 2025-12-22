@@ -20,12 +20,26 @@ import ephem
 
 # Configuration
 STATION_ID = "berging"
-LOCATION_LAT = 52.3676  # Nijverdal, Netherlands
-LOCATION_LON = 6.4586
-LOCATION_ELEVATION = 15  # meters
+LOCATION_LAT = 52.360179  # Berging camera locatie, Nijverdal
+LOCATION_LON = 6.472626
+LOCATION_ELEVATION = 12  # meters (geschat voor berging)
 
-# Import secrets
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
+# Camera specs - Pi Camera NoIR Module 3 (imx708_wide_noir)
+CAMERA_FOV_DIAGONAL = 120  # graden diagonaal gezichtsveld
+CAMERA_FOV_HORIZONTAL = 102  # graden horizontaal (4:3 aspect)
+CAMERA_FOV_VERTICAL = 67  # graden verticaal
+CAMERA_POINTING = "zenith"  # camera kijkt recht omhoog
+
+# Import secrets - probeer meerdere locaties
+_secrets_paths = [
+    Path(__file__).parent.parent.parent / 'config',  # Als in emsn2/scripts/atmosbird/
+    Path.home() / 'emsn2' / 'config',                 # Fallback naar home directory
+]
+for _path in _secrets_paths:
+    if _path.exists():
+        sys.path.insert(0, str(_path))
+        break
+
 try:
     from emsn_secrets import get_postgres_config
     _pg = get_postgres_config()
@@ -85,11 +99,11 @@ class SkyAnalyzer:
         """
         try:
             # Create ISS TLE (Two-Line Element) object
-            # Updated from Celestrak on 2025-12-12
+            # Updated from Celestrak on 2025-12-22
             iss = ephem.readtle(
                 "ISS (ZARYA)             ",
-                "1 25544U 98067A   25345.89616116  .00014378  00000+0  26381-3 0  9992",
-                "2 25544  51.6307 146.6565 0003298 237.1442 122.9229 15.49521399542727"
+                "1 25544U 98067A   25355.95645853  .00010990  00000+0  20227-3 0  9999",
+                "2 25544  51.6324  96.8363 0003164 283.4657  76.5979 15.49714244544284"
             )
 
             # Set observer time
@@ -102,8 +116,11 @@ class SkyAnalyzer:
             altitude_deg = float(iss.alt) * 180.0 / np.pi
             azimuth_deg = float(iss.az) * 180.0 / np.pi
 
-            # ISS is visible if above horizon and in sunlight while observer is in darkness
-            is_visible = altitude_deg > 10  # Above 10 degrees elevation
+            # Camera kijkt recht omhoog (zenith) met 120° diagonaal FOV
+            # Dus ISS moet minimaal 90° - (120°/2) = 30° boven horizon zijn
+            # om in het gezichtsveld te vallen
+            min_altitude_for_fov = 90 - (CAMERA_FOV_DIAGONAL / 2)  # = 30°
+            is_in_camera_fov = altitude_deg >= min_altitude_for_fov
 
             # Check if it's twilight/night
             sun_obj = ephem.Sun()
@@ -111,16 +128,22 @@ class SkyAnalyzer:
             sun_alt = float(sun_obj.alt) * 180.0 / np.pi
             is_dark = sun_alt < -6  # Nautical twilight
 
-            visible = is_visible and is_dark
+            # ISS is zichtbaar in camera als:
+            # 1. In camera FOV (>30° altitude)
+            # 2. Het donker genoeg is
+            # 3. ISS verlicht door zon (altijd het geval als ISS boven horizon en observer in duisternis)
+            visible_in_camera = is_in_camera_fov and is_dark
 
-            if visible or is_visible:
+            if is_in_camera_fov or altitude_deg > 10:
                 self.log("INFO", f"ISS: alt={altitude_deg:.1f}°, az={azimuth_deg:.1f}°, "
-                               f"sun_alt={sun_alt:.1f}°, visible={visible}")
+                               f"in_camera_fov={is_in_camera_fov}, sun_alt={sun_alt:.1f}°, "
+                               f"visible_in_camera={visible_in_camera}")
 
             return {
-                'visible': visible,
-                'altitude': altitude_deg if is_visible else None,
-                'azimuth': azimuth_deg if is_visible else None
+                'visible': visible_in_camera,
+                'in_camera_fov': is_in_camera_fov,
+                'altitude': altitude_deg if is_in_camera_fov else None,
+                'azimuth': azimuth_deg if is_in_camera_fov else None
             }
 
         except Exception as e:
@@ -157,15 +180,20 @@ class SkyAnalyzer:
             # Moon is visible if above horizon
             is_visible = altitude_deg > 0
 
+            # Check of maan in camera FOV is (>30° altitude voor zenith-pointing camera)
+            min_altitude_for_fov = 90 - (CAMERA_FOV_DIAGONAL / 2)  # = 30°
+            is_in_camera_fov = altitude_deg >= min_altitude_for_fov
+
             # Calculate moon age (days since new moon)
             previous_new = ephem.previous_new_moon(observation_time)
             moon_age = observation_time - previous_new.datetime()
 
             self.log("INFO", f"Moon: {phase_name}, {illumination:.1f}% illuminated, "
-                           f"alt={altitude_deg:.1f}°, visible={is_visible}")
+                           f"alt={altitude_deg:.1f}°, in_camera_fov={is_in_camera_fov}")
 
             return {
                 'visible': is_visible,
+                'in_camera_fov': is_in_camera_fov,
                 'altitude': altitude_deg,
                 'azimuth': azimuth_deg,
                 'phase_name': phase_name,
@@ -388,16 +416,35 @@ class SkyAnalyzer:
                 self.conn.rollback()
 
     def save_iss_observation(self, obs_id, obs_time, iss_data):
-        """Save ISS visibility to database"""
+        """Save ISS visibility to iss_passes table"""
         try:
             cursor = self.conn.cursor()
-            cursor.execute("""
-                UPDATE sky_observations
-                SET stars_visible = TRUE
-                WHERE id = %s
-            """, (obs_id,))
 
-            self.log("INFO", f"ISS visible logged for observation {obs_id}")
+            # Schat pass duration (10 min tussen foto's, dus we schatten 5 min voor/na)
+            pass_start = obs_time - timedelta(minutes=5)
+            pass_end = obs_time + timedelta(minutes=5)
+
+            cursor.execute("""
+                INSERT INTO iss_passes (
+                    pass_start, pass_end, max_elevation_degrees,
+                    duration_seconds, observation_id, notes
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT DO NOTHING
+                RETURNING id
+            """, (
+                pass_start, pass_end, iss_data.get('altitude'),
+                600,  # 10 min geschatte duration
+                obs_id,
+                f"Detected in camera FOV at {iss_data.get('altitude', 0):.1f}° alt, {iss_data.get('azimuth', 0):.1f}° az"
+            ))
+
+            result = cursor.fetchone()
+            if result:
+                self.log("INFO", f"ISS PASS LOGGED! ID={result[0]}, observation={obs_id}, "
+                               f"altitude={iss_data.get('altitude', 0):.1f}°")
+            else:
+                self.log("INFO", f"ISS pass already logged for this timeframe")
+
         except Exception as e:
             self.log("WARNING", f"Failed to save ISS data: {e}")
 

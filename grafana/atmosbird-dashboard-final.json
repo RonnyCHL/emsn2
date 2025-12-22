@@ -183,10 +183,114 @@
       },
       {
         "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 11,
+        "title": "🛰️ ISS Passages",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 15, "w": 6, "h": 3},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT COUNT(*) FROM iss_passes",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "gray"},
+                {"value": 1, "color": "blue"},
+                {"value": 5, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 12,
+        "title": "🌟 Meteoor Detecties",
+        "type": "stat",
+        "gridPos": {"x": 6, "y": 15, "w": 6, "h": 3},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT COUNT(*) FROM meteor_detections",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "gray"},
+                {"value": 1, "color": "orange"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 13,
+        "title": "⭐ Heldere Nachten",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 15, "w": 6, "h": 3},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT COUNT(*) FROM star_brightness WHERE star_count > 10",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "gray"},
+                {"value": 1, "color": "purple"},
+                {"value": 10, "color": "yellow"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 14,
+        "title": "🌙 Maan in Camera",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 15, "w": 6, "h": 3},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT COUNT(*) FROM moon_observations WHERE detected_in_image = true AND altitude_degrees >= 30",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "gray"},
+                {"value": 1, "color": "blue"},
+                {"value": 50, "color": "yellow"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
         "id": 7,
         "title": "Sky Type Distribution (24h)",
         "type": "piechart",
-        "gridPos": {"x": 0, "y": 15, "w": 8, "h": 8},
+        "gridPos": {"x": 0, "y": 18, "w": 6, "h": 8},
         "targets": [{
           "datasource": {"type": "postgres", "uid": "emsn_postgres"},
           "rawSql": "SELECT sky_type, COUNT(*) as count FROM sky_observations WHERE observation_timestamp > NOW() - INTERVAL '24 hours' GROUP BY sky_type",
@@ -202,10 +306,28 @@
       },
       {
         "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "id": 15,
+        "title": "🛰️ ISS Passages Log",
+        "type": "table",
+        "gridPos": {"x": 6, "y": 18, "w": 10, "h": 8},
+        "targets": [{
+          "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+          "rawSql": "SELECT TO_CHAR(pass_start, 'YYYY-MM-DD HH24:MI') as passage_start, ROUND(max_elevation_degrees::numeric, 1) as max_hoogte, ROUND(duration_seconds/60.0, 1) as duur_min, CASE WHEN visually_confirmed THEN '✓' ELSE '-' END as bevestigd, notes FROM iss_passes ORDER BY pass_start DESC LIMIT 10",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"align": "left"}
+          }
+        }
+      },
+      {
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
         "id": 8,
         "title": "Moon Phase Progress",
         "type": "table",
-        "gridPos": {"x": 8, "y": 15, "w": 8, "h": 8},
+        "gridPos": {"x": 16, "y": 18, "w": 8, "h": 8},
         "targets": [{
           "datasource": {"type": "postgres", "uid": "emsn_postgres"},
           "rawSql": "SELECT phase_name, ROUND(illumination_percent::numeric, 1) as illumination, age_days, TO_CHAR(observation_timestamp, 'YYYY-MM-DD HH24:MI') as timestamp FROM moon_observations ORDER BY observation_timestamp DESC LIMIT 10",
@@ -218,7 +340,7 @@
         "id": 9,
         "title": "System Health",
         "type": "table",
-        "gridPos": {"x": 16, "y": 15, "w": 8, "h": 8},
+        "gridPos": {"x": 0, "y": 26, "w": 12, "h": 6},
         "targets": [{
           "datasource": {"type": "postgres", "uid": "emsn_postgres"},
           "rawSql": "SELECT TO_CHAR(measurement_timestamp, 'HH24:MI') as timestamp, photos_captured_today as photos, ROUND(disk_usage_percent::numeric, 1) as disk_pct, CASE WHEN last_capture_success THEN '✓' ELSE '✗' END as status FROM atmosbird_health ORDER BY measurement_timestamp DESC LIMIT 10",
@@ -231,7 +353,7 @@
         "id": 10,
         "title": "Recent Timelapses",
         "type": "table",
-        "gridPos": {"x": 0, "y": 23, "w": 24, "h": 6},
+        "gridPos": {"x": 12, "y": 26, "w": 12, "h": 6},
         "targets": [{
           "datasource": {"type": "postgres", "uid": "emsn_postgres"},
           "rawSql": "SELECT created_timestamp, timelapse_type, frame_count, ROUND(duration_seconds::numeric, 1) as duration_sec, ROUND((file_size_bytes/1024/1024)::numeric, 2) as size_mb, CONCAT('http://192.168.1.87:8090/atmosbird/', SUBSTRING(video_path FROM 19)) as video_url FROM timelapses ORDER BY created_timestamp DESC LIMIT 10",
