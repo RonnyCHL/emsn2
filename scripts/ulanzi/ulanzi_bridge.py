@@ -537,16 +537,21 @@ class UlanziNotifier:
         else:
             return RTTTL_SOUNDS['red']        # 65-74%
 
-    def format_message(self, station, common_name, confidence, is_dual=False, is_new_species=False):
+    def format_message(self, station, common_name, confidence, is_dual=False, is_new_species=False, vocalization_type=None):
         """Format notification message"""
         conf_pct = int(confidence * 100)
 
+        # Voeg vocalisatie type toe als beschikbaar
+        name_with_voc = common_name
+        if vocalization_type:
+            name_with_voc = f"{common_name} {vocalization_type}"
+
         if is_new_species:
-            return f"{station}-***NIEUW 2025***-{common_name}-{conf_pct}%"
+            return f"{station}-***NIEUW 2025***-{name_with_voc}-{conf_pct}%"
         elif is_dual:
-            return f"Dubbel-{common_name}-{conf_pct}%"
+            return f"Dubbel-{name_with_voc}-{conf_pct}%"
         else:
-            return f"{station}-{common_name}-{conf_pct}%"
+            return f"{station}-{name_with_voc}-{conf_pct}%"
 
     def calculate_duration(self, message, tier_duration_sec=None):
         """
@@ -626,6 +631,92 @@ class UlanziBridge:
 
         # Last notification ID for screenshot linking
         self.last_notification_id = None
+
+        # Vocalization classifier (lazy loaded)
+        self.vocalization_classifier = None
+        self.vocalization_enabled = True  # Set to False to disable
+
+    def _get_vocalization_type(self, dutch_name: str, audio_file: str = None) -> str | None:
+        """Get vocalization type (zang/roep/alarm) for a detection."""
+        if not self.vocalization_enabled:
+            return None
+
+        try:
+            # Lazy load classifier
+            if self.vocalization_classifier is None:
+                try:
+                    from scripts.vocalization.vocalization_classifier import VocalizationClassifier
+                    self.vocalization_classifier = VocalizationClassifier()
+                    self.logger.info("Vocalization classifier loaded")
+                except ImportError as e:
+                    self.logger.warning(f"Vocalization classifier not available: {e}")
+                    self.vocalization_enabled = False
+                    return None
+
+            # Check if we have a model for this species
+            if not self.vocalization_classifier.has_model(dutch_name):
+                return None
+
+            # Find audio file (by file path or by searching for most recent)
+            audio_path = self._find_audio_file(file_name=audio_file, dutch_name=dutch_name)
+            if not audio_path:
+                self.logger.info(f"No audio file found for {dutch_name}")
+                return None
+
+            # Classify
+            result = self.vocalization_classifier.classify(dutch_name, audio_path)
+            if result and result['confidence'] >= 0.5:
+                self.logger.info(f"Vocalization: {dutch_name} = {result['type_nl']} ({result['confidence']:.0%})")
+                return result['type_nl']
+
+        except Exception as e:
+            self.logger.warning(f"Vocalization classification failed: {e}")
+
+        return None
+
+    def _find_audio_file(self, file_name: str = None, dutch_name: str = None):
+        """Find audio file from BirdNET detection."""
+        from pathlib import Path
+
+        # BirdNET audio directories
+        birdnet_audio = Path("/home/ronny/BirdNET-Pi/BirdSongs")
+
+        # If we have a file name, try that first
+        if file_name:
+            if Path(file_name).exists():
+                return Path(file_name)
+
+            direct = birdnet_audio / file_name
+            if direct.exists():
+                return direct
+
+            for path in birdnet_audio.rglob(Path(file_name).name):
+                return path
+
+        # If no file name, try to find the most recent file for this species
+        if dutch_name:
+            # Look in Extracted/By_Date/YYYY-MM-DD/Species/
+            today = datetime.now().strftime("%Y-%m-%d")
+            species_dir = birdnet_audio / "Extracted" / "By_Date" / today / dutch_name
+
+            if species_dir.exists():
+                # Get most recent wav file
+                wav_files = sorted(species_dir.glob("*.wav"), key=lambda p: p.stat().st_mtime, reverse=True)
+                if wav_files:
+                    return wav_files[0]
+
+            # Also check yesterday (for detections around midnight)
+            yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+            species_dir = birdnet_audio / "Extracted" / "By_Date" / yesterday / dutch_name
+
+            if species_dir.exists():
+                wav_files = sorted(species_dir.glob("*.wav"), key=lambda p: p.stat().st_mtime, reverse=True)
+                if wav_files:
+                    # Only use if less than 5 minutes old
+                    if (datetime.now().timestamp() - wav_files[0].stat().st_mtime) < 300:
+                        return wav_files[0]
+
+        return None
 
     def parse_apprise_message(self, payload):
         """Parse Apprise notification message to extract detection info"""
@@ -758,12 +849,16 @@ class UlanziBridge:
                     self.log_notification(dutch_name, detection['confidence'], station, tier, False, 'cooldown')
             return
 
+        # Get vocalization type (zang/roep/alarm)
+        vocalization_type = self._get_vocalization_type(dutch_name)
+
         # Format and send notification with Dutch name
         message = self.notifier.format_message(
             station=station,
             common_name=dutch_name,
             confidence=detection['confidence'],
-            is_new_species=is_first_of_year
+            is_new_species=is_first_of_year,
+            vocalization_type=vocalization_type
         )
 
         # First-of-year gets special sound, otherwise confidence-based
@@ -866,12 +961,16 @@ class UlanziBridge:
             self.last_dual_detection[common_name] = (now, avg_confidence)
 
             # Dual detections always show (ignore cooldown) - special event
+            # Get vocalization type
+            vocalization_type = self._get_vocalization_type(common_name)
+
             # Format message for dual detection
             message = self.notifier.format_message(
                 station='Dubbel',
                 common_name=common_name,
                 confidence=avg_confidence,
-                is_dual=True
+                is_dual=True,
+                vocalization_type=vocalization_type
             )
 
             # Dual detection uses cyan color and dual sound

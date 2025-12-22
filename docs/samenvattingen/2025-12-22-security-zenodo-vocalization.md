@@ -73,6 +73,14 @@ Grote security- en infrastructuur sessie: API key beveiliging, Git history opsch
 ### Rclone
 - `~/.config/rclone/rclone.conf` - Google Drive configuratie
 
+### 9. Vocalization Inference Integratie
+- **Inference service:** `scripts/vocalization/vocalization_inference.py`
+- **Classifier module:** `scripts/vocalization/vocalization_classifier.py`
+- **Ulanzi bridge update:** Vocalisatie types (zang/roep/alarm) worden nu getoond
+- **Message formaat:** `Station-Soortnaam type-confidence%` (bijv. `Berging-Zanglijster roep-78%`)
+- **Performance:** ~2 seconden per classificatie (na initiële load)
+- **Systemd service:** `ulanzi-bridge.service` nu met venv voor PyTorch/librosa
+
 ## Status
 
 | Component | Status |
@@ -80,13 +88,15 @@ Grote security- en infrastructuur sessie: API key beveiliging, Git history opsch
 | Weekly Report Service | ✅ Werkend (getest) |
 | Git History | ✅ Opgeschoond |
 | Zenodo DOI's | ✅ Beide actief |
-| Vocalization Models | ✅ 147 modellen getraind |
+| Vocalization Models | ✅ 167 modellen op NAS |
 | Google Drive Sync | ✅ Rclone geconfigureerd |
+| Vocalization Inference | ✅ Geïntegreerd met Ulanzi |
 
 ## Volgende stappen
-1. Run `./deploy-to-nas.sh` om modellen naar NAS te kopiëren
-2. Integreer vocalisatie classifier met BirdNET-Pi detections
+1. ~~Run `./deploy-to-nas.sh` om modellen naar NAS te kopiëren~~ ✅ Done
+2. ~~Integreer vocalisatie classifier met BirdNET-Pi detections~~ ✅ Done
 3. Overweeg wachtwoord `IwnadBon2iN` te wijzigen (stond in oude Git history)
+4. Test volgende batch modellen trainen in Colab
 
 ## Referenties
 - emsn2: https://github.com/RonnyCHL/emsn2

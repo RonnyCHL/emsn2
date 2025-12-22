@@ -9,7 +9,8 @@ User=ronny
 Group=ronny
 WorkingDirectory=/home/ronny/emsn2
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/ulanzi/ulanzi_bridge.py
+# Gebruik venv voor vocalization classifier dependencies (torch, librosa)
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/ulanzi/ulanzi_bridge.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
