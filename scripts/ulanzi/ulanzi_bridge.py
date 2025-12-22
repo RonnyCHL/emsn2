@@ -645,7 +645,12 @@ class UlanziBridge:
             # Lazy load classifier
             if self.vocalization_classifier is None:
                 try:
-                    from scripts.vocalization.vocalization_classifier import VocalizationClassifier
+                    # Add vocalization path to sys.path for import
+                    import sys
+                    voc_path = str(Path(__file__).parent.parent / 'vocalization')
+                    if voc_path not in sys.path:
+                        sys.path.insert(0, voc_path)
+                    from vocalization_classifier import VocalizationClassifier
                     self.vocalization_classifier = VocalizationClassifier()
                     self.logger.info("Vocalization classifier loaded")
                 except ImportError as e:
@@ -678,8 +683,8 @@ class UlanziBridge:
         """Find audio file from BirdNET detection."""
         from pathlib import Path
 
-        # BirdNET audio directories
-        birdnet_audio = Path("/home/ronny/BirdNET-Pi/BirdSongs")
+        # BirdNET audio directories (correct path without /BirdNET-Pi/)
+        birdnet_audio = Path("/home/ronny/BirdSongs")
 
         # If we have a file name, try that first
         if file_name:
@@ -700,21 +705,27 @@ class UlanziBridge:
             species_dir = birdnet_audio / "Extracted" / "By_Date" / today / dutch_name
 
             if species_dir.exists():
-                # Get most recent wav file
-                wav_files = sorted(species_dir.glob("*.wav"), key=lambda p: p.stat().st_mtime, reverse=True)
-                if wav_files:
-                    return wav_files[0]
+                # Get most recent audio file (mp3 or wav)
+                audio_files = sorted(
+                    [f for f in species_dir.glob("*") if f.suffix in ('.mp3', '.wav')],
+                    key=lambda p: p.stat().st_mtime, reverse=True
+                )
+                if audio_files:
+                    return audio_files[0]
 
             # Also check yesterday (for detections around midnight)
             yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
             species_dir = birdnet_audio / "Extracted" / "By_Date" / yesterday / dutch_name
 
             if species_dir.exists():
-                wav_files = sorted(species_dir.glob("*.wav"), key=lambda p: p.stat().st_mtime, reverse=True)
-                if wav_files:
+                audio_files = sorted(
+                    [f for f in species_dir.glob("*") if f.suffix in ('.mp3', '.wav')],
+                    key=lambda p: p.stat().st_mtime, reverse=True
+                )
+                if audio_files:
                     # Only use if less than 5 minutes old
-                    if (datetime.now().timestamp() - wav_files[0].stat().st_mtime) < 300:
-                        return wav_files[0]
+                    if (datetime.now().timestamp() - audio_files[0].stat().st_mtime) < 300:
+                        return audio_files[0]
 
         return None
 

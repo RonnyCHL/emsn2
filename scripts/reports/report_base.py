@@ -16,12 +16,21 @@ from datetime import datetime
 import psycopg2
 from anthropic import Anthropic
 
-# Configuration
-DB_HOST = "192.168.1.25"
-DB_PORT = 5433
-DB_NAME = "emsn"
-DB_USER = "birdpi_zolder"
-DB_PASSWORD = os.getenv("EMSN_DB_PASSWORD", "REDACTED_DB_PASS")
+# Import secrets
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
+try:
+    from emsn_secrets import get_postgres_config
+    _pg = get_postgres_config()
+except ImportError:
+    _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
+           'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')}
+
+# Configuration (from secrets)
+DB_HOST = _pg.get('host', '192.168.1.25')
+DB_PORT = _pg.get('port', 5433)
+DB_NAME = _pg.get('database', 'emsn')
+DB_USER = _pg.get('user', 'birdpi_zolder')
+DB_PASSWORD = _pg.get('password', '') or os.getenv("EMSN_DB_PASSWORD", "")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 SMTP_PASSWORD = os.getenv("EMSN_SMTP_PASSWORD")

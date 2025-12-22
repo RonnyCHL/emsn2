@@ -5,6 +5,7 @@ Monitors BirdNET-Pi SQLite database and publishes new detections to MQTT
 """
 
 import os
+import sys
 import json
 import time
 import sqlite3
@@ -14,14 +15,22 @@ from datetime import datetime
 from pathlib import Path
 import paho.mqtt.client as mqtt
 
+# Import secrets voor credentials
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
+try:
+    from emsn_secrets import get_mqtt_config
+    _mqtt = get_mqtt_config()
+except ImportError:
+    _mqtt = {'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')}
+
 # Configuration
 STATION_NAME = os.getenv("EMSN_STATION", socket.gethostname().replace("emsn2-", ""))
 BIRDNET_DB = Path("/home/ronny/BirdNET-Pi/scripts/birds.db")
 
 MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")  # Use localhost for local broker
 MQTT_PORT = 1883
-MQTT_USER = "ecomonitor"
-MQTT_PASS = "REDACTED_DB_PASS"
+MQTT_USER = _mqtt.get('username', 'ecomonitor')
+MQTT_PASS = _mqtt.get('password', '')
 
 # Topics
 TOPIC_DETECTION = f"birdnet/{STATION_NAME}/detection"

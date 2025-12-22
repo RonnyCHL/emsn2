@@ -3,6 +3,20 @@
 EMSN 2.0 - Ulanzi TC001 Notificatie Configuratie
 """
 
+import sys
+from pathlib import Path
+
+# Import secrets voor credentials
+sys.path.insert(0, str(Path(__file__).parent))
+try:
+    from emsn_secrets import get_postgres_config, get_mqtt_config
+    _pg = get_postgres_config()
+    _mqtt = get_mqtt_config()
+except ImportError:
+    import os
+    _pg = {'password': os.environ.get('EMSN_DB_PASSWORD', '')}
+    _mqtt = {'password': os.environ.get('EMSN_MQTT_PASSWORD', '')}
+
 # Ulanzi/AWTRIX Configuration
 ULANZI = {
     'ip': '192.168.1.11',
@@ -11,12 +25,12 @@ ULANZI = {
     'rtttl_endpoint': '/rtttl',
 }
 
-# MQTT Configuration
+# MQTT Configuration (credentials uit secrets)
 MQTT = {
     'broker': '192.168.1.178',
     'port': 1883,
-    'username': 'ecomonitor',
-    'password': 'REDACTED_DB_PASS',
+    'username': _mqtt.get('username', 'ecomonitor'),
+    'password': _mqtt.get('password', ''),
     'topics': {
         'zolder_detection': 'emsn2/zolder/detection/new',
         'berging_detection': 'emsn2/berging/detection/new',
@@ -26,13 +40,13 @@ MQTT = {
     }
 }
 
-# PostgreSQL Configuration
+# PostgreSQL Configuration (credentials uit secrets)
 PG_CONFIG = {
-    'host': '192.168.1.25',
-    'port': 5433,
-    'database': 'emsn',
-    'user': 'birdpi_zolder',
-    'password': 'REDACTED_DB_PASS'
+    'host': _pg.get('host', '192.168.1.25'),
+    'port': _pg.get('port', 5433),
+    'database': _pg.get('database', 'emsn'),
+    'user': _pg.get('user', 'birdpi_zolder'),
+    'password': _pg.get('password', '')
 }
 
 # RTTTL Sounds - staan al op Ulanzi in MELODIES map

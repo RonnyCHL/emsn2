@@ -5,6 +5,7 @@ Monitors bridge status, sends alerts on disconnection, and logs events to Postgr
 """
 
 import os
+import sys
 import json
 import time
 import logging
@@ -18,19 +19,35 @@ import yaml
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-# Configuration
-MQTT_BROKER = "192.168.1.178"
-MQTT_PORT = 1883
-MQTT_USER = "ecomonitor"
-MQTT_PASS = "REDACTED_DB_PASS"
+# Import secrets voor credentials
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
+try:
+    from emsn_secrets import get_postgres_config, get_mqtt_config
+    _pg = get_postgres_config()
+    _mqtt = get_mqtt_config()
+except ImportError:
+    _pg = {
+        'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
+        'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')
+    }
+    _mqtt = {
+        'broker': '192.168.1.178', 'port': 1883,
+        'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')
+    }
 
-# Database configuration
+# Configuration (credentials uit secrets)
+MQTT_BROKER = _mqtt.get('broker') or "192.168.1.178"
+MQTT_PORT = _mqtt.get('port') or 1883
+MQTT_USER = _mqtt.get('username') or "ecomonitor"
+MQTT_PASS = _mqtt.get('password') or ""
+
+# Database configuration (credentials uit secrets)
 DB_CONFIG = {
-    'host': '192.168.1.25',
-    'port': 5433,
-    'database': 'emsn',
-    'user': 'birdpi_zolder',
-    'password': os.getenv('EMSN_DB_PASSWORD', 'REDACTED_DB_PASS')
+    'host': _pg.get('host') or '192.168.1.25',
+    'port': _pg.get('port') or 5433,
+    'database': _pg.get('database') or 'emsn',
+    'user': _pg.get('user') or 'birdpi_zolder',
+    'password': _pg.get('password') or ''
 }
 
 # Topics to monitor

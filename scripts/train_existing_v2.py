@@ -19,11 +19,20 @@ LOGS_DIR = Path('/app/logs')
 # Maximum samples per klasse (song/call/alarm) om geheugen te sparen
 MAX_PER_CLASS = 2000
 
-PG_HOST = os.environ.get('PG_HOST', '192.168.1.25')
-PG_PORT = os.environ.get('PG_PORT', '5433')
-PG_DB = os.environ.get('PG_DB', 'emsn')
-PG_USER = os.environ.get('PG_USER', 'birdpi_zolder')
-PG_PASS = os.environ.get('PG_PASS', 'REDACTED_DB_PASS')
+# Try to load from secrets.py first (when running on Pi)
+try:
+    sys.path.insert(0, str(Path(__file__).parent.parent / 'config'))
+    from emsn_secrets import get_postgres_config
+    _pg = get_postgres_config()
+except ImportError:
+    _pg = {}
+
+# Database config (secrets or environment variables)
+PG_HOST = _pg.get('host') or os.environ.get('PG_HOST', '192.168.1.25')
+PG_PORT = _pg.get('port') or os.environ.get('PG_PORT', '5433')
+PG_DB = _pg.get('database') or os.environ.get('PG_DB', 'emsn')
+PG_USER = _pg.get('user') or os.environ.get('PG_USER', 'birdpi_zolder')
+PG_PASS = _pg.get('password') or os.environ.get('PG_PASS', '')
 
 def get_pg():
     return psycopg2.connect(host=PG_HOST, port=PG_PORT, database=PG_DB, user=PG_USER, password=PG_PASS)

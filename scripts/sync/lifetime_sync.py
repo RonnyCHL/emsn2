@@ -13,26 +13,39 @@ from datetime import datetime
 from pathlib import Path
 import paho.mqtt.client as mqtt
 
+# Import secrets
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
+try:
+    from emsn_secrets import get_postgres_config, get_mqtt_config
+    _pg = get_postgres_config()
+    _mqtt = get_mqtt_config()
+except ImportError:
+    import os
+    _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
+           'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')}
+    _mqtt = {'broker': '192.168.1.178', 'port': 1883,
+             'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')}
+
 # Configuration
 SQLITE_DB = "/home/ronny/BirdNET-Pi/scripts/birds.db"
 LOG_DIR = Path("/mnt/usb/logs")
 STATION_NAME = "zolder"
 
-# PostgreSQL Configuration
+# PostgreSQL Configuration (from secrets)
 PG_CONFIG = {
-    'host': '192.168.1.25',
-    'port': 5433,
-    'database': 'emsn',
-    'user': 'birdpi_zolder',
-    'password': 'REDACTED_DB_PASS'
+    'host': _pg.get('host', '192.168.1.25'),
+    'port': _pg.get('port', 5433),
+    'database': _pg.get('database', 'emsn'),
+    'user': _pg.get('user', 'birdpi_zolder'),
+    'password': _pg.get('password', '')
 }
 
-# MQTT Configuration
+# MQTT Configuration (from secrets)
 MQTT_CONFIG = {
-    'broker': '192.168.1.178',
-    'port': 1883,
-    'username': 'ecomonitor',
-    'password': 'REDACTED_DB_PASS',
+    'broker': _mqtt.get('broker', '192.168.1.178'),
+    'port': _mqtt.get('port', 1883),
+    'username': _mqtt.get('username', 'ecomonitor'),
+    'password': _mqtt.get('password', ''),
     'topic_status': 'emsn2/zolder/sync/status',
     'topic_stats': 'emsn2/zolder/sync/stats'
 }

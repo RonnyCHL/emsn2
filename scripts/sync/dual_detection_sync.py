@@ -11,12 +11,29 @@ import psycopg2
 from psycopg2.extras import execute_batch
 import json
 import sys
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 import paho.mqtt.client as mqtt
 
 # Import Bayesian verification model
 from bayesian_verification import BayesianVerificationModel, calculate_bayesian_verification_score
+
+# Import secrets voor credentials
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
+try:
+    from emsn_secrets import get_postgres_config, get_mqtt_config
+    _pg = get_postgres_config()
+    _mqtt = get_mqtt_config()
+except ImportError:
+    _pg = {
+        'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
+        'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')
+    }
+    _mqtt = {
+        'broker': '192.168.1.178', 'port': 1883,
+        'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')
+    }
 
 # Configuration
 STATION_NAME = "zolder"  # Dit script draait alleen op zolder (centraal)
@@ -26,21 +43,21 @@ LOG_DIR = Path("/mnt/usb/logs")
 TIME_WINDOW_SECONDS = 30  # Maximale tijd tussen detecties om als dual te markeren
 MIN_CONFIDENCE = 0.7     # Minimale confidence voor dual detection
 
-# PostgreSQL Configuration
+# PostgreSQL Configuration (credentials uit secrets)
 PG_CONFIG = {
-    'host': '192.168.1.25',
-    'port': 5433,
-    'database': 'emsn',
-    'user': 'birdpi_zolder',
-    'password': 'REDACTED_DB_PASS'
+    'host': _pg.get('host', '192.168.1.25'),
+    'port': _pg.get('port', 5433),
+    'database': _pg.get('database', 'emsn'),
+    'user': _pg.get('user', 'birdpi_zolder'),
+    'password': _pg.get('password', '')
 }
 
-# MQTT Configuration
+# MQTT Configuration (credentials uit secrets)
 MQTT_CONFIG = {
-    'broker': '192.168.1.178',
-    'port': 1883,
-    'username': 'ecomonitor',
-    'password': 'REDACTED_DB_PASS',
+    'broker': _mqtt.get('broker', '192.168.1.178'),
+    'port': _mqtt.get('port', 1883),
+    'username': _mqtt.get('username', 'ecomonitor'),
+    'password': _mqtt.get('password', ''),
     'topic_status': 'emsn2/dual/sync/status',
     'topic_stats': 'emsn2/dual/sync/stats',
     'topic_alert': 'emsn2/dual/detection/new'

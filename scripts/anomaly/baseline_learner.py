@@ -38,12 +38,14 @@ class BaselineLearner:
     def connect(self):
         """Connect to PostgreSQL"""
         try:
+            # Get credentials from POSTGRES_USERS
+            user_config = POSTGRES_USERS.get('zolder', {})
             self.conn = psycopg2.connect(
                 host=POSTGRES_CONFIG['host'],
                 port=POSTGRES_CONFIG['port'],
                 database=POSTGRES_CONFIG['database'],
-                user='postgres',
-                password='REDACTED_DB_PASS'
+                user=user_config.get('user', 'birdpi_zolder'),
+                password=user_config.get('password', '')
             )
             self.log("INFO", "Connected to database")
             return True

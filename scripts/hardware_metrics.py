@@ -5,18 +5,29 @@ Verzamelt system metrics en stuurt ze naar PostgreSQL
 """
 
 import os
+import sys
 import time
 import psutil
 import psycopg2
 from datetime import datetime
+from pathlib import Path
 
-# Configuration
+# Import secrets
+sys.path.insert(0, str(Path(__file__).parent.parent / 'config'))
+try:
+    from emsn_secrets import get_postgres_config
+    _pg = get_postgres_config()
+except ImportError:
+    _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
+           'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')}
+
+# Configuration (from secrets)
 PG_CONFIG = {
-    'host': '192.168.1.25',
-    'port': 5433,
-    'database': 'emsn',
-    'user': 'birdpi_zolder',
-    'password': 'REDACTED_DB_PASS'
+    'host': _pg.get('host', '192.168.1.25'),
+    'port': _pg.get('port', 5433),
+    'database': _pg.get('database', 'emsn'),
+    'user': _pg.get('user', 'birdpi_zolder'),
+    'password': _pg.get('password', '')
 }
 
 # Detect station name from hostname

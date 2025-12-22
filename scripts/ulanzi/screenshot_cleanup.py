@@ -13,15 +13,24 @@ from datetime import datetime, timedelta
 import logging
 import psycopg2
 
+# Import secrets
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
+try:
+    from emsn_secrets import get_postgres_config
+    _pg = get_postgres_config()
+except ImportError:
+    _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
+           'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')}
+
 # Configuratie
 SCREENSHOT_DIR = Path("/mnt/nas-reports/ulanzi-screenshots")
 MAX_AGE_DAYS = 30
 DB_CONFIG = {
-    'host': '192.168.1.25',
-    'port': 5433,
-    'database': 'emsn',
-    'user': 'birdpi_zolder',
-    'password': 'REDACTED_DB_PASS'
+    'host': _pg.get('host', '192.168.1.25'),
+    'port': _pg.get('port', 5433),
+    'database': _pg.get('database', 'emsn'),
+    'user': _pg.get('user', 'birdpi_zolder'),
+    'password': _pg.get('password', '')
 }
 
 # Logging

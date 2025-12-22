@@ -6,6 +6,18 @@ Automatische detectie van station op basis van hostname
 
 import socket
 import os
+import sys
+from pathlib import Path
+
+# Import secrets voor credentials
+sys.path.insert(0, str(Path(__file__).parent))
+try:
+    from emsn_secrets import get_postgres_config as _get_pg, get_mqtt_config as _get_mqtt
+    _pg_secrets = _get_pg()
+    _mqtt_secrets = _get_mqtt()
+except ImportError:
+    _pg_secrets = {'password': os.environ.get('EMSN_DB_PASSWORD', '')}
+    _mqtt_secrets = {'password': os.environ.get('EMSN_MQTT_PASSWORD', '')}
 
 # Station definities
 STATIONS = {
@@ -36,19 +48,20 @@ POSTGRES_CONFIG = {
     'database': 'emsn',
 }
 
-# Station-specifieke database users
+# Station-specifieke database users (password uit secrets)
+_db_pass = _pg_secrets.get('password', '')
 POSTGRES_USERS = {
-    'zolder': {'user': 'birdpi_zolder', 'password': 'REDACTED_DB_PASS'},
-    'berging': {'user': 'birdpi_zolder', 'password': 'REDACTED_DB_PASS'},
-    'meteo': {'user': 'meteopi', 'password': 'REDACTED_DB_PASS'},
+    'zolder': {'user': 'birdpi_zolder', 'password': _db_pass},
+    'berging': {'user': 'birdpi_zolder', 'password': _db_pass},
+    'meteo': {'user': 'meteopi', 'password': _db_pass},
 }
 
-# MQTT configuratie
+# MQTT configuratie (password uit secrets)
 MQTT_CONFIG = {
     'broker': '192.168.1.178',
     'port': 1883,
-    'username': 'ecomonitor',
-    'password': 'REDACTED_DB_PASS',
+    'username': _mqtt_secrets.get('username', 'ecomonitor'),
+    'password': _mqtt_secrets.get('password', ''),
 }
 
 # Paths

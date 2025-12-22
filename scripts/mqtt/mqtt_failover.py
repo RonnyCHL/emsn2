@@ -17,6 +17,14 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import yaml
 
+# Import secrets
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
+try:
+    from emsn_secrets import get_mqtt_config
+    _mqtt = get_mqtt_config()
+except ImportError:
+    _mqtt = {'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')}
+
 # Configuration
 LOG_DIR = Path("/mnt/usb/logs")
 STATE_FILE = LOG_DIR / "mqtt_failover_state.json"
@@ -24,8 +32,8 @@ CONFIG_PATH = Path("/home/ronny/emsn2/config")
 EMAIL_FILE = CONFIG_PATH / "email.yaml"
 SMTP_PASSWORD = os.getenv("EMSN_SMTP_PASSWORD")
 
-MQTT_USER = "ecomonitor"
-MQTT_PASS = "REDACTED_DB_PASS"
+MQTT_USER = _mqtt.get('username', 'ecomonitor')
+MQTT_PASS = _mqtt.get('password', '')
 
 # Logging
 logging.basicConfig(

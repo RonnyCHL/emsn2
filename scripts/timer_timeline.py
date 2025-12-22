@@ -23,6 +23,17 @@ try:
 except ImportError:
     HAS_PSYCOPG2 = False
 
+# Import secrets voor credentials
+sys.path.insert(0, str(Path(__file__).parent.parent / 'config'))
+try:
+    from emsn_secrets import get_postgres_config
+    _pg = get_postgres_config()
+except ImportError:
+    _pg = {
+        'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
+        'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')
+    }
+
 # EMSN timer patterns om te filteren
 EMSN_PATTERNS = [
     "emsn", "birdnet", "mqtt", "ulanzi", "lifetime", "anomaly",
@@ -30,13 +41,13 @@ EMSN_PATTERNS = [
     "backup", "atmosbird", "system-inventory"
 ]
 
-# Database configuratie
+# Database configuratie (credentials uit secrets)
 DB_CONFIG = {
-    "host": "192.168.1.25",
-    "port": 5433,
-    "database": "emsn",
-    "user": "birdpi_zolder",
-    "password": os.environ.get("EMSN_DB_PASSWORD", "REDACTED_DB_PASS")
+    "host": _pg.get('host') or '192.168.1.25',
+    "port": _pg.get('port') or 5433,
+    "database": _pg.get('database') or 'emsn',
+    "user": _pg.get('user') or 'birdpi_zolder',
+    "password": _pg.get('password') or ''
 }
 
 
@@ -107,14 +118,14 @@ def get_timers_json() -> list:
 
 def microseconds_to_datetime(us: int) -> datetime:
     """Converteer microseconden (Unix epoch) naar datetime."""
-    if us == 0:
+    if not us:  # None of 0
         return None
     return datetime.fromtimestamp(us / 1_000_000)
 
 
 def microseconds_to_timedelta(us: int) -> timedelta:
     """Converteer microseconden naar timedelta."""
-    if us == 0:
+    if not us:  # None of 0
         return None
     return timedelta(microseconds=us)
 
