@@ -2467,8 +2467,8 @@ def get_random_recording():
 # NESTBOX MONITORING API - Broedseizoen tracking & media capture
 # =============================================================================
 
-# Tijdelijk lokaal, later naar NAS als permissions gefixt zijn
-NESTBOX_MEDIA_BASE = Path("/home/ronny/nestbox_media")
+# Opslag op 8TB USB share op NAS
+NESTBOX_MEDIA_BASE = Path("/mnt/nas-birdnet-archive/nestbox")
 
 
 @app.route('/api/nestbox/list')
@@ -2742,6 +2742,19 @@ def capture_nestbox_screenshot():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/nestbox/capture/video/status', methods=['GET'])
+def get_recording_status():
+    """Get status of active recordings"""
+    try:
+        active = {}
+        for nestbox_id in ['voor', 'midden', 'achter']:
+            recording_flag = Path(f"/tmp/nestbox_recording_{nestbox_id}.pid")
+            active[nestbox_id] = recording_flag.exists()
+        return jsonify({'active': active})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/nestbox/capture/video/start', methods=['POST'])
 def start_nestbox_video():
     """Start video recording from nestbox camera"""
@@ -2775,15 +2788,22 @@ def start_nestbox_video():
         process = subprocess.Popen([
             'ffmpeg', '-y',
             '-rtsp_transport', 'tcp',
+            '-fflags', '+genpts+discardcorrupt',
+            '-use_wallclock_as_timestamps', '1',
             '-i', stream_url,
-            '-c:v', 'copy',
+            '-c:v', 'libx264',
+            '-preset', 'fast',
+            '-crf', '23',
+            '-r', '15',
             '-c:a', 'aac',
+            '-b:a', '128k',
+            '-movflags', '+faststart',
             str(file_path)
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         # Save PID and file info
         with open(recording_flag, 'w') as f:
-            f.write(f"{process.pid}\n{file_path}\n{nestbox_id}\n{date_str}/{filename}")
+            f.write(f"{process.pid}\n{file_path}\n{nestbox_id}\n{nestbox_id}/videos/{date_str}/{filename}")
 
         return jsonify({
             'success': True,

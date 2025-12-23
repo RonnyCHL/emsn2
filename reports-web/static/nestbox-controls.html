@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nestkast Bediening</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { color: #4ade80; margin-bottom: 20px; font-size: 1.5em; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .nestkast-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .nestkast-card {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 15px;
+            flex: 1;
+            min-width: 280px;
+        }
+        .nestkast-card h3 {
+            margin: 0 0 10px 0;
+            color: #4ade80;
+            font-size: 1.1em;
+        }
+        .stream-container {
+            margin-bottom: 10px;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #000;
+        }
+        .stream-container iframe {
+            width: 100%;
+            height: 180px;
+            border: none;
+        }
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-screenshot { background: #3b82f6; color: white; }
+        .btn-screenshot:hover { background: #2563eb; }
+        .btn-video-start { background: #22c55e; color: white; }
+        .btn-video-start:hover { background: #16a34a; }
+        .btn-video-stop { background: #ef4444; color: white; }
+        .btn-video-stop:hover { background: #dc2626; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: none;
+        }
+        .status.success { background: #166534; display: block; }
+        .status.error { background: #991b1b; display: block; }
+        .status.info { background: #1e40af; display: block; }
+        .status.recording { background: #b91c1c; display: block; animation: pulse 1.5s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .recent { margin-top: 20px; }
+        .recent h3 { color: #94a3b8; font-size: 1em; }
+        .recent-list {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .recent-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #334155;
+            font-size: 13px;
+        }
+        .recent-item:last-child { border-bottom: none; }
+        .recent-item a { color: #60a5fa; text-decoration: none; }
+        .recent-item a:hover { text-decoration: underline; }
+        .all-btns { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Nestkast Bediening</h1>
+
+        <div class="all-btns">
+            <button class="btn btn-screenshot" onclick="captureAll()">Screenshot Alle Kasten</button>
+        </div>
+
+        <div class="nestkast-row">
+            <div class="nestkast-card" id="card-voor">
+                <h3>Nestkast Voor</h3>
+                <div class="stream-container">
+                    <iframe src="http://192.168.1.25:1984/stream.html?src=nestkast_voor&mode=webrtc"></iframe>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-screenshot" onclick="capture('voor')">Screenshot</button>
+                    <button class="btn btn-video-start" id="start-voor" onclick="startVideo('voor')">Start Opname</button>
+                    <button class="btn btn-video-stop" id="stop-voor" onclick="stopVideo('voor')">Stop Opname</button>
+                </div>
+                <div class="status" id="status-voor"></div>
+            </div>
+
+            <div class="nestkast-card" id="card-midden">
+                <h3>Nestkast Midden</h3>
+                <div class="stream-container">
+                    <iframe src="http://192.168.1.25:1984/stream.html?src=nestkast_midden&mode=webrtc"></iframe>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-screenshot" onclick="capture('midden')">Screenshot</button>
+                    <button class="btn btn-video-start" id="start-midden" onclick="startVideo('midden')">Start Opname</button>
+                    <button class="btn btn-video-stop" id="stop-midden" onclick="stopVideo('midden')">Stop Opname</button>
+                </div>
+                <div class="status" id="status-midden"></div>
+            </div>
+
+            <div class="nestkast-card" id="card-achter">
+                <h3>Nestkast Achter</h3>
+                <div class="stream-container">
+                    <iframe src="http://192.168.1.25:1984/stream.html?src=nestkast_achter&mode=webrtc"></iframe>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-screenshot" onclick="capture('achter')">Screenshot</button>
+                    <button class="btn btn-video-start" id="start-achter" onclick="startVideo('achter')">Start Opname</button>
+                    <button class="btn btn-video-stop" id="stop-achter" onclick="stopVideo('achter')">Stop Opname</button>
+                </div>
+                <div class="status" id="status-achter"></div>
+            </div>
+        </div>
+
+        <div class="recent">
+            <h3>Recente Captures</h3>
+            <div class="recent-list" id="recent-list">Laden...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://192.168.1.178:8081/api/nestbox';
+
+        // Track recording state
+        const recording = { voor: false, midden: false, achter: false };
+
+        function showStatus(nestbox, message, type, persistent = false) {
+            const el = document.getElementById(`status-${nestbox}`);
+            el.textContent = message;
+            el.className = `status ${type}`;
+            if (!persistent) {
+                setTimeout(() => { el.className = 'status'; }, 5000);
+            }
+        }
+
+        function clearStatus(nestbox) {
+            const el = document.getElementById(`status-${nestbox}`);
+            el.className = 'status';
+        }
+
+        async function capture(nestbox) {
+            showStatus(nestbox, 'Bezig met screenshot...', 'info');
+            try {
+                const res = await fetch(`${API_BASE}/capture/screenshot`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nestbox_id: nestbox, capture_type: 'manual' })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showStatus(nestbox, 'Screenshot opgeslagen!', 'success');
+                    loadRecent();
+                } else {
+                    showStatus(nestbox, `Fout: ${data.error}`, 'error');
+                }
+            } catch (e) {
+                showStatus(nestbox, `Fout: ${e.message}`, 'error');
+            }
+        }
+
+        async function captureAll() {
+            for (const n of ['voor', 'midden', 'achter']) {
+                await capture(n);
+            }
+        }
+
+        async function startVideo(nestbox) {
+            showStatus(nestbox, 'Opname starten...', 'info');
+            try {
+                const res = await fetch(`${API_BASE}/capture/video/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nestbox_id: nestbox })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    recording[nestbox] = true;
+                    showStatus(nestbox, 'OPNAME BEZIG...', 'recording', true);
+                    document.getElementById(`start-${nestbox}`).disabled = true;
+                } else {
+                    showStatus(nestbox, `Fout: ${data.error}`, 'error');
+                }
+            } catch (e) {
+                showStatus(nestbox, `Fout: ${e.message}`, 'error');
+            }
+        }
+
+        async function stopVideo(nestbox) {
+            showStatus(nestbox, 'Opname stoppen...', 'info');
+            try {
+                const res = await fetch(`${API_BASE}/capture/video/stop`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nestbox_id: nestbox })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    recording[nestbox] = false;
+                    document.getElementById(`start-${nestbox}`).disabled = false;
+                    const duration = data.duration_seconds ? `${data.duration_seconds}s` : 'onbekend';
+                    showStatus(nestbox, `Opname opgeslagen! (${duration})`, 'success');
+                    loadRecent();
+                } else {
+                    showStatus(nestbox, `Fout: ${data.error}`, 'error');
+                }
+            } catch (e) {
+                showStatus(nestbox, `Fout: ${e.message}`, 'error');
+            }
+        }
+
+        async function loadRecent() {
+            try {
+                const res = await fetch(`${API_BASE}/media?limit=10`);
+                const json = await res.json();
+                const data = json.media || [];
+                const list = document.getElementById('recent-list');
+                if (data.length === 0) {
+                    list.innerHTML = '<div class="recent-item">Nog geen captures</div>';
+                    return;
+                }
+                list.innerHTML = data.map(m => `
+                    <div class="recent-item">
+                        <strong>${m.nestbox_id}</strong> - ${m.media_type} - ${new Date(m.captured_at).toLocaleString('nl-NL')}
+                        <a href="${API_BASE.replace('/api/nestbox', '')}${m.url}" target="_blank">Bekijk</a>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('recent-list').innerHTML = `<div class="recent-item">Fout: ${e.message}</div>`;
+            }
+        }
+
+        // Check active recordings and restore UI state
+        async function checkRecordingStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/capture/video/status`);
+                const data = await res.json();
+                for (const [nestbox, isActive] of Object.entries(data.active)) {
+                    if (isActive) {
+                        recording[nestbox] = true;
+                        showStatus(nestbox, 'OPNAME BEZIG...', 'recording', true);
+                        document.getElementById(`start-${nestbox}`).disabled = true;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to check recording status:', e);
+            }
+        }
+
+        // Load recent and check status on page load
+        loadRecent();
+        checkRecordingStatus();
+    </script>
+</body>
+</html>

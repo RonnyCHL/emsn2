@@ -1,0 +1,14 @@
+[Unit]
+Description=go2rtc Health Check for Tuya Nestkast Cameras
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ronny
+ExecStart=/home/ronny/emsn2/scripts/nestbox/go2rtc_healthcheck.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

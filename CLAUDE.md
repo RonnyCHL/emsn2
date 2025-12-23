@@ -8,6 +8,8 @@ Eigenaar: Ronny Hullegie
 - BirdNET-Pi = heilig → NOOIT core files aanpassen
 - Altijd backups maken voor destructieve acties
 - Stap voor stap werken, elke fase testen
+- **GEEN EIGEN AANNAMES** → Bij twijfel altijd vragen wat Ronny wil
+- Volg afspraken exact op, verzin geen alternatieven
 
 ## Werkwijze
 - Start sessie: lees eerst /docs/ voor huidige status
@@ -154,7 +156,11 @@ sudo docker logs -f emsn-vocalization-pytorch
 - **Timer:** nestbox-screenshot.timer (6x/dag)
 - **Tijden:** 08:00, 14:00, 22:00, 00:00, 02:00, 04:00
 - **Nacht screenshots:** Voor ML slaapdetectie (capture_type=auto_night)
-- **Opslag:** /home/ronny/nestbox_media/{nestbox_id}/screenshots/
+
+### Media Opslag (8TB USB schijf op NAS)
+- **NFS mount:** /mnt/nas-birdnet-archive/nestbox/
+- **Structuur:** {nestbox_id}/screenshots/ en {nestbox_id}/videos/
+- **Paden:** /mnt/nas-birdnet-archive/nestbox/{voor|midden|achter}/{screenshots|videos}/
 
 ### Database Tabellen (PostgreSQL emsn)
 - nestbox_events - Observaties (bezet, eieren, jongen, etc.)
