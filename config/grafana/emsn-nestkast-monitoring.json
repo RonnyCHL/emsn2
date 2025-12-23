@@ -1,0 +1,269 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "# Nestkast Monitoring\n\n**Live Streams:** [Nestkast Voor](http://192.168.1.25:1984/stream.html?src=nestkast_voor) | [Nestkast Midden](http://192.168.1.25:1984/stream.html?src=nestkast_midden) | [Nestkast Achter](http://192.168.1.25:1984/stream.html?src=nestkast_achter) | [go2rtc UI](http://192.168.1.25:1984)",
+        "mode": "markdown"
+      },
+      "pluginVersion": "10.0.0",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "emsn_postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            { "options": { "bezet": { "color": "green", "index": 0, "text": "Bezet" } }, "type": "value" },
+            { "options": { "leeg": { "color": "blue", "index": 1, "text": "Leeg" } }, "type": "value" },
+            { "options": { "bouw": { "color": "yellow", "index": 2, "text": "Nestbouw" } }, "type": "value" },
+            { "options": { "eieren": { "color": "orange", "index": 3, "text": "Eieren" } }, "type": "value" },
+            { "options": { "jongen": { "color": "red", "index": 4, "text": "Jongen" } }, "type": "value" },
+            { "options": { "uitgevlogen": { "color": "purple", "index": 5, "text": "Uitgevlogen" } }, "type": "value" },
+            { "options": { "mislukt": { "color": "dark-red", "index": 6, "text": "Mislukt" } }, "type": "value" }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        }
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 2 },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^status$/", "values": false },
+        "textMode": "value"
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawSql": "SELECT 'Voor' as nestkast, COALESCE((SELECT event_type FROM nestbox_events WHERE nestbox_id = 'voor' ORDER BY event_date DESC LIMIT 1), 'leeg') as status",
+        "refId": "A"
+      }],
+      "title": "Nestkast Voor",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            { "options": { "bezet": { "color": "green", "index": 0, "text": "Bezet" } }, "type": "value" },
+            { "options": { "leeg": { "color": "blue", "index": 1, "text": "Leeg" } }, "type": "value" },
+            { "options": { "bouw": { "color": "yellow", "index": 2, "text": "Nestbouw" } }, "type": "value" },
+            { "options": { "eieren": { "color": "orange", "index": 3, "text": "Eieren" } }, "type": "value" },
+            { "options": { "jongen": { "color": "red", "index": 4, "text": "Jongen" } }, "type": "value" },
+            { "options": { "uitgevlogen": { "color": "purple", "index": 5, "text": "Uitgevlogen" } }, "type": "value" },
+            { "options": { "mislukt": { "color": "dark-red", "index": 6, "text": "Mislukt" } }, "type": "value" }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        }
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 2 },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^status$/", "values": false },
+        "textMode": "value"
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawSql": "SELECT 'Midden' as nestkast, COALESCE((SELECT event_type FROM nestbox_events WHERE nestbox_id = 'midden' ORDER BY event_date DESC LIMIT 1), 'leeg') as status",
+        "refId": "A"
+      }],
+      "title": "Nestkast Midden",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            { "options": { "bezet": { "color": "green", "index": 0, "text": "Bezet" } }, "type": "value" },
+            { "options": { "leeg": { "color": "blue", "index": 1, "text": "Leeg" } }, "type": "value" },
+            { "options": { "bouw": { "color": "yellow", "index": 2, "text": "Nestbouw" } }, "type": "value" },
+            { "options": { "eieren": { "color": "orange", "index": 3, "text": "Eieren" } }, "type": "value" },
+            { "options": { "jongen": { "color": "red", "index": 4, "text": "Jongen" } }, "type": "value" },
+            { "options": { "uitgevlogen": { "color": "purple", "index": 5, "text": "Uitgevlogen" } }, "type": "value" },
+            { "options": { "mislukt": { "color": "dark-red", "index": 6, "text": "Mislukt" } }, "type": "value" }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        }
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 2 },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^status$/", "values": false },
+        "textMode": "value"
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawSql": "SELECT 'Achter' as nestkast, COALESCE((SELECT event_type FROM nestbox_events WHERE nestbox_id = 'achter' ORDER BY event_date DESC LIMIT 1), 'leeg') as status",
+        "refId": "A"
+      }],
+      "title": "Nestkast Achter",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "event_date" }, "properties": [{ "id": "custom.width", "value": 120 }] },
+          { "matcher": { "id": "byName", "options": "nestbox_id" }, "properties": [{ "id": "custom.width", "value": 100 }] }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 8 },
+      "id": 4,
+      "options": { "cellHeight": "sm", "showHeader": true },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawSql": "SELECT TO_CHAR(event_date, 'YYYY-MM-DD') as event_date, INITCAP(nestbox_id) as nestbox_id, event_type, species, egg_count, chick_count, fledged_count, notes FROM nestbox_events ORDER BY event_date DESC, created_at DESC LIMIT 50",
+        "refId": "A"
+      }],
+      "title": "Event Geschiedenis",
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "captured_at" }, "properties": [{ "id": "custom.width", "value": 150 }] },
+          { "matcher": { "id": "byName", "options": "url" }, "properties": [
+            { "id": "custom.width", "value": 80 },
+            { "id": "links", "value": [{ "title": "Bekijk", "url": "http://192.168.1.178:8081${__value.text}", "targetBlank": true }] }
+          ]}
+        ]
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 8 },
+      "id": 5,
+      "options": { "cellHeight": "sm", "showHeader": true },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawSql": "SELECT TO_CHAR(captured_at, 'YYYY-MM-DD HH24:MI') as captured_at, INITCAP(nestbox_id) as nestbox_id, media_type, capture_type, CONCAT('/api/nestbox/media/file/', id) as url FROM nestbox_media ORDER BY captured_at DESC LIMIT 50",
+        "refId": "A"
+      }],
+      "title": "Recente Screenshots & Videos",
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" } },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 18 },
+      "id": 6,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawSql": "SELECT COUNT(*) as screenshots_vandaag FROM nestbox_media WHERE media_type = 'screenshot' AND captured_at::date = CURRENT_DATE",
+        "refId": "A"
+      }],
+      "title": "Screenshots Vandaag",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" } },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 18 },
+      "id": 7,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawSql": "SELECT COUNT(*) as totaal_screenshots FROM nestbox_media WHERE media_type = 'screenshot'",
+        "refId": "A"
+      }],
+      "title": "Totaal Screenshots",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" } },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 18 },
+      "id": 8,
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawSql": "SELECT COUNT(*) as totaal_videos FROM nestbox_media WHERE media_type = 'video'",
+        "refId": "A"
+      }],
+      "title": "Totaal Videos",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" } },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 18 },
+      "id": 9,
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawSql": "SELECT COUNT(*) as nacht_screenshots FROM nestbox_media WHERE media_type = 'screenshot' AND capture_type = 'auto_night'",
+        "refId": "A"
+      }],
+      "title": "Nacht Screenshots (ML)",
+      "type": "stat"
+    },
+    {
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 24 },
+      "id": 10,
+      "options": {
+        "content": "## Event Invoer via API\n\n**Nieuwe observatie:** `curl -X POST http://192.168.1.178:8081/api/nestbox/events -H \"Content-Type: application/json\" -d '{\"nestbox_id\": \"midden\", \"event_type\": \"bezet\", \"species\": \"Koolmees\"}'`\n\n**Event types:** `leeg`, `bezet`, `bouw`, `eieren`, `jongen`, `uitgevlogen`, `mislukt` | **Velden:** `nestbox_id`, `event_type`, `event_date`, `species`, `egg_count`, `chick_count`, `fledged_count`, `notes`",
+        "mode": "markdown"
+      },
+      "title": "API Hulp",
+      "type": "text"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["emsn", "nestkast", "monitoring"],
+  "time": { "from": "now-7d", "to": "now" },
+  "title": "Nestkast Monitoring",
+  "uid": "emsn-nestkast-monitoring",
+  "version": 1
+}

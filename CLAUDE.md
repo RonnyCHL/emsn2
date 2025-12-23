@@ -116,6 +116,67 @@ sudo docker logs -f emsn-vocalization-pytorch
 - **Credentials:** zie `.secrets`
 - **Config:** /home/ronny/emsn2/config/email.yaml
 
+## Nestkast Cameras (go2rtc + Tuya)
+
+### Hardware
+3 Tuya nestkast cameras met video+audio:
+| Camera | Device ID | Locatie |
+|--------|-----------|---------|
+| voor | bf80c5603b3392da01oyt1 | Voortuin |
+| midden | bf5ab17574f859aef9zbg1 | Midden (slapende Koolmees!) |
+| achter | bf0e510111cdf52517rddr | Achtertuin |
+
+### Streaming (go2rtc op NAS)
+- **go2rtc UI:** http://192.168.1.25:1984
+- **RTSP streams:** rtsp://192.168.1.25:8554/nestkast_{voor|midden|achter}
+- **WebRTC streams:** http://192.168.1.25:1984/stream.html?src=nestkast_{id}
+- **Config:** /volume1/docker/go2rtc/go2rtc.yaml (op NAS)
+- **Tuya API:** protect-eu.ismartlife.me
+- **Credentials:** zie `.secrets` (Tuya Smart account)
+
+### Nestkast Monitoring API
+- **Base URL:** http://192.168.1.178:8081/api/nestbox/
+- **Endpoints:**
+  - GET /list - Alle nestkasten
+  - GET /status - Huidige status per kast
+  - GET /events - Event geschiedenis
+  - POST /events - Nieuw event toevoegen
+  - GET /media - Screenshots/videos lijst
+  - GET /media/file/{id} - Bestand downloaden
+  - POST /capture/screenshot - Screenshot maken
+  - POST /capture/video/start - Video opname starten
+  - POST /capture/video/stop - Video opname stoppen
+
+### Event Types (Nederlands)
+`leeg`, `bezet`, `bouw`, `eieren`, `jongen`, `uitgevlogen`, `mislukt`, `onderhoud`
+
+### Automatische Screenshots
+- **Timer:** nestbox-screenshot.timer (6x/dag)
+- **Tijden:** 08:00, 14:00, 22:00, 00:00, 02:00, 04:00
+- **Nacht screenshots:** Voor ML slaapdetectie (capture_type=auto_night)
+- **Opslag:** /home/ronny/nestbox_media/{nestbox_id}/screenshots/
+
+### Database Tabellen (PostgreSQL emsn)
+- nestbox_events - Observaties (bezet, eieren, jongen, etc.)
+- nestbox_media - Screenshots en video metadata
+
+### Grafana Dashboard
+- **URL:** http://192.168.1.25:3000/d/emsn-nestkast-monitoring/
+- **Config:** /mnt/nas-docker/grafana/provisioning/dashboards/emsn-nestkast-monitoring.json
+
+### Voorbeeld API Calls
+```bash
+# Screenshot maken
+curl -X POST http://192.168.1.178:8081/api/nestbox/capture/screenshot \
+  -H "Content-Type: application/json" \
+  -d '{"nestbox_id": "midden", "capture_type": "manual"}'
+
+# Event toevoegen
+curl -X POST http://192.168.1.178:8081/api/nestbox/events \
+  -H "Content-Type: application/json" \
+  -d '{"nestbox_id": "midden", "event_type": "bezet", "species": "Koolmees"}'
+```
+
 ## Commit Stijl
 - feat: nieuwe functionaliteit
 - fix: bug fix

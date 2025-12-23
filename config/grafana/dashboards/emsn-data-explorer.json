@@ -1,0 +1,892 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "panels": [],
+      "title": "📊 Archief Statistieken",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) as total FROM media_archive",
+          "refId": "A"
+        }
+      ],
+      "title": "🎵 Totaal Opnames",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawSql": "SELECT COUNT(DISTINCT species) as soorten FROM media_archive",
+          "refId": "A"
+        }
+      ],
+      "title": "🦜 Unieke Soorten",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "decimals": 2,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "orange", "value": null }
+            ]
+          },
+          "unit": "decgbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawSql": "SELECT ROUND(SUM(file_size_bytes)::numeric / 1073741824, 2) as gb FROM media_archive",
+          "refId": "A"
+        }
+      ],
+      "title": "💾 Archief Grootte",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "purple", "value": null }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawSql": "SELECT ROUND(AVG(confidence)::numeric * 100, 1) as conf FROM media_archive",
+          "refId": "A"
+        }
+      ],
+      "title": "📈 Gem. Confidence",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "id": 5,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "right", "showLegend": true },
+        "pieType": "donut",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true },
+        "tooltip": { "mode": "single" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawSql": "SELECT station as \"Station\", COUNT(*) as \"Aantal\" FROM media_archive GROUP BY station ORDER BY station",
+          "refId": "A"
+        }
+      ],
+      "title": "📡 Per Station",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawSql": "SELECT COUNT(DISTINCT detection_date) as dagen FROM media_archive",
+          "refId": "A"
+        }
+      ],
+      "title": "📅 Dagen Data",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "panels": [],
+      "title": "🔍 Archief Browser (filter met variabelen bovenaan)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "description": "Gebruik de filters bovenaan om te zoeken op soort, station en confidence",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false,
+            "filterable": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Audio" },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "▶ Afspelen",
+                    "url": "http://192.168.1.178:8081/api/archive/audio/${__data.fields.id}",
+                    "targetBlank": true
+                  }
+                ]
+              },
+              { "id": "custom.width", "value": 80 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Spec" },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "📊 Bekijken",
+                    "url": "http://192.168.1.178:8081/api/archive/spectrogram/${__data.fields.id}",
+                    "targetBlank": true
+                  }
+                ]
+              },
+              { "id": "custom.width", "value": 60 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "id" },
+            "properties": [
+              { "id": "custom.hidden", "value": true }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Confidence" },
+            "properties": [
+              { "id": "custom.width", "value": 90 }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 6 },
+      "id": 7,
+      "options": {
+        "cellHeight": "sm",
+        "enablePagination": true,
+        "footer": {
+          "countRows": true,
+          "fields": "",
+          "reducer": ["count"],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "Datum" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawSql": "SELECT ma.id, ma.species as \"Soort\", ma.station as \"Station\", TO_CHAR(ma.detection_date, 'YYYY-MM-DD') as \"Datum\", ROUND(ma.confidence::numeric * 100)::text || '%' as \"Confidence\", '▶' as \"Audio\", '📊' as \"Spec\" FROM media_archive ma WHERE ($species = 'Alle' OR ma.species = '$species') AND ($station = 'Alle' OR ma.station = '$station') AND ma.confidence >= $min_confidence / 100.0 ORDER BY ma.detection_date DESC, ma.species LIMIT 2000",
+          "refId": "A"
+        }
+      ],
+      "title": "📋 Opnames Browser",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 20 },
+      "id": 102,
+      "panels": [],
+      "title": "📈 Tijdlijnen & Trends",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "normal" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 21 },
+      "id": 8,
+      "options": {
+        "legend": { "calcs": ["sum"], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT detection_date::timestamp as time, station, COUNT(*) as opnames FROM media_archive WHERE detection_date >= NOW() - INTERVAL '30 days' GROUP BY detection_date, station ORDER BY detection_date",
+          "refId": "A"
+        }
+      ],
+      "title": "📊 Opnames per Dag (30 dagen)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 21 },
+      "id": 9,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": ["value", "percent"]
+        },
+        "pieType": "donut",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawSql": "SELECT species as \"Soort\", COUNT(*) as \"Aantal\" FROM media_archive GROUP BY species ORDER BY COUNT(*) DESC LIMIT 15",
+          "refId": "A"
+        }
+      ],
+      "title": "🏆 Top 15 Soorten (Totaal)",
+      "type": "piechart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 29 },
+      "id": 103,
+      "panels": [],
+      "title": "🌤️ Weer Correlaties",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "temp" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "unit", "value": "celsius" },
+              { "id": "displayName", "value": "Temperatuur" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "detecties" },
+            "properties": [
+              { "id": "displayName", "value": "Detecties" }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 30 },
+      "id": 10,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT date_trunc('hour', b.detection_timestamp) as time, COUNT(*) as detecties, AVG(w.temp_outdoor) as temp FROM bird_detections b LEFT JOIN weather_data w ON date_trunc('hour', w.measurement_timestamp) = date_trunc('hour', b.detection_timestamp) WHERE b.detection_timestamp >= NOW() - INTERVAL '7 days' GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "🌡️ Detecties vs Temperatuur",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "wind" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "unit", "value": "velocitykmh" },
+              { "id": "displayName", "value": "Wind" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "detecties" },
+            "properties": [
+              { "id": "displayName", "value": "Detecties" }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 30 },
+      "id": 11,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT date_trunc('hour', b.detection_timestamp) as time, COUNT(*) as detecties, AVG(w.wind_speed) as wind FROM bird_detections b LEFT JOIN weather_data w ON date_trunc('hour', w.measurement_timestamp) = date_trunc('hour', b.detection_timestamp) WHERE b.detection_timestamp >= NOW() - INTERVAL '7 days' GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "💨 Detecties vs Wind",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0 },
+              { "color": "green", "value": 0.3 }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "correlatie" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 38 },
+      "id": 12,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
+        "showHeader": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawSql": "WITH hourly_data AS (SELECT date_trunc('hour', b.detection_timestamp) as hour, COUNT(*) as detecties, AVG(w.temp_outdoor) as temp, AVG(w.wind_speed) as wind, AVG(w.rain_rate) as regen, AVG(w.barometer) as druk FROM bird_detections b LEFT JOIN weather_data w ON date_trunc('hour', w.measurement_timestamp) = date_trunc('hour', b.detection_timestamp) WHERE b.detection_timestamp >= NOW() - INTERVAL '30 days' GROUP BY 1) SELECT 'Temperatuur' as factor, ROUND(CORR(detecties, temp)::numeric, 3) as correlatie, COUNT(*) as datapunten, SUM(detecties) as detecties FROM hourly_data WHERE temp IS NOT NULL UNION ALL SELECT 'Windsnelheid' as factor, ROUND(CORR(detecties, wind)::numeric, 3) as correlatie, COUNT(*) as datapunten, SUM(detecties) as detecties FROM hourly_data WHERE wind IS NOT NULL UNION ALL SELECT 'Regenval' as factor, ROUND(CORR(detecties, regen)::numeric, 3) as correlatie, COUNT(*) as datapunten, SUM(detecties) as detecties FROM hourly_data WHERE regen IS NOT NULL UNION ALL SELECT 'Luchtdruk' as factor, ROUND(CORR(detecties, druk)::numeric, 3) as correlatie, COUNT(*) as datapunten, SUM(detecties) as detecties FROM hourly_data WHERE druk IS NOT NULL",
+          "refId": "A"
+        }
+      ],
+      "title": "📊 Weer Correlatie Overzicht",
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "regen" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "unit", "value": "lengthmm" },
+              { "id": "displayName", "value": "Regen (mm/h)" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "detecties" },
+            "properties": [
+              { "id": "displayName", "value": "Detecties" }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 38 },
+      "id": 13,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT date_trunc('hour', b.detection_timestamp) as time, COUNT(*) as detecties, AVG(w.rain_rate) as regen FROM bird_detections b LEFT JOIN weather_data w ON date_trunc('hour', w.measurement_timestamp) = date_trunc('hour', b.detection_timestamp) WHERE b.detection_timestamp >= NOW() - INTERVAL '7 days' GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "🌧️ Detecties vs Regen",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 46 },
+      "id": 104,
+      "panels": [],
+      "title": "🔬 Soort Analyse (selecteer soort hierboven)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 47 },
+      "id": 14,
+      "options": {
+        "legend": { "calcs": ["sum"], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "time_series",
+          "rawSql": "SELECT detection_date::timestamp as time, COUNT(*) as detecties FROM media_archive WHERE species = '$species' GROUP BY detection_date ORDER BY detection_date",
+          "refId": "A"
+        }
+      ],
+      "title": "📅 $species - Detecties per Dag",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 47 },
+      "id": 15,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "right", "showLegend": true },
+        "pieType": "donut",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true },
+        "tooltip": { "mode": "single" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawSql": "SELECT station as \"Station\", COUNT(*) as \"Aantal\" FROM media_archive WHERE species = '$species' GROUP BY station",
+          "refId": "A"
+        }
+      ],
+      "title": "📡 $species - Per Station",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "green", "value": 85 }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 47 },
+      "id": 16,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["mean"], "fields": "", "values": false },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+          "format": "table",
+          "rawSql": "SELECT ROUND(AVG(confidence)::numeric * 100, 1) as conf FROM media_archive WHERE species = '$species'",
+          "refId": "A"
+        }
+      ],
+      "title": "📈 $species - Gem. Confidence",
+      "type": "gauge"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["emsn", "data-explorer", "archief", "vogels", "weer"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+        "definition": "SELECT 'Alle' UNION ALL SELECT DISTINCT species FROM media_archive ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Soort",
+        "multi": false,
+        "name": "species",
+        "options": [],
+        "query": "SELECT 'Alle' UNION ALL SELECT DISTINCT species FROM media_archive ORDER BY 1",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": { "type": "postgres", "uid": "emsn_postgres" },
+        "definition": "SELECT 'Alle' UNION ALL SELECT DISTINCT station FROM media_archive ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Station",
+        "multi": false,
+        "name": "station",
+        "options": [],
+        "query": "SELECT 'Alle' UNION ALL SELECT DISTINCT station FROM media_archive ORDER BY 1",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": { "selected": true, "text": "60", "value": "60" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Min. Confidence %",
+        "multi": false,
+        "name": "min_confidence",
+        "options": [
+          { "selected": false, "text": "0", "value": "0" },
+          { "selected": false, "text": "50", "value": "50" },
+          { "selected": true, "text": "60", "value": "60" },
+          { "selected": false, "text": "70", "value": "70" },
+          { "selected": false, "text": "80", "value": "80" },
+          { "selected": false, "text": "90", "value": "90" }
+        ],
+        "query": "0, 50, 60, 70, 80, 90",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "EMSN Data Explorer",
+  "uid": "emsn-data-explorer",
+  "version": 1,
+  "weekStart": "monday"
+}

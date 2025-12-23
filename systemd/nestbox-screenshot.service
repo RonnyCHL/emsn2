@@ -1,0 +1,14 @@
+[Unit]
+Description=Nestkast Screenshot Capture
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/ronny/emsn2/scripts/nestbox/nestbox_screenshot.sh
+User=ronny
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

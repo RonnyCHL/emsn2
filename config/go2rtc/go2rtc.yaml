@@ -1,0 +1,36 @@
+# go2rtc Configuration - EMSN Nestkast Cameras
+# Tuya cameras met audio support via go2rtc
+#
+# Web UI: http://192.168.1.25:1984
+# API: http://192.168.1.25:1984/api
+#
+
+streams:
+  # Nestkast cameras via Tuya/Smart Life API
+  # Probeer verschillende endpoints: protect-eu.ismartlife.me of a]eu.tuyaus.com
+  nestkast_voor:
+    - tuya://protect-eu.ismartlife.me?device_id=bf80c5603b3392da01oyt1&email=ronnyhullegie@gmail.com&password=IwnadBon2iN&resolution=sd
+
+  nestkast_midden:
+    - tuya://protect-eu.ismartlife.me?device_id=bf5ab17574f859aef9zbg1&email=ronnyhullegie@gmail.com&password=IwnadBon2iN&resolution=sd
+
+  nestkast_achter:
+    - tuya://protect-eu.ismartlife.me?device_id=bf0e510111cdf52517rddr&email=ronnyhullegie@gmail.com&password=IwnadBon2iN&resolution=sd
+
+# WebRTC configuratie
+webrtc:
+  candidates:
+    - 192.168.1.25:8555
+
+# API configuratie
+api:
+  listen: ":1984"
+  origin: "*"
+
+# RTSP server
+rtsp:
+  listen: ":8554"
+
+# Debug logging
+log:
+  level: debug

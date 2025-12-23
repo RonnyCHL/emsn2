@@ -1,0 +1,20 @@
+[Unit]
+Description=BirdNET Audio/Spectrogram Archive Sync
+After=network-online.target
+Wants=network-online.target
+# Wacht op NAS mount
+After=mnt-nas\x2dbirdnet\x2darchive.mount
+
+[Service]
+Type=oneshot
+User=ronny
+WorkingDirectory=/home/ronny/emsn2
+ExecStart=/home/ronny/emsn2/venv/bin/python /home/ronny/emsn2/scripts/archive/birdnet_archive_sync.py --station all
+StandardOutput=append:/home/ronny/emsn2/logs/archive_sync.log
+StandardError=append:/home/ronny/emsn2/logs/archive_sync.log
+
+# Timeout na 2 uur (voor grote syncs)
+TimeoutStartSec=7200
+
+[Install]
+WantedBy=multi-user.target

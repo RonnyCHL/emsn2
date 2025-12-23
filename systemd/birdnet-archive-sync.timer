@@ -1,0 +1,13 @@
+[Unit]
+Description=BirdNET Archive Sync Timer - elk uur nieuwe detecties archiveren
+
+[Timer]
+# Elk uur op :15 (om kwart over)
+OnCalendar=*:15
+# Niet inhalen gemiste runs
+Persistent=false
+# Random delay tot 5 minuten om load te spreiden
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

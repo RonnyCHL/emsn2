@@ -1,0 +1,13 @@
+[Unit]
+Description=Homer Dashboard Stats Update Timer - elke 15 minuten
+
+[Timer]
+# Elke 15 minuten
+OnCalendar=*:0/15
+# Direct starten na boot
+Persistent=true
+# Random delay tot 1 minuut
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

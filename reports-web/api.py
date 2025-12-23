@@ -9,6 +9,9 @@ import subprocess
 import threading
 import smtplib
 import yaml
+import signal
+import time
+from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
@@ -2068,6 +2071,826 @@ def get_manual_detections():
             'detections': detections,
             'total': len(detections)
         })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
+# MEDIA ARCHIVE API - Audio & Spectrogram Playback
+# =============================================================================
+
+ARCHIVE_BASE = Path("/mnt/nas-birdnet-archive")
+
+
+@app.route('/api/archive/species')
+def get_archive_species():
+    """Get list of species available in the archive with counts"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            SELECT
+                species,
+                station,
+                COUNT(*) as count,
+                MIN(detection_date) as first_date,
+                MAX(detection_date) as last_date
+            FROM media_archive
+            GROUP BY species, station
+            ORDER BY count DESC
+        """)
+
+        results = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        # Format dates
+        for r in results:
+            if r['first_date']:
+                r['first_date'] = r['first_date'].isoformat()
+            if r['last_date']:
+                r['last_date'] = r['last_date'].isoformat()
+
+        # Group by species
+        species_dict = {}
+        for r in results:
+            sp = r['species']
+            if sp not in species_dict:
+                species_dict[sp] = {
+                    'species': sp,
+                    'total': 0,
+                    'stations': {},
+                    'first_date': r['first_date'],
+                    'last_date': r['last_date']
+                }
+            species_dict[sp]['total'] += r['count']
+            species_dict[sp]['stations'][r['station']] = r['count']
+
+        species_list = sorted(species_dict.values(), key=lambda x: x['total'], reverse=True)
+
+        return jsonify({
+            'species': species_list,
+            'total_species': len(species_list),
+            'total_recordings': sum(s['total'] for s in species_list)
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/archive/recordings')
+def get_archive_recordings():
+    """
+    Get recordings from the archive with filtering options.
+
+    Query params:
+        species: Filter by species name
+        station: Filter by station (zolder/berging)
+        date_from: Start date (YYYY-MM-DD)
+        date_to: End date (YYYY-MM-DD)
+        min_confidence: Minimum confidence (0-1)
+        limit: Max results (default 100)
+        offset: Pagination offset
+    """
+    try:
+        species = request.args.get('species')
+        station = request.args.get('station')
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        min_confidence = request.args.get('min_confidence', type=float)
+        limit = request.args.get('limit', 100, type=int)
+        offset = request.args.get('offset', 0, type=int)
+
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Build query with filters
+        query = """
+            SELECT
+                ma.id,
+                ma.detection_id,
+                ma.station,
+                ma.species,
+                ma.confidence,
+                ma.detection_date,
+                ma.archive_audio_path,
+                ma.archive_spectrogram_path,
+                ma.original_audio_filename,
+                ma.file_size_bytes,
+                ma.archived_at,
+                bd.common_name,
+                bd.time as detection_time,
+                bd.rarity_score,
+                bd.vocalization_type
+            FROM media_archive ma
+            LEFT JOIN bird_detections bd ON ma.detection_id = bd.id
+            WHERE 1=1
+        """
+        params = []
+
+        if species:
+            query += " AND ma.species = %s"
+            params.append(species)
+
+        if station:
+            query += " AND ma.station = %s"
+            params.append(station)
+
+        if date_from:
+            query += " AND ma.detection_date >= %s"
+            params.append(date_from)
+
+        if date_to:
+            query += " AND ma.detection_date <= %s"
+            params.append(date_to)
+
+        if min_confidence is not None:
+            query += " AND ma.confidence >= %s"
+            params.append(min_confidence)
+
+        # Count total with same filters (use copy of params before adding limit/offset)
+        count_params = params.copy()
+        count_query = "SELECT COUNT(*) FROM media_archive ma WHERE 1=1"
+        if species:
+            count_query += " AND ma.species = %s"
+        if station:
+            count_query += " AND ma.station = %s"
+        if date_from:
+            count_query += " AND ma.detection_date >= %s"
+        if date_to:
+            count_query += " AND ma.detection_date <= %s"
+        if min_confidence is not None:
+            count_query += " AND ma.confidence >= %s"
+
+        cur.execute(count_query, count_params)
+        count_result = cur.fetchone()
+        total = list(count_result.values())[0] if hasattr(count_result, 'values') else count_result[0]
+
+        # Add ordering and pagination
+        query += " ORDER BY ma.detection_date DESC, ma.archived_at DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+
+        cur.execute(query, params)
+        recordings = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        # Format results
+        for r in recordings:
+            if r['detection_date']:
+                r['detection_date'] = r['detection_date'].isoformat()
+            if r['archived_at']:
+                r['archived_at'] = r['archived_at'].isoformat()
+            if r['detection_time']:
+                r['detection_time'] = str(r['detection_time'])
+            # Add URLs for media access
+            r['audio_url'] = f"/api/archive/audio/{r['id']}"
+            r['spectrogram_url'] = f"/api/archive/spectrogram/{r['id']}"
+
+        return jsonify({
+            'recordings': recordings,
+            'total': total,
+            'limit': limit,
+            'offset': offset
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/archive/audio/<int:recording_id>')
+def serve_archive_audio(recording_id):
+    """Serve audio file from archive"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            SELECT archive_audio_path, original_audio_filename
+            FROM media_archive WHERE id = %s
+        """, (recording_id,))
+
+        record = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if not record:
+            return jsonify({'error': 'Recording not found'}), 404
+
+        audio_path = ARCHIVE_BASE / record['archive_audio_path']
+
+        if not audio_path.exists():
+            return jsonify({'error': 'Audio file not found on disk'}), 404
+
+        return send_file(
+            audio_path,
+            mimetype='audio/mpeg',
+            as_attachment=False,
+            download_name=record['original_audio_filename']
+        )
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/archive/spectrogram/<int:recording_id>')
+def serve_archive_spectrogram(recording_id):
+    """Serve spectrogram image from archive"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            SELECT archive_spectrogram_path, original_spectrogram_filename
+            FROM media_archive WHERE id = %s
+        """, (recording_id,))
+
+        record = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if not record:
+            return jsonify({'error': 'Recording not found'}), 404
+
+        if not record['archive_spectrogram_path']:
+            return jsonify({'error': 'No spectrogram available'}), 404
+
+        spec_path = ARCHIVE_BASE / record['archive_spectrogram_path']
+
+        if not spec_path.exists():
+            return jsonify({'error': 'Spectrogram file not found on disk'}), 404
+
+        return send_file(
+            spec_path,
+            mimetype='image/png',
+            as_attachment=False
+        )
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/archive/stats')
+def get_archive_stats():
+    """Get overall archive statistics"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            SELECT
+                COUNT(*) as total_recordings,
+                COUNT(DISTINCT species) as unique_species,
+                SUM(file_size_bytes) as total_size_bytes,
+                MIN(detection_date) as earliest_date,
+                MAX(detection_date) as latest_date,
+                COUNT(*) FILTER (WHERE station = 'zolder') as zolder_count,
+                COUNT(*) FILTER (WHERE station = 'berging') as berging_count
+            FROM media_archive
+        """)
+
+        stats = cur.fetchone()
+
+        # Get top 10 species
+        cur.execute("""
+            SELECT species, COUNT(*) as count
+            FROM media_archive
+            GROUP BY species
+            ORDER BY count DESC
+            LIMIT 10
+        """)
+        top_species = cur.fetchall()
+
+        # Get recordings per month
+        cur.execute("""
+            SELECT
+                DATE_TRUNC('month', detection_date) as month,
+                COUNT(*) as count
+            FROM media_archive
+            GROUP BY DATE_TRUNC('month', detection_date)
+            ORDER BY month DESC
+            LIMIT 12
+        """)
+        monthly = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        # Format
+        if stats['earliest_date']:
+            stats['earliest_date'] = stats['earliest_date'].isoformat()
+        if stats['latest_date']:
+            stats['latest_date'] = stats['latest_date'].isoformat()
+
+        if stats['total_size_bytes']:
+            stats['total_size_gb'] = round(stats['total_size_bytes'] / (1024**3), 2)
+
+        for m in monthly:
+            if m['month']:
+                m['month'] = m['month'].strftime('%Y-%m')
+
+        return jsonify({
+            'stats': stats,
+            'top_species': top_species,
+            'monthly_counts': monthly
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/archive/random')
+def get_random_recording():
+    """Get a random recording (optionally filtered by species)"""
+    try:
+        species = request.args.get('species')
+        station = request.args.get('station')
+
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        query = """
+            SELECT
+                ma.id,
+                ma.species,
+                ma.station,
+                ma.detection_date,
+                ma.confidence,
+                ma.archive_audio_path,
+                ma.archive_spectrogram_path,
+                bd.common_name,
+                bd.time as detection_time
+            FROM media_archive ma
+            LEFT JOIN bird_detections bd ON ma.detection_id = bd.id
+            WHERE 1=1
+        """
+        params = []
+
+        if species:
+            query += " AND ma.species = %s"
+            params.append(species)
+
+        if station:
+            query += " AND ma.station = %s"
+            params.append(station)
+
+        query += " ORDER BY RANDOM() LIMIT 1"
+
+        cur.execute(query, params)
+        recording = cur.fetchone()
+
+        cur.close()
+        conn.close()
+
+        if not recording:
+            return jsonify({'error': 'No recordings found'}), 404
+
+        # Format
+        if recording['detection_date']:
+            recording['detection_date'] = recording['detection_date'].isoformat()
+        if recording['detection_time']:
+            recording['detection_time'] = str(recording['detection_time'])
+
+        recording['audio_url'] = f"/api/archive/audio/{recording['id']}"
+        recording['spectrogram_url'] = f"/api/archive/spectrogram/{recording['id']}"
+
+        return jsonify(recording)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
+# NESTBOX MONITORING API - Broedseizoen tracking & media capture
+# =============================================================================
+
+# Tijdelijk lokaal, later naar NAS als permissions gefixt zijn
+NESTBOX_MEDIA_BASE = Path("/home/ronny/nestbox_media")
+
+
+@app.route('/api/nestbox/list')
+def get_nestboxes():
+    """Get list of all nestboxes"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("SELECT * FROM nestboxes ORDER BY id")
+        nestboxes = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        return jsonify({'nestboxes': nestboxes})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nestbox/status')
+def get_nestbox_status():
+    """Get current status of all nestboxes"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("SELECT * FROM v_nestbox_current_status")
+        status = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        return jsonify({'status': status})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nestbox/events', methods=['GET'])
+def get_nestbox_events():
+    """Get nestbox events with optional filtering"""
+    try:
+        nestbox_id = request.args.get('nestbox_id')
+        event_type = request.args.get('event_type')
+        limit = request.args.get('limit', 100, type=int)
+
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        query = "SELECT * FROM nestbox_events WHERE 1=1"
+        params = []
+
+        if nestbox_id:
+            query += " AND nestbox_id = %s"
+            params.append(nestbox_id)
+
+        if event_type:
+            query += " AND event_type = %s"
+            params.append(event_type)
+
+        query += " ORDER BY event_timestamp DESC LIMIT %s"
+        params.append(limit)
+
+        cur.execute(query, params)
+        events = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        # Format timestamps
+        for e in events:
+            if e.get('event_timestamp'):
+                e['event_timestamp'] = e['event_timestamp'].isoformat()
+            if e.get('added_to_db'):
+                e['added_to_db'] = e['added_to_db'].isoformat()
+
+        return jsonify({'events': events, 'total': len(events)})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nestbox/events', methods=['POST'])
+def add_nestbox_event():
+    """Add a new nestbox event"""
+    try:
+        data = request.get_json()
+
+        required = ['nestbox_id', 'event_type']
+        for field in required:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            INSERT INTO nestbox_events
+            (nestbox_id, event_type, event_timestamp, species, egg_count, chick_count, notes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data['nestbox_id'],
+            data['event_type'],
+            data.get('event_timestamp', datetime.now()),
+            data.get('species'),
+            data.get('egg_count'),
+            data.get('chick_count'),
+            data.get('notes')
+        ))
+
+        result = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return jsonify({'success': True, 'id': result['id']})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nestbox/media', methods=['GET'])
+def get_nestbox_media():
+    """Get nestbox media (screenshots/videos)"""
+    try:
+        nestbox_id = request.args.get('nestbox_id')
+        media_type = request.args.get('media_type')
+        date_from = request.args.get('date_from')
+        limit = request.args.get('limit', 50, type=int)
+
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        query = "SELECT * FROM nestbox_media WHERE 1=1"
+        params = []
+
+        if nestbox_id:
+            query += " AND nestbox_id = %s"
+            params.append(nestbox_id)
+
+        if media_type:
+            query += " AND media_type = %s"
+            params.append(media_type)
+
+        if date_from:
+            query += " AND captured_at >= %s"
+            params.append(date_from)
+
+        query += " ORDER BY captured_at DESC LIMIT %s"
+        params.append(limit)
+
+        cur.execute(query, params)
+        media = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        # Format and add URLs
+        for m in media:
+            if m.get('captured_at'):
+                m['captured_at'] = m['captured_at'].isoformat()
+            if m.get('created_at'):
+                m['created_at'] = m['created_at'].isoformat()
+            m['url'] = f"/api/nestbox/media/file/{m['id']}"
+
+        return jsonify({'media': media, 'total': len(media)})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nestbox/media/file/<int:media_id>')
+def serve_nestbox_media(media_id):
+    """Serve nestbox media file"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("SELECT * FROM nestbox_media WHERE id = %s", (media_id,))
+        record = cur.fetchone()
+
+        cur.close()
+        conn.close()
+
+        if not record:
+            return jsonify({'error': 'Media not found'}), 404
+
+        file_path = NESTBOX_MEDIA_BASE / record['file_path']
+
+        if not file_path.exists():
+            return jsonify({'error': 'File not found on disk'}), 404
+
+        mimetype = 'image/jpeg' if record['media_type'] == 'screenshot' else 'video/mp4'
+
+        return send_file(file_path, mimetype=mimetype)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nestbox/capture/screenshot', methods=['POST'])
+def capture_nestbox_screenshot():
+    """Capture screenshot from nestbox camera stream"""
+    try:
+        data = request.get_json()
+        nestbox_id = data.get('nestbox_id')
+
+        if not nestbox_id:
+            return jsonify({'error': 'nestbox_id required'}), 400
+
+        # Ensure directory exists
+        date_str = datetime.now().strftime('%Y/%m/%d')
+        save_dir = NESTBOX_MEDIA_BASE / nestbox_id / 'screenshots' / date_str
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate filename
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{nestbox_id}_{timestamp}.jpg"
+        file_path = save_dir / filename
+
+        # Capture from go2rtc RTSP stream using ffmpeg
+        # go2rtc streams are named nestkast_voor, nestkast_midden, nestkast_achter
+        stream_url = f"rtsp://192.168.1.25:8554/nestkast_{nestbox_id}"
+
+        import subprocess
+        result = subprocess.run([
+            'ffmpeg', '-y',
+            '-rtsp_transport', 'tcp',
+            '-i', stream_url,
+            '-frames:v', '1',
+            '-q:v', '2',
+            str(file_path)
+        ], capture_output=True, timeout=30)
+
+        if result.returncode != 0:
+            return jsonify({'error': 'Screenshot capture failed', 'details': result.stderr.decode()}), 500
+
+        # Get file size
+        file_size = file_path.stat().st_size
+
+        # Save to database
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        relative_path = f"{nestbox_id}/screenshots/{date_str}/{filename}"
+        capture_type = data.get('capture_type', 'manual')
+
+        cur.execute("""
+            INSERT INTO nestbox_media
+            (nestbox_id, media_type, capture_type, file_path, file_name, file_size_bytes, captured_at)
+            VALUES (%s, 'screenshot', %s, %s, %s, %s, NOW())
+            RETURNING id
+        """, (nestbox_id, capture_type, relative_path, filename, file_size))
+
+        result = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'id': result['id'],
+            'file_path': relative_path,
+            'url': f"/api/nestbox/media/file/{result['id']}"
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nestbox/capture/video/start', methods=['POST'])
+def start_nestbox_video():
+    """Start video recording from nestbox camera"""
+    try:
+        data = request.get_json()
+        nestbox_id = data.get('nestbox_id')
+
+        if not nestbox_id:
+            return jsonify({'error': 'nestbox_id required'}), 400
+
+        # Check if already recording
+        recording_flag = Path(f"/tmp/nestbox_recording_{nestbox_id}.pid")
+        if recording_flag.exists():
+            return jsonify({'error': 'Already recording', 'nestbox_id': nestbox_id}), 400
+
+        # Ensure directory exists
+        date_str = datetime.now().strftime('%Y/%m/%d')
+        save_dir = NESTBOX_MEDIA_BASE / nestbox_id / 'videos' / date_str
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate filename
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{nestbox_id}_{timestamp}.mp4"
+        file_path = save_dir / filename
+
+        # Start ffmpeg recording in background
+        # go2rtc streams are named nestkast_voor, nestkast_midden, nestkast_achter
+        stream_url = f"rtsp://192.168.1.25:8554/nestkast_{nestbox_id}"
+
+        import subprocess
+        process = subprocess.Popen([
+            'ffmpeg', '-y',
+            '-rtsp_transport', 'tcp',
+            '-i', stream_url,
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            str(file_path)
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        # Save PID and file info
+        with open(recording_flag, 'w') as f:
+            f.write(f"{process.pid}\n{file_path}\n{nestbox_id}\n{date_str}/{filename}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Recording started',
+            'nestbox_id': nestbox_id,
+            'pid': process.pid
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nestbox/capture/video/stop', methods=['POST'])
+def stop_nestbox_video():
+    """Stop video recording and save to database"""
+    try:
+        data = request.get_json()
+        nestbox_id = data.get('nestbox_id')
+
+        if not nestbox_id:
+            return jsonify({'error': 'nestbox_id required'}), 400
+
+        recording_flag = Path(f"/tmp/nestbox_recording_{nestbox_id}.pid")
+
+        if not recording_flag.exists():
+            return jsonify({'error': 'No active recording', 'nestbox_id': nestbox_id}), 400
+
+        # Read recording info
+        with open(recording_flag, 'r') as f:
+            lines = f.read().strip().split('\n')
+            pid = int(lines[0])
+            file_path = Path(lines[1])
+            relative_path = lines[3]
+
+        # Stop ffmpeg gracefully
+        import subprocess
+        import signal
+        import os
+
+        try:
+            os.kill(pid, signal.SIGINT)
+            # Wait a moment for file to be finalized
+            import time
+            time.sleep(2)
+        except ProcessLookupError:
+            pass  # Process already ended
+
+        # Remove flag
+        recording_flag.unlink()
+
+        # Check file exists and get info
+        if not file_path.exists():
+            return jsonify({'error': 'Recording file not found'}), 500
+
+        file_size = file_path.stat().st_size
+
+        # Get duration using ffprobe
+        try:
+            result = subprocess.run([
+                'ffprobe', '-v', 'quiet',
+                '-show_entries', 'format=duration',
+                '-of', 'csv=p=0',
+                str(file_path)
+            ], capture_output=True, timeout=10)
+            duration = int(float(result.stdout.decode().strip()))
+        except:
+            duration = None
+
+        # Save to database
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            INSERT INTO nestbox_media
+            (nestbox_id, media_type, capture_type, file_path, file_name, file_size_bytes, duration_seconds, captured_at)
+            VALUES (%s, 'video', 'manual', %s, %s, %s, %s, NOW())
+            RETURNING id
+        """, (nestbox_id, relative_path, file_path.name, file_size, duration))
+
+        result = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'id': result['id'],
+            'file_path': relative_path,
+            'file_size_bytes': file_size,
+            'duration_seconds': duration,
+            'url': f"/api/nestbox/media/file/{result['id']}"
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nestbox/capture/video/status')
+def video_recording_status():
+    """Check if any nestbox is currently recording"""
+    try:
+        status = {}
+        for nestbox_id in ['voor', 'midden', 'achter']:
+            flag = Path(f"/tmp/nestbox_recording_{nestbox_id}.pid")
+            status[nestbox_id] = flag.exists()
+
+        return jsonify({'recording': status})
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

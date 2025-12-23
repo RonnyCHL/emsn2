@@ -1,0 +1,21 @@
+# go2rtc Docker Compose - EMSN Nestkast Cameras
+#
+# Installatie op NAS:
+#   1. Kopieer naar /volume1/docker/go2rtc/
+#   2. docker-compose up -d
+#
+# Web UI: http://192.168.1.25:1984
+#
+
+version: "3.8"
+
+services:
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    container_name: go2rtc
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./go2rtc.yaml:/config/go2rtc.yaml:ro
+    environment:
+      - TZ=Europe/Amsterdam
