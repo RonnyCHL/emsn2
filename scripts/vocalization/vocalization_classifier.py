@@ -128,18 +128,46 @@ class VocalizationClassifier:
         self._initialized = True
 
     def _scan_models(self):
-        """Scan beschikbare modellen."""
+        """Scan beschikbare modellen.
+
+        Ondersteunt meerdere model formaten:
+        - *_cnn_2025.pt (standaard)
+        - *_cnn_2025_ultimate.pt (Colab A100 training - prioriteit)
+        - *_ultimate.pt (alternatief formaat)
+        """
         if not self.models_dir.exists():
             logger.warning(f"Models directory niet gevonden: {self.models_dir}")
             return
 
+        # Eerst alle modellen scannen
+        all_models = {}
         for model_file in self.models_dir.glob("*.pt"):
             name = model_file.stem
-            species_name = re.sub(r'_cnn_\d{4}(Q\d)?$', '', name)
-            species_name = species_name.replace('_', ' ').title()
-            self.available_models[species_name.lower()] = model_file
 
-        logger.info(f"Vocalization classifier: {len(self.available_models)} modellen")
+            # Bepaal prioriteit: ultimate modellen hebben voorrang
+            is_ultimate = 'ultimate' in name.lower()
+
+            # Extract species name uit verschillende formaten
+            # Format: soort_cnn_2025_ultimate.pt of soort_cnn_2025.pt of soort_ultimate.pt
+            species_name = re.sub(r'_cnn_\d{4}(_ultimate)?$', '', name)
+            species_name = re.sub(r'_ultimate$', '', species_name)
+            species_name = species_name.replace('_', ' ').title()
+            key = species_name.lower()
+
+            # Ultimate modellen overschrijven altijd standaard modellen
+            if key not in all_models or is_ultimate:
+                all_models[key] = (model_file, is_ultimate)
+
+        # Sla alleen de paths op
+        for key, (model_file, is_ultimate) in all_models.items():
+            self.available_models[key] = model_file
+
+        # Tel ultimate vs standaard
+        ultimate_count = sum(1 for _, is_ult in all_models.values() if is_ult)
+        standard_count = len(all_models) - ultimate_count
+
+        logger.info(f"Vocalization classifier: {len(self.available_models)} modellen "
+                   f"({ultimate_count} ultimate, {standard_count} standaard)")
 
     def _normalize_name(self, name: str) -> str:
         """Normaliseer soortnaam."""
