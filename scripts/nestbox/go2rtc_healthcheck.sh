@@ -46,10 +46,10 @@ restart_go2rtc() {
     log "Restarting go2rtc container on NAS via SSH..."
 
     # Try SSH with key-based auth to restart go2rtc container
-    # Note: ronny must be in docker group on NAS (sudo synogroup --add docker ronny)
-    # After adding to group, NAS needs reboot OR run: sudo synoservicectl --restart sshd
+    # Note: ronny heeft sudoers regel op NAS: /etc/sudoers.d/ronny-docker
+    # Dit staat passwordless docker access toe via: sudo /usr/local/bin/docker
     local docker_output
-    docker_output=$(ssh -o BatchMode=yes -o ConnectTimeout=5 ronny@${NAS_IP} "/usr/local/bin/docker restart go2rtc" 2>&1)
+    docker_output=$(ssh -o BatchMode=yes -o ConnectTimeout=5 ronny@${NAS_IP} "sudo /usr/local/bin/docker restart go2rtc" 2>&1)
     local docker_exit=$?
 
     if [ $docker_exit -eq 0 ]; then
