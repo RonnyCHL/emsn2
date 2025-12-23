@@ -2,13 +2,13 @@
 
 ## Netwerk Overzicht
 
-| Apparaat | IP | Functie |
-|----------|-----|---------|
-| Synology NAS | 192.168.1.25 | Database, Grafana, Homer, Web |
-| EMSN2-Zolder (Pi) | 192.168.1.178 | Hoofdstation BirdNET-Pi |
-| EMSN2-Berging (Pi) | 192.168.1.87 | Tweede station BirdNET-Pi |
-| Ulanzi TC001 | 192.168.1.11 | LED Matrix Display |
-| Davis WeatherLink | Online | Weerstation |
+| Apparaat | IP | Model | Functie |
+|----------|-----|-------|---------|
+| Synology NAS | 192.168.1.25 | DS224Plus | Database, Grafana, Homer, Docker |
+| EMSN2-Zolder | 192.168.1.178 | Raspberry Pi 5 | Hoofdstation BirdNET-Pi, MQTT Broker |
+| EMSN2-Berging | 192.168.1.87 | Raspberry Pi 4 | Tweede station BirdNET-Pi, AtmosBird |
+| EMSN2-Meteo | 192.168.1.156 | Raspberry Pi 2W | Davis weerstation integratie |
+| Ulanzi TC001 | 192.168.1.11 | AWTRIX Light | LED Matrix Display (32x8) |
 
 ## Services op NAS (192.168.1.25)
 
@@ -118,9 +118,40 @@ curl -X POST http://192.168.1.11/api/custom?name=bird \
 ### Documentatie
 https://blueforcer.github.io/awtrix-light/
 
-## Weerstation
+## Meteo Station (EMSN2-Meteo - 192.168.1.156)
 
-Davis weerstation data wordt automatisch naar de database gestuurd.
+Raspberry Pi 2W met Davis WeatherLink integratie.
+
+### Hardware
+- **Model:** Raspberry Pi 2W (512MB RAM)
+- **Hostname:** emsn2-meteo
+- **OS:** Debian 13 (trixie)
+- **Opslag:** 29GB SD-kaart
+
+### Services
+
+| Service | Functie |
+|---------|---------|
+| `davis-weather-monitor.service` | Leest Davis weerstation elke minuut |
+| `weather-sync.timer` | Synct naar PostgreSQL (elke minuut) |
+| `hardware-monitor.timer` | Stuurt hardware metrics (elke minuut) |
+
+### Directories
+
+```
+/home/ronny/davis-integration/
+├── davis_production_monitor.py    # Hoofd monitor script
+├── weather_production.db          # Lokale SQLite database
+└── logs/                          # Davis monitor logs
+
+/home/ronny/sync/
+├── weather_sync.py                # Sync naar PostgreSQL
+└── hardware_monitor.py            # Hardware metrics
+```
+
+### Database User
+- **User:** meteopi
+- **Password:** (zie .secrets)
 
 ### Online Dashboard
 https://www.weatherlink.com/bulletin/fb45f7a2-d3af-4227-b867-9481c2ae44fe
