@@ -13,6 +13,9 @@ Environment=PYTHONUNBUFFERED=1
 ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/vocalization/vocalization_enricher.py --continuous --interval 5
 Restart=always
 RestartSec=60
+# Memory limits om RAM problemen te voorkomen
+MemoryMax=1G
+MemoryHigh=800M
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=vocalization-enricher

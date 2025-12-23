@@ -1,9 +1,27 @@
 #!/usr/bin/env python3
 """
-EMSN 2.0 - Vocalization Classifier
+BirdNET Vocalization Classifier
 
-Lichtgewicht classifier voor integratie met Ulanzi bridge.
-Classificeert audio naar song/call/alarm.
+Lightweight CNN classifier for bird vocalization types (song/call/alarm).
+Works with BirdNET-Pi audio files and species-specific trained models.
+
+Can be used standalone or integrated with display systems like AWTRIX/Ulanzi.
+
+Usage:
+    # Set models directory (or use VOCALIZATION_MODELS_DIR env var)
+    classifier = VocalizationClassifier(models_dir="/path/to/models")
+
+    # Classify a detection
+    result = classifier.classify("Eurasian Blackbird", "/path/to/audio.wav")
+    if result:
+        print(f"{result['type']} ({result['confidence']:.0%})")
+        # Output: song (87%)
+
+Requirements:
+    - PyTorch
+    - librosa
+    - scikit-image
+    - numpy
 """
 
 import re
@@ -35,8 +53,13 @@ def get_librosa():
     return _librosa
 
 
-# Configuration
-MODELS_DIR = Path("/mnt/nas-docker/emsn-vocalization/data/models")
+# Configuration - override MODELS_DIR via environment or constructor
+MODELS_DIR = Path(
+    __import__('os').environ.get(
+        'VOCALIZATION_MODELS_DIR',
+        '/mnt/nas-docker/emsn-vocalization/data/models'  # Default for EMSN
+    )
+)
 SAMPLE_RATE = 48000
 N_MELS = 128
 N_FFT = 2048
@@ -114,9 +137,11 @@ class VocalizationClassifier:
             print(f"{result['type_nl']} ({result['confidence']:.0%})")
     """
 
-    def __init__(self, models_dir: Path = MODELS_DIR):
+    def __init__(self, models_dir: Path = MODELS_DIR, max_cached_models: int = 5):
         self.models_dir = Path(models_dir)
         self.models_cache = {}
+        self.cache_order = []  # LRU tracking
+        self.max_cached_models = max_cached_models
         self.available_models = {}
         self._initialized = False
 
@@ -191,10 +216,14 @@ class VocalizationClassifier:
         return None
 
     def _load_model(self, model_path: Path):
-        """Laad model met caching. Returns (model, metadata)."""
+        """Laad model met LRU caching. Returns (model, metadata)."""
         path_str = str(model_path)
 
+        # Cache hit - verplaats naar einde (recent used)
         if path_str in self.models_cache:
+            if path_str in self.cache_order:
+                self.cache_order.remove(path_str)
+            self.cache_order.append(path_str)
             return self.models_cache[path_str]
 
         try:
@@ -209,7 +238,15 @@ class VocalizationClassifier:
             # Haal class_names uit checkpoint (voor modellen met <3 klassen)
             class_names = checkpoint.get('class_names', ['song', 'call', 'alarm'])
 
+            # LRU cache cleanup - verwijder oudste model als cache vol is
+            while len(self.models_cache) >= self.max_cached_models and self.cache_order:
+                oldest = self.cache_order.pop(0)
+                if oldest in self.models_cache:
+                    del self.models_cache[oldest]
+                    logger.debug(f"Model uit cache verwijderd: {Path(oldest).name}")
+
             self.models_cache[path_str] = (model, class_names)
+            self.cache_order.append(path_str)
             return (model, class_names)
 
         except Exception as e:
