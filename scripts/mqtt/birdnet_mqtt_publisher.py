@@ -2,6 +2,7 @@
 """
 EMSN BirdNET MQTT Publisher
 Monitors BirdNET-Pi SQLite database and publishes new detections to MQTT
+Includes real-time vocalization classification (song/call/alarm)
 """
 
 import os
@@ -22,6 +23,23 @@ try:
     _mqtt = get_mqtt_config()
 except ImportError:
     _mqtt = {'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')}
+
+# Import vocalization classifier (lazy loaded)
+_vocalization_classifier = None
+
+def get_vocalization_classifier():
+    """Lazy load vocalization classifier om startup te versnellen."""
+    global _vocalization_classifier
+    if _vocalization_classifier is None:
+        try:
+            sys.path.insert(0, str(Path(__file__).parent.parent / 'vocalization'))
+            from vocalization_classifier import VocalizationClassifier
+            _vocalization_classifier = VocalizationClassifier(max_cached_models=3)
+            logging.getLogger(__name__).info("Vocalization classifier loaded")
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Vocalization classifier not available: {e}")
+            _vocalization_classifier = False  # Mark as failed, don't retry
+    return _vocalization_classifier if _vocalization_classifier else None
 
 # Configuration
 STATION_NAME = os.getenv("EMSN_STATION", socket.gethostname().replace("emsn2-", ""))
@@ -142,20 +160,60 @@ class BirdNetMQTTPublisher:
             logger.error(f"Database error: {e}")
             return []
 
-    def publish_detection(self, detection):
-        """Publish a detection to MQTT"""
+    def classify_vocalization(self, species_name, audio_file, detection_date):
+        """Classify vocalization type for a detection."""
+        classifier = get_vocalization_classifier()
+        if not classifier:
+            return None
+
+        # Audio files are in: /home/ronny/BirdSongs/Extracted/By_Date/YYYY-MM-DD/Species/filename.mp3
+        # Species folder uses underscores instead of spaces
+        species_folder = species_name.replace(' ', '_')
+        audio_path = Path("/home/ronny/BirdSongs/Extracted/By_Date") / detection_date / species_folder / audio_file
+        if not audio_path.exists():
+            logger.debug(f"Audio not found: {audio_path}")
+            return None
+
         try:
+            result = classifier.classify(species_name, audio_path)
+            if result and result.get('confidence', 0) > 0.5:
+                return {
+                    'type': result['type'],
+                    'type_nl': result['type_nl'],
+                    'confidence': result['confidence']
+                }
+        except Exception as e:
+            logger.debug(f"Vocalization classification failed: {e}")
+
+        return None
+
+    def publish_detection(self, detection):
+        """Publish a detection to MQTT with vocalization classification"""
+        try:
+            species = detection.get("Com_Name", "Unknown")
+            audio_file = detection.get("File_Name", "")
+            detection_date = detection.get("Date", "")
+
+            # Classify vocalization (real-time)
+            vocalization = self.classify_vocalization(species, audio_file, detection_date)
+
             # Build message
             msg = {
                 "station": STATION_NAME,
                 "timestamp": detection.get("Date", "") + " " + detection.get("Time", ""),
-                "species": detection.get("Com_Name", "Unknown"),
+                "species": species,
                 "scientific_name": detection.get("Sci_Name", ""),
                 "confidence": detection.get("Confidence", 0),
-                "file": detection.get("File_Name", ""),
+                "file": audio_file,
                 "latitude": detection.get("Lat", 0),
                 "longitude": detection.get("Lon", 0),
             }
+
+            # Add vocalization if classified
+            if vocalization:
+                msg["vocalization"] = vocalization['type']
+                msg["vocalization_nl"] = vocalization['type_nl']
+                msg["vocalization_confidence"] = vocalization['confidence']
 
             # Publish
             result = self.client.publish(
@@ -165,7 +223,8 @@ class BirdNetMQTTPublisher:
             )
 
             if result.rc == mqtt.MQTT_ERR_SUCCESS:
-                logger.info(f"Published: {msg['species']} ({msg['confidence']:.2f})")
+                voc_info = f" - {msg.get('vocalization_nl', '')}" if 'vocalization_nl' in msg else ""
+                logger.info(f"Published: {msg['species']}{voc_info} ({msg['confidence']:.2f})")
                 return True
             else:
                 logger.warning(f"Publish failed: {result.rc}")

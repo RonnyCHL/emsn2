@@ -729,16 +729,29 @@ class UlanziBridge:
 
         return None
 
-    def parse_apprise_message(self, payload):
-        """Parse Apprise notification message to extract detection info"""
-        # Apprise body format from body.txt:
-        # "A $comname ($sciname) was just detected with a confidence of $confidence ($reason)"
-        # May have "New BirdNET-Pi Detection" header line
-
+    def parse_detection_message(self, payload):
+        """Parse detection message - supports both JSON (new) and Apprise (legacy) formats"""
         try:
             text = payload.decode('utf-8') if isinstance(payload, bytes) else payload
 
-            # Try to parse the standard format (with re.DOTALL to handle multiline)
+            # Try JSON format first (from birdnet_mqtt_publisher)
+            try:
+                data = json.loads(text)
+                return {
+                    'common_name': data.get('species', 'Unknown'),
+                    'scientific_name': data.get('scientific_name', ''),
+                    'confidence': data.get('confidence', 0),
+                    'file': data.get('file', ''),
+                    'vocalization': data.get('vocalization'),
+                    'vocalization_nl': data.get('vocalization_nl'),
+                    'vocalization_confidence': data.get('vocalization_confidence'),
+                    'station': data.get('station', ''),
+                    'raw': text
+                }
+            except json.JSONDecodeError:
+                pass
+
+            # Fallback: Apprise format (legacy)
             # Example: "A Eurasian Magpie (Pica pica) was just detected with a confidence of 0.87 (detection)"
             pattern = r"A (.+?) \((.+?)\)\s+was just detected with a confidence of ([\d.]+)"
             match = re.search(pattern, text, re.DOTALL)
@@ -752,6 +765,8 @@ class UlanziBridge:
                     'common_name': common_name,
                     'scientific_name': scientific_name,
                     'confidence': confidence,
+                    'vocalization': None,
+                    'vocalization_nl': None,
                     'raw': text
                 }
 
@@ -806,22 +821,31 @@ class UlanziBridge:
         else:
             station = 'Unknown'
 
-        # Parse the detection message
-        detection = self.parse_apprise_message(msg.payload)
+        # Parse the detection message (JSON or Apprise format)
+        detection = self.parse_detection_message(msg.payload)
         if not detection:
             return
+
+        # Override station if provided in JSON message
+        if detection.get('station'):
+            station = detection['station'].capitalize()
 
         # Check confidence threshold
         if detection['confidence'] < CONFIDENCE_THRESHOLDS['min_display']:
             self.logger.info(f"Skipping low confidence: {detection['common_name']} ({detection['confidence']:.0%})")
             return
 
-        # Get Dutch name from scientific name
-        dutch_name = self.species_names.get_dutch_name(detection['scientific_name'])
-        if not dutch_name:
-            # Fallback to English name if no Dutch translation found
+        # Get Dutch name - JSON format already has Dutch name in 'species' field
+        # For Apprise format, try to translate from scientific name
+        if detection.get('station'):
+            # JSON format from publisher - species is already Dutch
             dutch_name = detection['common_name']
-            self.logger.warning(f"No Dutch name for {detection['scientific_name']}, using: {dutch_name}")
+        else:
+            # Apprise format - need to translate
+            dutch_name = self.species_names.get_dutch_name(detection['scientific_name'])
+            if not dutch_name:
+                dutch_name = detection['common_name']
+                self.logger.warning(f"No Dutch name for {detection['scientific_name']}, using: {dutch_name}")
 
         # Check for burst detection (duplicate within 5 seconds)
         if self.cooldown.is_burst_detection(dutch_name):
@@ -860,8 +884,11 @@ class UlanziBridge:
                     self.log_notification(dutch_name, detection['confidence'], station, tier, False, 'cooldown')
             return
 
-        # Get vocalization type (zang/roep/alarm)
-        vocalization_type = self._get_vocalization_type(dutch_name)
+        # Get vocalization type - prefer from MQTT message (already classified by publisher)
+        vocalization_type = detection.get('vocalization_nl')
+        if not vocalization_type:
+            # Fallback: classify locally (for legacy Apprise messages)
+            vocalization_type = self._get_vocalization_type(dutch_name, detection.get('file'))
 
         # Format and send notification with Dutch name
         message = self.notifier.format_message(

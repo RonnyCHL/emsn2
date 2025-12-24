@@ -32,8 +32,9 @@ MQTT = {
     'username': _mqtt.get('username', 'ecomonitor'),
     'password': _mqtt.get('password', ''),
     'topics': {
-        'zolder_detection': 'emsn2/zolder/detection/new',
-        'berging_detection': 'emsn2/berging/detection/new',
+        # Nieuwe JSON topics van birdnet_mqtt_publisher (met vocalization)
+        'zolder_detection': 'birdnet/zolder/detection',
+        'berging_detection': 'birdnet/berging/detection',
         'dual_detection': 'emsn2/dual/detection/new',
         'ulanzi_notify': 'emsn2/ulanzi/notify',
         'presence': 'emsn2/presence/home',
