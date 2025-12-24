@@ -101,7 +101,14 @@ Lees dit bestand voor database, NAS, MQTT, Grafana en email wachtwoorden.
 - **Container:** emsn-vocalization-pytorch
 - **Locatie:** /volume1/docker/emsn-vocalization (op NAS)
 - **Mount Pi:** /mnt/nas-docker/emsn-vocalization
-- **Modellen:** data/models/*.pt (196 soorten)
+- **Modellen:** data/models/*.pt (197 ultimate modellen)
+- **Backup:** /mnt/nas-birdnet-archive/getrainde_modellen_EMSN/
+
+### Ultimate Model Architectuur
+De `_ultimate` modellen hebben een diepere CNN (4 conv blokken ipv 3):
+- **Standaard:** 3 conv → 128 filters → classifier 256→num_classes
+- **Ultimate:** 4 conv → 256 filters → classifier 512→256→num_classes
+- Classifier detecteert automatisch aan bestandsnaam of versie
 
 ### Container beheer (vereist sudo op NAS)
 ```bash
@@ -112,6 +119,12 @@ sudo docker logs -f emsn-vocalization-pytorch
 ### Database tabellen
 - vocalization_training - Training status per soort
 - vocalization_model_versions - Model versie tracking
+
+### Geleerde Lessen (Claude)
+- BirdNET-Pi slaat audio op als **MP3**, niet WAV (librosa kan beide laden)
+- NAS CIFS mount: `scp` werkt niet direct, gebruik `sudo cp` via mount
+- Bij nieuwe model architectuur: services herstarten na code update
+- Ultimate modellen: ~35MB per stuk, ~7GB totaal (te groot voor GitHub)
 
 ## Email (Rapporten)
 - **SMTP:** smtp.strato.de:587

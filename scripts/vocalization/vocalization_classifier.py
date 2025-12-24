@@ -78,13 +78,18 @@ VOC_TYPE_NL = {
 logger = logging.getLogger(__name__)
 
 
-def create_cnn_model(num_classes=3):
-    """Create CNN model als nn.Module."""
+def create_cnn_model(num_classes=3, ultimate=False):
+    """Create CNN model als nn.Module.
+
+    Args:
+        num_classes: Aantal output klassen (2 of 3)
+        ultimate: True voor diepere ultimate architectuur (4 conv blokken)
+    """
     torch = get_torch()
     nn = torch.nn
 
     class ColabVocalizationCNN(nn.Module):
-        """CNN model zoals getraind in Google Colab."""
+        """CNN model zoals getraind in Google Colab (standaard 3 conv blokken)."""
 
         def __init__(self, input_shape=(128, 128), num_classes=3):
             super().__init__()
@@ -123,6 +128,59 @@ def create_cnn_model(num_classes=3):
             x = self.classifier(x)
             return x
 
+    class UltimateVocalizationCNN(nn.Module):
+        """Diepere CNN zoals getraind met Colab A100 (4 conv blokken)."""
+
+        def __init__(self, input_shape=(128, 128), num_classes=3):
+            super().__init__()
+
+            self.features = nn.Sequential(
+                nn.Conv2d(1, 32, kernel_size=3, padding=1),
+                nn.BatchNorm2d(32),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Dropout2d(0.25),
+
+                nn.Conv2d(32, 64, kernel_size=3, padding=1),
+                nn.BatchNorm2d(64),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Dropout2d(0.25),
+
+                nn.Conv2d(64, 128, kernel_size=3, padding=1),
+                nn.BatchNorm2d(128),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Dropout2d(0.25),
+
+                nn.Conv2d(128, 256, kernel_size=3, padding=1),
+                nn.BatchNorm2d(256),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Dropout2d(0.25),
+            )
+
+            h, w = input_shape[0] // 16, input_shape[1] // 16
+            flatten_size = 256 * h * w
+
+            self.classifier = nn.Sequential(
+                nn.Flatten(),
+                nn.Linear(flatten_size, 512),
+                nn.ReLU(),
+                nn.Dropout(0.5),
+                nn.Linear(512, 256),
+                nn.ReLU(),
+                nn.Dropout(0.5),
+                nn.Linear(256, num_classes)
+            )
+
+        def forward(self, x):
+            x = self.features(x)
+            x = self.classifier(x)
+            return x
+
+    if ultimate:
+        return UltimateVocalizationCNN(num_classes=num_classes)
     return ColabVocalizationCNN(num_classes=num_classes)
 
 
@@ -231,7 +289,12 @@ class VocalizationClassifier:
             checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
 
             num_classes = checkpoint.get('num_classes', 3)
-            model = create_cnn_model(num_classes=num_classes)
+
+            # Detecteer ultimate model aan bestandsnaam of versie
+            is_ultimate = 'ultimate' in model_path.name.lower() or \
+                          'ultimate' in checkpoint.get('version', '').lower()
+
+            model = create_cnn_model(num_classes=num_classes, ultimate=is_ultimate)
             model.load_state_dict(checkpoint['model_state_dict'])
             model.eval()
 
