@@ -78,14 +78,14 @@ class VocalizationEnricher:
         try:
             cursor = self.pg_conn.cursor()
 
-            # Get recent detections without vocalization type
+            # Get all detections without vocalization type
             # Both stations now have audio access (berging via SSHFS)
+            # No date limit - process entire history
             query = """
                 SELECT id, station, common_name, date, time, file_name
                 FROM bird_detections
                 WHERE vocalization_type IS NULL
                   AND station IN ('zolder', 'berging')
-                  AND date >= CURRENT_DATE - INTERVAL '7 days'
                 ORDER BY detection_timestamp DESC
                 LIMIT %s
             """
