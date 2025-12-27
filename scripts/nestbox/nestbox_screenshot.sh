@@ -43,6 +43,37 @@ capture_screenshot() {
     fi
 }
 
+run_occupancy_detection() {
+    # Alleen bij nacht screenshots (slapende vogel detectie)
+    if [[ "$CAPTURE_TYPE" == auto_night* ]]; then
+        log "Running occupancy detection..."
+
+        # Activeer venv en draai detector
+        SCRIPT_DIR="$(dirname "$0")"
+        if [ -f "/home/ronny/emsn2/venv/bin/python3" ]; then
+            result=$(/home/ronny/emsn2/venv/bin/python3 "$SCRIPT_DIR/nestbox_occupancy_detector.py" --all --json 2>/dev/null)
+
+            if [ -n "$result" ]; then
+                log "Occupancy detection result: $result"
+
+                # Parse resultaten en log per nestkast
+                for nestbox in voor midden achter; do
+                    is_occupied=$(echo "$result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('$nestbox',{}).get('is_occupied',''))" 2>/dev/null)
+                    confidence=$(echo "$result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(f\"{d.get('$nestbox',{}).get('confidence',0)*100:.0f}\")" 2>/dev/null)
+
+                    if [ "$is_occupied" = "True" ]; then
+                        log "BEZET: $nestbox (${confidence}% confidence) - slapende vogel gedetecteerd!"
+                    fi
+                done
+            else
+                log "WARN: Occupancy detection returned no results"
+            fi
+        else
+            log "WARN: Python venv niet gevonden, skip occupancy detection"
+        fi
+    fi
+}
+
 main() {
     log "=== Nestbox Screenshot Capture Started ($CAPTURE_TYPE) ==="
 
@@ -51,6 +82,9 @@ main() {
         capture_screenshot "$nestbox"
         sleep 2  # Kleine pauze tussen captures
     done
+
+    # Draai occupancy detectie na nacht screenshots
+    run_occupancy_detection
 
     log "=== Capture Complete ==="
 }
