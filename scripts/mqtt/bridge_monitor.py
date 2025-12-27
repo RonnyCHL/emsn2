@@ -85,6 +85,8 @@ class BridgeMonitor:
         }
         self.last_alert_time = {}
         self.alert_cooldown = timedelta(hours=1)  # Don't spam alerts
+        self.last_heartbeat = None
+        self.heartbeat_interval = 300  # 5 minuten
         self.db_conn = None
         self.load_state()
         self.connect_db()
@@ -127,6 +129,31 @@ class BridgeMonitor:
             logger.info(f"Logged bridge event: {bridge_name} -> {event_type}")
         except Exception as e:
             logger.error(f"Failed to log bridge event: {e}")
+
+    def send_heartbeat(self):
+        """Send periodic heartbeat to indicate monitor is alive and bridges are connected"""
+        now = datetime.now()
+
+        # Check if we should send heartbeat
+        if self.last_heartbeat and (now - self.last_heartbeat).total_seconds() < self.heartbeat_interval:
+            return
+
+        # Build status summary
+        bridges_ok = all(b["connected"] for b in self.bridge_status.values())
+        status = "healthy" if bridges_ok else "degraded"
+
+        connected_bridges = [name for name, b in self.bridge_status.items() if b["connected"]]
+        disconnected_bridges = [name for name, b in self.bridge_status.items() if not b["connected"]]
+
+        message = f"Status: {status}. "
+        if connected_bridges:
+            message += f"Connected: {', '.join(connected_bridges)}. "
+        if disconnected_bridges:
+            message += f"Disconnected: {', '.join(disconnected_bridges)}."
+
+        self.log_bridge_event('monitor', 'heartbeat', message.strip())
+        self.last_heartbeat = now
+        logger.debug(f"Heartbeat sent: {status}")
 
     def load_state(self):
         """Load previous state from file"""
@@ -291,7 +318,15 @@ class BridgeMonitor:
         try:
             client.connect(MQTT_BROKER, MQTT_PORT, 60)
             logger.info("Starting bridge monitor...")
-            client.loop_forever()
+
+            # Use loop_start() instead of loop_forever() to allow heartbeat
+            client.loop_start()
+
+            while True:
+                # Send heartbeat every 5 minutes
+                self.send_heartbeat()
+                time.sleep(60)  # Check every minute
+
         except KeyboardInterrupt:
             logger.info("Shutting down...")
         except Exception as e:
@@ -300,6 +335,7 @@ class BridgeMonitor:
             self.log_bridge_event('monitor', 'shutdown', 'Bridge monitor service stopped')
             if self.db_conn:
                 self.db_conn.close()
+            client.loop_stop()
             client.disconnect()
 
 
