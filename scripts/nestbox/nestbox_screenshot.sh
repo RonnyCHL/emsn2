@@ -44,9 +44,9 @@ capture_screenshot() {
 }
 
 run_occupancy_detection() {
-    # Alleen bij nacht screenshots (slapende vogel detectie)
-    if [[ "$CAPTURE_TYPE" == auto_night* ]]; then
-        log "Running occupancy detection..."
+    # Draai bij elke screenshot
+    log "Running occupancy detection..."
+    if true; then
 
         # Activeer venv en draai detector
         SCRIPT_DIR="$(dirname "$0")"
