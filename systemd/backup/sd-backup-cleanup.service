@@ -1,0 +1,16 @@
+[Unit]
+Description=EMSN Backup Cleanup (verwijder oude backups)
+After=network-online.target
+After=sd-backup-daily.service
+
+[Service]
+Type=oneshot
+User=ronny
+Group=ronny
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/backup/sd_backup_cleanup.py
+TimeoutStartSec=600
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

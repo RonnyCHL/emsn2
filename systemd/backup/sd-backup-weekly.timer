@@ -1,0 +1,11 @@
+[Unit]
+Description=EMSN SD Kaart Wekelijkse Image Backup Timer
+Documentation=Volledige SD image elke zondag om 03:00
+
+[Timer]
+OnCalendar=Sun *-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

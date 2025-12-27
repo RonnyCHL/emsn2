@@ -1,0 +1,11 @@
+[Unit]
+Description=EMSN SD Kaart Dagelijkse Backup Timer
+Documentation=Rsync backup naar NAS elke nacht om 02:00
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

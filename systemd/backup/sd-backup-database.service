@@ -1,0 +1,17 @@
+[Unit]
+Description=EMSN Database Uurlijkse Backup
+After=network-online.target
+Wants=network-online.target
+After=mnt-nas\x2dbirdnet\x2darchive.mount
+
+[Service]
+Type=oneshot
+User=ronny
+Group=ronny
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/backup/sd_backup_database.py
+TimeoutStartSec=600
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

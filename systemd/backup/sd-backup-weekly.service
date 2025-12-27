@@ -1,0 +1,21 @@
+[Unit]
+Description=EMSN SD Kaart Wekelijkse Image Backup
+After=network-online.target
+Wants=network-online.target
+After=mnt-nas\x2dbirdnet\x2darchive.mount
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/backup/sd_backup_weekly.py
+# Image maken duurt lang, 4 uur timeout
+TimeoutStartSec=14400
+StandardOutput=journal
+StandardError=journal
+# Lagere prioriteit om systeem niet te belasten
+Nice=19
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

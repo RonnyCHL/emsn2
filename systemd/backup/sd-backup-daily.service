@@ -1,0 +1,18 @@
+[Unit]
+Description=EMSN SD Kaart Dagelijkse Backup (rsync)
+After=network-online.target
+Wants=network-online.target
+# Wacht tot NAS gemount is
+After=mnt-nas\x2dbirdnet\x2darchive.mount
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/backup/sd_backup_daily.py
+TimeoutStartSec=3600
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

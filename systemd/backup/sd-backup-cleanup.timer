@@ -1,0 +1,10 @@
+[Unit]
+Description=EMSN Backup Cleanup Timer
+Documentation=Opruimen oude backups dagelijks om 02:30
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
