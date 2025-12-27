@@ -51,7 +51,7 @@ run_occupancy_detection() {
         # Activeer venv en draai detector
         SCRIPT_DIR="$(dirname "$0")"
         if [ -f "/home/ronny/emsn2/venv/bin/python3" ]; then
-            result=$(/home/ronny/emsn2/venv/bin/python3 "$SCRIPT_DIR/nestbox_occupancy_detector.py" --all --json 2>/dev/null)
+            result=$(/home/ronny/emsn2/venv/bin/python3 "$SCRIPT_DIR/nestbox_occupancy_detector.py" --all --json --save-db --capture-type "$CAPTURE_TYPE" 2>/dev/null)
 
             if [ -n "$result" ]; then
                 log "Occupancy detection result: $result"

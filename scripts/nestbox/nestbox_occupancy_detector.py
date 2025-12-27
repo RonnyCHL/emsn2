@@ -16,12 +16,22 @@ from datetime import datetime
 from pathlib import Path
 import argparse
 import json
+import psycopg2
 
 # Configuratie
 MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_occupancy_model.pt"
 CLASSES = ['leeg', 'bezet']
 INPUT_SIZE = 224
 CONFIDENCE_THRESHOLD = 0.7  # Minimale confidence voor detectie
+
+# Database configuratie
+DB_CONFIG = {
+    'host': '192.168.1.25',
+    'port': 5433,
+    'database': 'emsn',
+    'user': 'postgres',
+    'password': 'IwnadBon2iN'
+}
 
 
 def create_model(num_classes=2):
@@ -137,7 +147,36 @@ def analyze_nestbox(nestbox_id, model=None, latest_only=True, verbose=False):
     return results
 
 
-def analyze_all_nestboxes(verbose=False):
+def save_to_database(result, capture_type=None):
+    """Sla detectie resultaat op in database"""
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        cur = conn.cursor()
+
+        cur.execute("""
+            INSERT INTO nestbox_occupancy
+            (nestbox_id, is_occupied, confidence, prob_leeg, prob_bezet, image_path, capture_type)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (
+            result['nestbox_id'],
+            result['is_occupied'],
+            result['confidence'],
+            result['probabilities']['leeg'],
+            result['probabilities']['bezet'],
+            result.get('image_path'),
+            capture_type
+        ))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Database error: {e}", file=sys.stderr)
+        return False
+
+
+def analyze_all_nestboxes(verbose=False, save_db=False, capture_type=None):
     """Analyseer alle nestkasten"""
     nestboxes = ['voor', 'midden', 'achter']
     model, checkpoint = load_model(MODEL_PATH)
@@ -153,6 +192,10 @@ def analyze_all_nestboxes(verbose=False):
         results = analyze_nestbox(nestbox_id, model=model, latest_only=True, verbose=verbose)
         if results:
             all_results[nestbox_id] = results[0]
+            if save_db:
+                if save_to_database(results[0], capture_type):
+                    if verbose:
+                        print(f"  -> Opgeslagen in database")
 
     return all_results
 
@@ -168,6 +211,10 @@ def main():
                         help='Output als JSON')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='Verbose output')
+    parser.add_argument('--save-db', '-s', action='store_true',
+                        help='Sla resultaten op in database')
+    parser.add_argument('--capture-type', '-c', type=str, default=None,
+                        help='Capture type (auto_morning, auto_night, etc.)')
 
     args = parser.parse_args()
 
@@ -182,7 +229,7 @@ def main():
             print(json.dumps(results, indent=2))
 
     elif args.all:
-        results = analyze_all_nestboxes(verbose=not args.json)
+        results = analyze_all_nestboxes(verbose=not args.json, save_db=args.save_db, capture_type=args.capture_type)
         if args.json:
             print(json.dumps(results, indent=2))
         else:
@@ -192,10 +239,10 @@ def main():
                 print(f"{nestbox_id}: {status} ({result['confidence']:.1%})")
 
     else:
-        # Default: analyseer alle nestkasten
+        # Default: analyseer alle nestkasten en sla op
         print("Nestkast Occupancy Detector - EMSN")
         print("=" * 40)
-        results = analyze_all_nestboxes(verbose=True)
+        results = analyze_all_nestboxes(verbose=True, save_db=args.save_db, capture_type=args.capture_type)
         print("\n=== Samenvatting ===")
         for nestbox_id, result in results.items():
             status = "BEZET" if result['is_occupied'] else "LEEG"
