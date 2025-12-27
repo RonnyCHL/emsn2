@@ -75,9 +75,36 @@ Lees dit bestand voor database, NAS, MQTT, Grafana en email wachtwoorden.
 ## NAS Shares
   - //192.168.1.25/docker → /mnt/nas-docker
   - //192.168.1.25/emsn-AIRapporten → /mnt/nas-reports
+  - 192.168.1.25:/volumeUSB1/usbshare → /mnt/nas-birdnet-archive (NFS, 8TB USB)
 - **Credentials:** zie `.secrets`
 - **Let op:** NAS proxy blokkeert POST requests - gebruik directe Pi IP voor API calls
 - **Grafana:** http://192.168.1.25:3000
+
+## AtmosBird (Hemel Monitoring)
+- **Locatie:** Pi Berging (192.168.1.87)
+- **Camera:** Pi Camera NoIR Module 3 (imx708_wide_noir) - 120° diagonaal FOV
+- **Coordinaten:** 52.360179, 6.472626 (Nijverdal)
+
+### Opslag Architectuur
+| Locatie | Pad | Retentie |
+|---------|-----|----------|
+| **Lokaal (USB 29GB)** | /mnt/usb/atmosbird/ | 7 dagen |
+| **NAS Archief (8TB)** | /mnt/nas-birdnet-archive/atmosbird/ | Permanent |
+| **Thumbnails** | /mnt/nas-birdnet-archive/atmosbird/thumbnails/ | Permanent |
+
+### Services (berging)
+- atmosbird-capture.timer - Elke 10 min foto maken
+- atmosbird-analysis.timer - Elke 15 min analyse (ISS, maan, sterren)
+- atmosbird-timelapse.timer - Dagelijks timelapse genereren
+- atmosbird-archive-sync.timer - Elk uur sync naar NAS + cleanup
+
+### Database
+- sky_observations - Alle metingen (brightness, cloud_coverage)
+- sky_observations.archive_path - Pad naar NAS archief
+- iss_passes, moon_observations, meteor_detections, star_brightness
+
+### Dashboard
+- **URL:** http://192.168.1.25:3000/d/e93c556b-ff12-44b7-a66f-80bde253f8b7/
 
 ## Vocalization System
 

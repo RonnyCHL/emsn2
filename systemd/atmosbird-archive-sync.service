@@ -1,0 +1,27 @@
+[Unit]
+Description=AtmosBird Archive Sync - Foto's naar NAS archief
+Documentation=https://github.com/RonnyCHL/emsn2
+After=network-online.target mnt-nas\x2dbirdnet\x2darchive.mount
+Wants=network-online.target
+Requires=mnt-nas\x2dbirdnet\x2darchive.mount
+
+[Service]
+Type=oneshot
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2/scripts/atmosbird
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/atmosbird/atmosbird_archive_sync.py
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=atmosbird-archive-sync
+
+# Timeout voor grote syncs
+TimeoutStartSec=3600
+
+# Restart niet nodig voor oneshot
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

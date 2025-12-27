@@ -1,0 +1,14 @@
+[Unit]
+Description=AtmosBird Archive Sync Timer - Elk uur foto's archiveren
+Documentation=https://github.com/RonnyCHL/emsn2
+
+[Timer]
+# Draai elk uur op minuut 30 (vermijd piek op :00)
+OnCalendar=*:30
+# Zorg dat gemiste runs worden ingehaald
+Persistent=true
+# Willekeurige vertraging tot 5 min om load te spreiden
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
