@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Broedseizoen Invoer - EMSN</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { color: #4ade80; margin-bottom: 10px; font-size: 1.5em; }
+        .subtitle { color: #94a3b8; margin-bottom: 20px; font-size: 0.9em; }
+        .container { max-width: 900px; margin: 0 auto; }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 600px) {
+            .form-grid { grid-template-columns: 1fr; }
+        }
+
+        .form-card {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .form-card.full-width {
+            grid-column: 1 / -1;
+        }
+        .form-card h3 {
+            margin: 0 0 15px 0;
+            color: #4ade80;
+            font-size: 1em;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #94a3b8;
+            font-size: 0.85em;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            background: #1a1a2e;
+            color: #eee;
+            font-size: 14px;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #4ade80;
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .radio-option {
+            flex: 1;
+            min-width: 80px;
+        }
+        .radio-option input[type="radio"] {
+            display: none;
+        }
+        .radio-option label {
+            display: block;
+            padding: 10px;
+            background: #1a1a2e;
+            border: 2px solid #334155;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9em;
+            color: #eee;
+        }
+        .radio-option input:checked + label {
+            background: #166534;
+            border-color: #4ade80;
+            color: white;
+        }
+        .radio-option label:hover {
+            border-color: #4ade80;
+        }
+
+        .number-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .number-input input[type="number"] {
+            width: 80px;
+            text-align: center;
+        }
+        .number-input .slider {
+            flex: 1;
+        }
+        .number-input input[type="range"] {
+            width: 100%;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #4ade80;
+            color: #1a1a2e;
+        }
+        .btn-primary:hover {
+            background: #22c55e;
+        }
+        .btn-secondary {
+            background: #334155;
+            color: #eee;
+        }
+        .btn-secondary:hover {
+            background: #475569;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .status-message.success {
+            background: #166534;
+            display: block;
+        }
+        .status-message.error {
+            background: #991b1b;
+            display: block;
+        }
+
+        .recent-events {
+            margin-top: 30px;
+        }
+        .event-list {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .event-item {
+            padding: 10px;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .event-item:last-child { border-bottom: none; }
+        .event-info { flex: 1; }
+        .event-date { color: #94a3b8; font-size: 0.85em; }
+        .event-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: 500;
+        }
+        .event-badge.bouw { background: #854d0e; }
+        .event-badge.bezet { background: #166534; }
+        .event-badge.eieren { background: #1e40af; }
+        .event-badge.jongen { background: #7c3aed; }
+        .event-badge.uitgevlogen { background: #4ade80; color: #1a1a2e; }
+        .event-badge.mislukt { background: #991b1b; }
+        .event-badge.leeg { background: #334155; }
+        .event-badge.onderhoud { background: #0891b2; }
+
+        .failure-reason {
+            display: none;
+        }
+        .failure-reason.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Broedseizoen Invoer</h1>
+        <p class="subtitle">Voer observaties in voor de nestkasten</p>
+
+        <div id="status-message" class="status-message"></div>
+
+        <form id="event-form">
+            <div class="form-grid">
+                <div class="form-card">
+                    <h3>Nestkast</h3>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" name="nestbox_id" id="nest-voor" value="voor" required>
+                            <label for="nest-voor">Voor</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="nestbox_id" id="nest-midden" value="midden">
+                            <label for="nest-midden">Midden</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="nestbox_id" id="nest-achter" value="achter">
+                            <label for="nest-achter">Achter</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-card">
+                    <h3>Datum & Tijd</h3>
+                    <div class="form-group">
+                        <input type="datetime-local" name="event_timestamp" id="event_timestamp" required>
+                    </div>
+                </div>
+
+                <div class="form-card full-width">
+                    <h3>Type Observatie</h3>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" name="event_type" id="type-bouw" value="bouw" required>
+                            <label for="type-bouw">Nestbouw</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="event_type" id="type-bezet" value="bezet">
+                            <label for="type-bezet">Bezet</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="event_type" id="type-eieren" value="eieren">
+                            <label for="type-eieren">Eieren</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="event_type" id="type-jongen" value="jongen">
+                            <label for="type-jongen">Jongen</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="event_type" id="type-uitgevlogen" value="uitgevlogen">
+                            <label for="type-uitgevlogen">Uitgevlogen</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="event_type" id="type-mislukt" value="mislukt">
+                            <label for="type-mislukt">Mislukt</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="event_type" id="type-leeg" value="leeg">
+                            <label for="type-leeg">Leeg</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="event_type" id="type-onderhoud" value="onderhoud">
+                            <label for="type-onderhoud">Onderhoud</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-card">
+                    <h3>Vogelsoort</h3>
+                    <div class="form-group">
+                        <select name="species" id="species">
+                            <option value="">-- Selecteer soort --</option>
+                            <option value="Koolmees">Koolmees</option>
+                            <option value="Pimpelmees">Pimpelmees</option>
+                            <option value="Boomklever">Boomklever</option>
+                            <option value="Huismus">Huismus</option>
+                            <option value="Ringmus">Ringmus</option>
+                            <option value="Gekraagde Roodstaart">Gekraagde Roodstaart</option>
+                            <option value="Zwarte Roodstaart">Zwarte Roodstaart</option>
+                            <option value="Grauwe Vliegenvanger">Grauwe Vliegenvanger</option>
+                            <option value="Bonte Vliegenvanger">Bonte Vliegenvanger</option>
+                            <option value="Spreeuw">Spreeuw</option>
+                            <option value="Andere">Andere (zie notities)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-card">
+                    <h3>Aantallen</h3>
+                    <div class="form-group">
+                        <label for="egg_count">Aantal eieren</label>
+                        <div class="number-input">
+                            <input type="number" name="egg_count" id="egg_count" min="0" max="15" value="0">
+                            <div class="slider">
+                                <input type="range" id="egg_slider" min="0" max="15" value="0">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="chick_count">Aantal jongen</label>
+                        <div class="number-input">
+                            <input type="number" name="chick_count" id="chick_count" min="0" max="15" value="0">
+                            <div class="slider">
+                                <input type="range" id="chick_slider" min="0" max="15" value="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-card failure-reason" id="failure-section">
+                    <h3>Reden Mislukking</h3>
+                    <div class="form-group">
+                        <select name="failure_reason" id="failure_reason">
+                            <option value="">-- Selecteer reden --</option>
+                            <option value="Predatie">Predatie</option>
+                            <option value="Verlaten">Verlaten door ouders</option>
+                            <option value="Weer">Slecht weer</option>
+                            <option value="Onvruchtbaar">Onvruchtbare eieren</option>
+                            <option value="Concurrentie">Concurrentie andere vogels</option>
+                            <option value="Verstoring">Menselijke verstoring</option>
+                            <option value="Ziekte">Ziekte</option>
+                            <option value="Onbekend">Onbekend</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-card full-width">
+                    <h3>Notities</h3>
+                    <div class="form-group">
+                        <textarea name="notes" id="notes" placeholder="Aanvullende opmerkingen..."></textarea>
+                    </div>
+
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-primary" id="submit-btn">Opslaan</button>
+                        <button type="reset" class="btn btn-secondary">Wissen</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="recent-events">
+            <h3 style="color: #94a3b8;">Recente Observaties</h3>
+            <div class="event-list" id="event-list">Laden...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/nestbox';
+
+        // Sync sliders with number inputs
+        document.getElementById('egg_slider').addEventListener('input', (e) => {
+            document.getElementById('egg_count').value = e.target.value;
+        });
+        document.getElementById('egg_count').addEventListener('input', (e) => {
+            document.getElementById('egg_slider').value = e.target.value;
+        });
+        document.getElementById('chick_slider').addEventListener('input', (e) => {
+            document.getElementById('chick_count').value = e.target.value;
+        });
+        document.getElementById('chick_count').addEventListener('input', (e) => {
+            document.getElementById('chick_slider').value = e.target.value;
+        });
+
+        // Show/hide failure reason section
+        document.querySelectorAll('input[name="event_type"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const failureSection = document.getElementById('failure-section');
+                if (e.target.value === 'mislukt') {
+                    failureSection.classList.add('show');
+                } else {
+                    failureSection.classList.remove('show');
+                }
+            });
+        });
+
+        // Set default datetime to now
+        function setDefaultDateTime() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('event_timestamp').value = now.toISOString().slice(0, 16);
+        }
+        setDefaultDateTime();
+
+        // Form submission
+        document.getElementById('event-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const form = e.target;
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Bezig...';
+
+            const formData = new FormData(form);
+            const data = {
+                nestbox_id: formData.get('nestbox_id'),
+                event_type: formData.get('event_type'),
+                event_timestamp: formData.get('event_timestamp'),
+                species: formData.get('species') || null,
+                egg_count: parseInt(formData.get('egg_count')) || 0,
+                chick_count: parseInt(formData.get('chick_count')) || 0,
+                notes: formData.get('notes') || null
+            };
+
+            // Add failure reason to notes if applicable
+            if (data.event_type === 'mislukt' && formData.get('failure_reason')) {
+                const reason = formData.get('failure_reason');
+                data.notes = data.notes ? `Reden: ${reason}. ${data.notes}` : `Reden: ${reason}`;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/events`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await res.json();
+
+                if (result.success) {
+                    showStatus('Observatie opgeslagen!', 'success');
+                    form.reset();
+                    setDefaultDateTime();
+                    document.getElementById('failure-section').classList.remove('show');
+                    loadEvents();
+                } else {
+                    showStatus(`Fout: ${result.error}`, 'error');
+                }
+            } catch (err) {
+                showStatus(`Fout: ${err.message}`, 'error');
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Opslaan';
+        });
+
+        function showStatus(message, type) {
+            const el = document.getElementById('status-message');
+            el.textContent = message;
+            el.className = `status-message ${type}`;
+            setTimeout(() => {
+                el.className = 'status-message';
+            }, 5000);
+        }
+
+        async function loadEvents() {
+            try {
+                const res = await fetch(`${API_BASE}/events?limit=100`);
+                const data = await res.json();
+                const events = data.events || [];
+
+                const list = document.getElementById('event-list');
+                if (events.length === 0) {
+                    list.innerHTML = '<div class="event-item">Nog geen observaties</div>';
+                    return;
+                }
+
+                list.innerHTML = events.map(ev => {
+                    const date = new Date(ev.event_timestamp).toLocaleString('nl-NL', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+
+                    let details = '';
+                    if (ev.species) details += ev.species;
+                    if (ev.egg_count > 0) details += ` | ${ev.egg_count} eieren`;
+                    if (ev.chick_count > 0) details += ` | ${ev.chick_count} jongen`;
+
+                    return `
+                        <div class="event-item">
+                            <div class="event-info">
+                                <strong>${ev.nestbox_id}</strong>
+                                <span class="event-badge ${ev.event_type}">${ev.event_type}</span>
+                                ${details ? `<span style="color: #94a3b8; font-size: 0.85em;"> - ${details}</span>` : ''}
+                                <div class="event-date">${date}</div>
+                                ${ev.notes ? `<div style="color: #64748b; font-size: 0.8em; margin-top: 3px;">${ev.notes}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                document.getElementById('event-list').innerHTML = `<div class="event-item">Fout: ${err.message}</div>`;
+            }
+        }
+
+        // Load events on page load
+        loadEvents();
+    </script>
+</body>
+</html>
