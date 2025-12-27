@@ -1,0 +1,458 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 0 },
+      "id": 99,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "## EMSN Netwerk Monitoring\n\nRealtime monitoring van alle netwerkapparaten en services in het EMSN ecosysteem. Elke minuut wordt de bereikbaarheid (ping), latency en service status gecontroleerd.\n\n**Apparaten:** 3x Raspberry Pi (zolder, berging, meteo) • Synology NAS • Ulanzi display • Router  \n**Services:** Grafana • Homer • PostgreSQL • Go2RTC • MQTT • Reports-API • AWTRIX • BirdNET-Pi (2x)",
+        "mode": "markdown"
+      },
+      "type": "text",
+      "transparent": true
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 },
+      "id": 100,
+      "panels": [],
+      "title": "Overzicht",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "green", "value": 1 }
+          ]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 8 },
+      "id": 1,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value_and_name" },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT COUNT(*) FILTER (WHERE is_online) as online, COUNT(*) as total FROM (SELECT DISTINCT ON (device_name) device_name, is_online FROM network_status ORDER BY device_name, timestamp DESC) sub",
+        "refId": "A"
+      }],
+      "title": "Apparaten Online",
+      "transformations": [{ "id": "calculateField", "options": { "mode": "reduceRow", "reduce": { "reducer": "first" } } }],
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "green", "value": 1 }
+          ]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 8 },
+      "id": 2,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value_and_name" },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT COUNT(*) FILTER (WHERE is_available) as available, COUNT(*) as total FROM (SELECT DISTINCT ON (device_name, service_name) device_name, service_name, is_available FROM service_status ORDER BY device_name, service_name, timestamp DESC) sub",
+        "refId": "A"
+      }],
+      "title": "Services Beschikbaar",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 20 },
+            { "color": "red", "value": 100 }
+          ]},
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 8 },
+      "id": 3,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT AVG(latency_ms)::numeric(6,1) as avg_latency FROM network_status WHERE timestamp >= NOW() - INTERVAL '5 minutes' AND latency_ms IS NOT NULL",
+        "refId": "A"
+      }],
+      "title": "Gem. Latency",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1 },
+            { "color": "red", "value": 5 }
+          ]},
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 8 },
+      "id": 4,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT AVG(packet_loss_pct)::numeric(4,1) as avg_loss FROM network_status WHERE timestamp >= NOW() - INTERVAL '5 minutes'",
+        "refId": "A"
+      }],
+      "title": "Gem. Packet Loss",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 8 },
+      "id": 5,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT COUNT(*) FROM network_status WHERE timestamp >= CURRENT_DATE",
+        "refId": "A"
+      }],
+      "title": "Metingen Vandaag",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 120 },
+            { "color": "red", "value": 300 }
+          ]},
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 8 },
+      "id": 6,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT ROUND(EXTRACT(EPOCH FROM NOW() - MAX(timestamp)))::integer as value FROM network_status",
+        "refId": "A"
+      }],
+      "title": "Laatste Scan",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "id": 101,
+      "panels": [],
+      "title": "Apparaat Status",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [
+            { "options": { "false": { "color": "red", "index": 1, "text": "OFFLINE" }, "true": { "color": "green", "index": 0, "text": "ONLINE" } }, "type": "value" }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "status" }, "properties": [{ "id": "custom.cellOptions", "value": { "mode": "gradient", "type": "color-background" } }] },
+          { "matcher": { "id": "byName", "options": "latency_ms" }, "properties": [{ "id": "unit", "value": "ms" }] },
+          { "matcher": { "id": "byName", "options": "packet_loss_pct" }, "properties": [{ "id": "unit", "value": "percent" }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "id": 10,
+      "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": true, "displayName": "status" }] },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT device_name as apparaat, device_ip as ip, device_type as type, CASE WHEN is_online THEN 'ONLINE' ELSE 'OFFLINE' END as status, ROUND(latency_ms::numeric, 1) as latency_ms, packet_loss_pct, to_char(timestamp, 'HH24:MI:SS') as laatste_check FROM (SELECT DISTINCT ON (device_name) * FROM network_status ORDER BY device_name, timestamp DESC) sub ORDER BY is_online DESC, device_name",
+        "refId": "A"
+      }],
+      "title": "Huidige Apparaat Status",
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [
+            { "options": { "false": { "color": "red", "index": 1, "text": "FAIL" }, "true": { "color": "green", "index": 0, "text": "OK" } }, "type": "value" }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "status" }, "properties": [{ "id": "custom.cellOptions", "value": { "mode": "gradient", "type": "color-background" } }] },
+          { "matcher": { "id": "byName", "options": "response_ms" }, "properties": [{ "id": "unit", "value": "ms" }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "id": 11,
+      "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": true, "displayName": "status" }] },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT device_name as apparaat, service_name as service, service_type as type, CASE WHEN is_available THEN 'OK' ELSE 'FAIL' END as status, ROUND(response_time_ms::numeric, 0) as response_ms, COALESCE(error_message, '-') as error, to_char(timestamp, 'HH24:MI:SS') as laatste_check FROM (SELECT DISTINCT ON (device_name, service_name) * FROM service_status ORDER BY device_name, service_name, timestamp DESC) sub ORDER BY is_available DESC, device_name, service_name",
+        "refId": "A"
+      }],
+      "title": "Huidige Service Status",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "id": 102,
+      "panels": [],
+      "title": "Latency & Beschikbaarheid",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "id": 20,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "time_series",
+        "rawQuery": true,
+        "rawSql": "SELECT timestamp as time, device_name as metric, latency_ms as value FROM network_status WHERE timestamp >= NOW() - INTERVAL '1 hour' AND latency_ms IS NOT NULL ORDER BY timestamp",
+        "refId": "A"
+      }],
+      "title": "Latency per Apparaat (1u)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "id": 21,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "time_series",
+        "rawQuery": true,
+        "rawSql": "SELECT timestamp as time, device_name || ' / ' || service_name as metric, response_time_ms as value FROM service_status WHERE timestamp >= NOW() - INTERVAL '1 hour' AND response_time_ms IS NOT NULL ORDER BY timestamp",
+        "refId": "A"
+      }],
+      "title": "Service Response Time (1u)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 },
+      "id": 103,
+      "panels": [],
+      "title": "Uptime & Historie",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 95 },
+            { "color": "green", "value": 99 }
+          ]},
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 31 },
+      "id": 30,
+      "options": { "minVizHeight": 75, "minVizWidth": 75, "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true, "sizing": "auto" },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT device_name, ROUND(100.0 * COUNT(*) FILTER (WHERE is_online) / COUNT(*), 1) as uptime FROM network_status WHERE timestamp >= NOW() - INTERVAL '24 hours' GROUP BY device_name ORDER BY uptime DESC",
+        "refId": "A"
+      }],
+      "title": "Uptime per Apparaat (24u)",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 95 },
+            { "color": "green", "value": 99 }
+          ]},
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 31 },
+      "id": 31,
+      "options": { "minVizHeight": 75, "minVizWidth": 75, "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true, "sizing": "auto" },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT device_name || ' / ' || service_name as service, ROUND(100.0 * COUNT(*) FILTER (WHERE is_available) / COUNT(*), 1) as uptime FROM service_status WHERE timestamp >= NOW() - INTERVAL '24 hours' GROUP BY device_name, service_name ORDER BY uptime DESC",
+        "refId": "A"
+      }],
+      "title": "Service Uptime (24u)",
+      "type": "gauge"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 38 },
+      "id": 104,
+      "panels": [],
+      "title": "Incidenten",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "timestamp" }, "properties": [{ "id": "custom.width", "value": 180 }] }
+        ]
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 38 },
+      "id": 40,
+      "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT to_char(timestamp, 'YYYY-MM-DD HH24:MI') as timestamp, device_name as apparaat, device_ip as ip FROM network_status WHERE is_online = false AND timestamp >= NOW() - INTERVAL '24 hours' ORDER BY timestamp DESC LIMIT 20",
+        "refId": "A"
+      }],
+      "title": "Offline Momenten (24u)",
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "orange", "value": null }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "timestamp" }, "properties": [{ "id": "custom.width", "value": 180 }] }
+        ]
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 38 },
+      "id": 41,
+      "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true },
+      "targets": [{
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "emsn_postgres" },
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT to_char(timestamp, 'YYYY-MM-DD HH24:MI') as timestamp, device_name as apparaat, service_name as service, COALESCE(error_message, 'Unknown') as error FROM service_status WHERE is_available = false AND timestamp >= NOW() - INTERVAL '24 hours' ORDER BY timestamp DESC LIMIT 20",
+        "refId": "A"
+      }],
+      "title": "Service Failures (24u)",
+      "type": "table"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "tags": ["emsn", "netwerk", "monitoring", "infrastructure"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "EMSN Netwerk Monitoring",
+  "uid": "emsn-network-monitoring",
+  "version": 1,
+  "weekStart": "monday"
+}
