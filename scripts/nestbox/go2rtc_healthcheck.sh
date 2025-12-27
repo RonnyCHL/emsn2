@@ -1,12 +1,15 @@
 #!/bin/bash
 #
 # go2rtc Health Check voor Tuya Nestkast Cameras
-# Controleert of alle streams actief zijn en herstart go2rtc indien nodig
+# Monitort stream status - GEEN automatische restarts
+#
+# Met preload in go2rtc.yaml blijven streams automatisch actief.
+# Dit script logt alleen de status voor monitoring doeleinden.
 #
 # Draait via systemd timer elke 30 minuten
+#
 
 GO2RTC_API="http://192.168.1.25:1984/api"
-NAS_IP="192.168.1.25"
 LOG_FILE="/var/log/go2rtc-healthcheck.log"
 STREAMS=("nestkast_voor" "nestkast_midden" "nestkast_achter")
 
@@ -16,21 +19,18 @@ log() {
 
 check_stream_active() {
     local stream=$1
-    # Check if stream has an active producer with an ID (not just URL)
     local response=$(curl -s --connect-timeout 5 "${GO2RTC_API}/streams" 2>/dev/null)
 
     if [ -z "$response" ]; then
-        log "ERROR: Cannot reach go2rtc API"
         return 1
     fi
 
-    # Check if stream has active producer (has "id" field, not just "url")
+    # Check if stream has active producer (has "id" field)
     if echo "$response" | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
 stream = data.get('$stream', {})
 producers = stream.get('producers', [])
-# Stream is active if any producer has an 'id' (active connection)
 for p in producers:
     if 'id' in p:
         sys.exit(0)
@@ -42,81 +42,40 @@ sys.exit(1)
     fi
 }
 
-restart_go2rtc() {
-    log "Restarting go2rtc container on NAS via SSH..."
-
-    # Try SSH with key-based auth to restart go2rtc container
-    # Note: ronny heeft sudoers regel op NAS: /etc/sudoers.d/ronny-docker
-    # Dit staat passwordless docker access toe via: sudo /usr/local/bin/docker
-    local docker_output
-    docker_output=$(ssh -o BatchMode=yes -o ConnectTimeout=5 ronny@${NAS_IP} "sudo /usr/local/bin/docker restart go2rtc" 2>&1)
-    local docker_exit=$?
-
-    if [ $docker_exit -eq 0 ]; then
-        log "SUCCESS: go2rtc container restarted via SSH"
-        sleep 15  # Give go2rtc time to reconnect to Tuya
-        return 0
-    else
-        log "WARN: Docker restart failed (exit $docker_exit): $docker_output"
-
-        # Check if it's a permission issue
-        if echo "$docker_output" | grep -q "permission denied"; then
-            log "INFO: Docker group not active yet. On NAS run: sudo synoservicectl --restart sshd"
-        fi
-
-        log "Trying soft reconnect via stream access..."
-
-        # Fallback: try to trigger reconnect by accessing streams
-        for stream in "${STREAMS[@]}"; do
-            log "Triggering reconnect for $stream..."
-            timeout 5 ffprobe -v quiet "rtsp://${NAS_IP}:8554/$stream" 2>/dev/null &
-        done
-        wait
-        sleep 10
-        return 1
-    fi
-}
-
 main() {
-    log "=== go2rtc Health Check Started ==="
+    log "=== go2rtc Health Check ==="
 
-    local all_ok=true
-    local failed_streams=()
+    local online=0
+    local offline=0
+    local offline_streams=()
+
+    # Check go2rtc API bereikbaarheid
+    if ! curl -s --connect-timeout 5 "${GO2RTC_API}/streams" > /dev/null 2>&1; then
+        log "ERROR: go2rtc API niet bereikbaar"
+        exit 1
+    fi
 
     for stream in "${STREAMS[@]}"; do
         if check_stream_active "$stream"; then
-            log "OK: $stream is active"
+            log "OK: $stream"
+            ((online++))
         else
-            log "WARN: $stream is NOT active"
-            all_ok=false
-            failed_streams+=("$stream")
+            log "OFFLINE: $stream"
+            ((offline++))
+            offline_streams+=("$stream")
         fi
     done
 
-    if [ "$all_ok" = false ]; then
-        log "Found ${#failed_streams[@]} inactive streams: ${failed_streams[*]}"
-        restart_go2rtc
+    log "Status: $online online, $offline offline"
 
-        # Check again after restart attempt
-        sleep 5
-        local still_failed=()
-        for stream in "${failed_streams[@]}"; do
-            if ! check_stream_active "$stream"; then
-                still_failed+=("$stream")
-            fi
-        done
-
-        if [ ${#still_failed[@]} -gt 0 ]; then
-            log "ERROR: Streams still inactive after reconnect attempt: ${still_failed[*]}"
-            log "Manual intervention may be required (restart go2rtc via Synology DSM)"
-        else
-            log "SUCCESS: All streams reconnected"
-        fi
-    else
-        log "All streams healthy"
+    if [ $offline -gt 0 ]; then
+        log "Offline streams: ${offline_streams[*]}"
+        log "INFO: Preload zal automatisch proberen te reconnecten"
+        # Exit 1 zodat we in logs kunnen zien dat er iets mis is
+        exit 1
     fi
 
-    log "=== Health Check Complete ==="
+    exit 0
 }
 
 main "$@"
