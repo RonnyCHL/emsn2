@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Nestkast Occupancy Detector - EMSN
-Detecteert automatisch of een nestkast bezet is (slapende vogel) of leeg.
+Nestkast Soort-Herkenning Detector - EMSN
+Detecteert automatisch welke vogelsoort in een nestkast zit (of leeg).
 
 Gebruikt MobileNetV2 model getraind op nestkast screenshots.
+Werkt op dag EN nacht screenshots.
 """
 
 import os
@@ -18,9 +19,9 @@ import argparse
 import json
 import psycopg2
 
-# Configuratie
-MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_occupancy_model.pt"
-CLASSES = ['leeg', 'bezet']
+# Configuratie - gebruik het nieuwe soort-herkenning model
+MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_species_model.pt"
+FALLBACK_MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_occupancy_model.pt"
 INPUT_SIZE = 224
 CONFIDENCE_THRESHOLD = 0.7  # Minimale confidence voor detectie
 
@@ -48,22 +49,30 @@ def create_model(num_classes=2):
     return model
 
 
-def load_model(model_path):
+def load_model(model_path=None):
     """Laad het getrainde model"""
+    if model_path is None:
+        model_path = MODEL_PATH
+
+    # Probeer hoofdmodel, anders fallback
     if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model niet gevonden: {model_path}")
+        if os.path.exists(FALLBACK_MODEL_PATH):
+            model_path = FALLBACK_MODEL_PATH
+        else:
+            raise FileNotFoundError(f"Model niet gevonden: {model_path}")
 
     checkpoint = torch.load(model_path, map_location='cpu')
+    classes = checkpoint.get('classes', ['leeg', 'bezet'])
 
-    model = create_model(num_classes=len(checkpoint.get('classes', CLASSES)))
+    model = create_model(num_classes=len(classes))
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
     return model, checkpoint
 
 
-def predict_image(model, image_path):
-    """Voorspel of een nestkast bezet is"""
+def predict_image(model, image_path, classes):
+    """Voorspel welke soort in de nestkast zit (of leeg)"""
     transform = transforms.Compose([
         transforms.Resize((INPUT_SIZE, INPUT_SIZE)),
         transforms.ToTensor(),
@@ -81,37 +90,50 @@ def predict_image(model, image_path):
 
     class_idx = predicted.item()
     conf = confidence.item()
+    detected_class = classes[class_idx]
+
+    # Bepaal of bezet (alles behalve 'leeg')
+    is_occupied = detected_class.lower() != 'leeg'
+
+    # Bepaal gedetecteerde soort (None als leeg)
+    species = detected_class if is_occupied else None
+
+    # Bouw probabiliteiten dict
+    probs = {cls: probabilities[0][i].item() for i, cls in enumerate(classes)}
 
     return {
-        'class': CLASSES[class_idx],
+        'class': detected_class,
         'class_idx': class_idx,
         'confidence': conf,
-        'is_occupied': class_idx == 1,  # bezet = 1
-        'probabilities': {
-            'leeg': probabilities[0][0].item(),
-            'bezet': probabilities[0][1].item()
-        }
+        'is_occupied': is_occupied,
+        'species': species,
+        'probabilities': probs
     }
 
 
-def analyze_screenshot(image_path, model=None, verbose=False):
+def analyze_screenshot(image_path, model=None, classes=None, verbose=False):
     """Analyseer een nestkast screenshot"""
     if model is None:
-        model, _ = load_model(MODEL_PATH)
+        model, checkpoint = load_model(MODEL_PATH)
+        classes = checkpoint.get('classes', ['leeg', 'bezet'])
 
-    result = predict_image(model, image_path)
+    result = predict_image(model, image_path, classes)
 
     if verbose:
-        status = "BEZET (vogel aanwezig)" if result['is_occupied'] else "LEEG"
+        if result['species']:
+            status = f"BEZET - {result['species']}"
+        else:
+            status = "LEEG"
         print(f"Afbeelding: {image_path}")
         print(f"Status: {status}")
         print(f"Confidence: {result['confidence']:.1%}")
-        print(f"Probabiliteiten: leeg={result['probabilities']['leeg']:.1%}, bezet={result['probabilities']['bezet']:.1%}")
+        probs_str = ", ".join([f"{k}={v:.1%}" for k, v in result['probabilities'].items()])
+        print(f"Probabiliteiten: {probs_str}")
 
     return result
 
 
-def analyze_nestbox(nestbox_id, model=None, latest_only=True, verbose=False):
+def analyze_nestbox(nestbox_id, model=None, classes=None, latest_only=True, verbose=False):
     """Analyseer screenshots van een specifieke nestkast"""
     base_path = Path(f"/mnt/nas-birdnet-archive/nestbox/{nestbox_id}/screenshots")
 
@@ -130,18 +152,22 @@ def analyze_nestbox(nestbox_id, model=None, latest_only=True, verbose=False):
         screenshots = [screenshots[-1]]
 
     if model is None:
-        model, _ = load_model(MODEL_PATH)
+        model, checkpoint = load_model(MODEL_PATH)
+        classes = checkpoint.get('classes', ['leeg', 'bezet'])
 
     results = []
     for screenshot in screenshots:
-        result = predict_image(model, screenshot)
+        result = predict_image(model, screenshot, classes)
         result['image_path'] = str(screenshot)
         result['nestbox_id'] = nestbox_id
         result['timestamp'] = datetime.now().isoformat()
         results.append(result)
 
         if verbose:
-            status = "BEZET" if result['is_occupied'] else "LEEG"
+            if result['species']:
+                status = f"BEZET ({result['species']})"
+            else:
+                status = "LEEG"
             print(f"{screenshot.name}: {status} ({result['confidence']:.1%})")
 
     return results
@@ -153,18 +179,25 @@ def save_to_database(result, capture_type=None):
         conn = psycopg2.connect(**DB_CONFIG)
         cur = conn.cursor()
 
+        # Haal probabiliteiten op (backward compatible)
+        probs = result['probabilities']
+        prob_leeg = probs.get('leeg', 0.0)
+        # prob_bezet is 1 - prob_leeg als we soort-herkenning gebruiken
+        prob_bezet = 1.0 - prob_leeg if 'bezet' not in probs else probs.get('bezet', 0.0)
+
         cur.execute("""
             INSERT INTO nestbox_occupancy
-            (nestbox_id, is_occupied, confidence, prob_leeg, prob_bezet, image_path, capture_type)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            (nestbox_id, is_occupied, confidence, prob_leeg, prob_bezet, image_path, capture_type, species)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             result['nestbox_id'],
             result['is_occupied'],
             result['confidence'],
-            result['probabilities']['leeg'],
-            result['probabilities']['bezet'],
+            prob_leeg,
+            prob_bezet,
             result.get('image_path'),
-            capture_type
+            capture_type,
+            result.get('species')
         ))
 
         conn.commit()
@@ -180,16 +213,20 @@ def analyze_all_nestboxes(verbose=False, save_db=False, capture_type=None):
     """Analyseer alle nestkasten"""
     nestboxes = ['voor', 'midden', 'achter']
     model, checkpoint = load_model(MODEL_PATH)
+    classes = checkpoint.get('classes', ['leeg', 'bezet'])
 
     if verbose:
         print(f"Model geladen: {checkpoint.get('architecture', 'mobilenet_v2')}")
+        print(f"Classes: {classes}")
         print(f"Getraind op: {checkpoint.get('train_samples', '?')} samples")
-        print(f"Beste accuracy: {checkpoint.get('best_val_acc', '?'):.1f}%")
+        acc = checkpoint.get('best_val_acc', None)
+        if acc:
+            print(f"Beste accuracy: {acc:.1f}%")
         print()
 
     all_results = {}
     for nestbox_id in nestboxes:
-        results = analyze_nestbox(nestbox_id, model=model, latest_only=True, verbose=verbose)
+        results = analyze_nestbox(nestbox_id, model=model, classes=classes, latest_only=True, verbose=verbose)
         if results:
             all_results[nestbox_id] = results[0]
             if save_db:
@@ -235,17 +272,23 @@ def main():
         else:
             print("\n=== Samenvatting ===")
             for nestbox_id, result in results.items():
-                status = "BEZET" if result['is_occupied'] else "LEEG"
+                if result['species']:
+                    status = f"BEZET ({result['species']})"
+                else:
+                    status = "LEEG"
                 print(f"{nestbox_id}: {status} ({result['confidence']:.1%})")
 
     else:
         # Default: analyseer alle nestkasten en sla op
-        print("Nestkast Occupancy Detector - EMSN")
+        print("Nestkast Soort-Herkenning Detector - EMSN")
         print("=" * 40)
         results = analyze_all_nestboxes(verbose=True, save_db=args.save_db, capture_type=args.capture_type)
         print("\n=== Samenvatting ===")
         for nestbox_id, result in results.items():
-            status = "BEZET" if result['is_occupied'] else "LEEG"
+            if result['species']:
+                status = f"BEZET ({result['species']})"
+            else:
+                status = "LEEG"
             print(f"{nestbox_id}: {status} ({result['confidence']:.1%})")
 
 
