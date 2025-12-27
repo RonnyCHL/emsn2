@@ -317,5 +317,6 @@ Controleer de MQTT services handmatig als dit probleem aanhoudt.
 
 if __name__ == "__main__":
     failover = MQTTFailover()
-    success = failover.run()
-    sys.exit(0 if success else 1)
+    failover.run()
+    # Altijd exit 0 - alerts worden via email/MQTT verzonden
+    sys.exit(0)
