@@ -121,3 +121,75 @@
     notifempty
     create 644 ronny ronny
 }
+
+# Vocalization enricher logs
+/mnt/usb/logs/vocalization_enricher_*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 ronny ronny
+}
+
+# MQTT bridge/failover logs
+/mnt/usb/logs/bridge_monitor.log
+/mnt/usb/logs/mqtt_failover.log
+/mnt/usb/logs/mqtt-*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    create 644 ronny ronny
+}
+
+# Health check logs
+/mnt/usb/logs/health_check.log
+/mnt/usb/logs/health_check.error.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 ronny ronny
+}
+
+# Database maintenance logs
+/mnt/usb/logs/database_cleanup.log
+/mnt/usb/logs/database_backup.log {
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 ronny ronny
+}
+
+# Flysafe radar logs
+/mnt/usb/logs/flysafe-*.log {
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 ronny ronny
+}
+
+# Nestbox screenshot logs
+/mnt/usb/logs/nestbox-screenshot.log
+/mnt/usb/logs/ulanzi-screenshot.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 ronny ronny
+}

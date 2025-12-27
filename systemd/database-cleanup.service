@@ -1,0 +1,19 @@
+[Unit]
+Description=EMSN Database Cleanup - Remove old records
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ronny
+WorkingDirectory=/home/ronny/emsn2
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/maintenance/database_cleanup.py
+StandardOutput=append:/mnt/usb/logs/database_cleanup.log
+StandardError=append:/mnt/usb/logs/database_cleanup.error.log
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

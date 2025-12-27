@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily database cleanup timer
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

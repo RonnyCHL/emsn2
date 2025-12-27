@@ -90,3 +90,6 @@ main() {
 }
 
 main "$@"
+
+# Altijd succesvol afsluiten (occupancy detection mag falen zonder dat de service faalt)
+exit 0

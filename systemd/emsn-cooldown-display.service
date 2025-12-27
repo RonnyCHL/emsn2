@@ -1,0 +1,17 @@
+[Unit]
+Description=EMSN Cooldown MQTT Publisher for Home Assistant
+After=network.target postgresql.service mosquitto.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=ronny
+WorkingDirectory=/home/ronny/emsn2
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/ulanzi/cooldown_display.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
