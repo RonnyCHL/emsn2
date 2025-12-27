@@ -1,18 +1,9 @@
 [Unit]
-Description=Nestkast Screenshot Timer - 6x per dag
+Description=Nestkast Screenshot Timer - elk uur
 
 [Timer]
-# Ochtend
-OnCalendar=*-*-* 08:00:00
-
-# Middag
-OnCalendar=*-*-* 14:00:00
-
-# Nacht (extra voor slaap detectie ML)
-OnCalendar=*-*-* 22:00:00
-OnCalendar=*-*-* 00:00:00
-OnCalendar=*-*-* 02:00:00
-OnCalendar=*-*-* 04:00:00
+# Elk uur een screenshot + ML detectie
+OnCalendar=*-*-* *:00:00
 
 Persistent=true
 RandomizedDelaySec=60
