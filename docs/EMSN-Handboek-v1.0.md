@@ -3,7 +3,7 @@
 **Ecologisch Monitoring Systeem Nijverdal - Biodiversity Monitoring**
 
 **Versie:** 1.0
-**Datum:** 21 december 2025
+**Datum:** 28 december 2025
 **Auteur:** Ronny Hullegie / Claude Code
 
 ---
@@ -41,9 +41,9 @@ EMSN 2.0 is een biodiversiteitsmonitoringssysteem dat vogelgeluiden detecteert e
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| Zolder Pi | ✅ Online | 25 dagen uptime, primaire node |
+| Zolder Pi | ✅ Online | 32 dagen uptime, primaire node |
 | Berging Pi | ✅ Online | N/A dagen uptime, secundaire node |
-| NAS Database | ✅ Online | 146 MB, 64,758 detecties |
+| NAS Database | ❌ Offline | N/A, N/A detecties |
 | MQTT Broker | ✅ Active | Bidirectionele bridge actief |
 | Rapporten | ⚠️ Gefixd | Monthly report SQL bug verholpen |
 | Ulanzi Display | ✅ Active | LED matrix notificaties |
@@ -387,7 +387,7 @@ Referentietabel met alle soorten.
 | dual_detections | 3 MB | 7.473 |
 | ulanzi_notification_log | 2 MB | 9.512 |
 | performance_metrics | 1 MB | 10.290 |
-| **Totaal** | **146 MB** | - |
+| **Totaal** | **N/A** | - |
 
 ---
 
@@ -574,15 +574,67 @@ PGPASSWORD='REDACTED_DB_PASS' psql -h 192.168.1.25 -p 5433 -U birdpi_zolder -d e
 
 ### 9.4 Backup & Recovery
 
-**Automatische backups:**
-- Database mirror: 5 min (beide stations)
-- Backup cleanup: Zondag 04:00
-- Git repository: Handmatig pushen
+#### SD Kaart Backup Systeem (Nieuw december 2025)
 
-**Recovery procedure:**
-1. Check NAS beschikbaarheid
-2. Herstel van PostgreSQL backup
-3. Herstart services
+Complete disaster recovery oplossing voor beide Pi's met streaming naar NAS.
+
+**Backup Schema:**
+
+| Type | Frequentie | Tijd | Retentie | Grootte |
+|------|------------|------|----------|---------|
+| **Wekelijkse Image** | Zondag | 03:00 | 7 dagen | ~40GB/Pi (gecomprimeerd) |
+| **Dagelijkse Rsync** | Dagelijks | 02:00 | 7 dagen | ~100MB/dag (incrementeel) |
+| **Database Dump** | Elk uur | :15 | 7 dagen | ~12MB/uur |
+| **Cleanup** | Dagelijks | 02:30 | - | Verwijdert oude backups |
+
+**Backup Locaties (NAS 8TB USB):**
+```
+/mnt/nas-birdnet-archive/sd-backups/
+├── zolder/
+│   ├── images/      # Wekelijkse .img.gz bestanden
+│   ├── daily/       # Dagelijkse rsync snapshots
+│   ├── database/    # Uurlijkse database dumps
+│   └── config/      # Configuratie bestanden
+├── berging/
+│   └── (zelfde structuur)
+└── recovery/
+    └── HANDLEIDING-SD-KAART-RECOVERY.md
+```
+
+**Scripts:** `/home/ronny/emsn2/scripts/backup/`
+- `sd_backup_daily.py` - Rsync incrementele backup
+- `sd_backup_weekly.py` - Streaming image backup (dd | pigz → NAS)
+- `sd_backup_database.py` - SQLite database dump
+- `sd_backup_cleanup.py` - Retentie management
+
+**Logs:** `/var/log/emsn-backup/`
+
+**Recovery tijd:** ~15 minuten met Raspberry Pi Imager
+
+**Crash Recovery Hardening:**
+- NAS mounts met `nofail` optie (boot niet geblokkeerd)
+- SQLite WAL mode (write-ahead logging)
+- Hardware watchdog (bcm2835_wdt) - herstart bij hang
+
+#### Recovery Procedure
+
+**Bij SD kaart crash:**
+1. Download nieuwste `.img.gz` van NAS (`images/` map)
+2. Schrijf naar nieuwe SD met Raspberry Pi Imager (Use Custom)
+3. Boot Pi - netwerk/SSH werkt direct
+4. Herstel database van laatste dump:
+   ```bash
+   LATEST=$(ls -t /mnt/nas-birdnet-archive/sd-backups/zolder/database/*.sql.gz | head -1)
+   zcat "$LATEST" | sqlite3 /home/ronny/BirdNET-Pi/scripts/birds.db
+   ```
+5. Herstart BirdNET service
+
+**Volledige handleiding:** `/mnt/nas-birdnet-archive/sd-backups/recovery/HANDLEIDING-SD-KAART-RECOVERY.md`
+
+#### Andere Backups
+
+- Database mirror naar PostgreSQL: 5 min (beide stations)
+- Git repository: Handmatig pushen
 
 ---
 
