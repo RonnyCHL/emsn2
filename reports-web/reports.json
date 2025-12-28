@@ -69,6 +69,19 @@
     {
       "type": "week",
       "year": 2025,
+      "week": 52,
+      "title": "Week 52",
+      "filename": "2025-W52-Weekrapport.md",
+      "filesize": 10143,
+      "modified": "2025-12-28T14:19:18.640017",
+      "period": "2025-12-22 tot 2025-12-28",
+      "total_detections": 25826,
+      "unique_species": 84,
+      "generated": "2025-12-28 14:19:18"
+    },
+    {
+      "type": "week",
+      "year": 2025,
       "week": 51,
       "title": "Week 51",
       "filename": "2025-W51-Weekrapport.md",
@@ -116,6 +129,6 @@
       "generated": "2025-12-13 18:55:55"
     }
   ],
-  "generated": "2025-12-22T07:05:07.873152",
-  "total_reports": 10
+  "generated": "2025-12-28T14:19:18.865468",
+  "total_reports": 11
 }

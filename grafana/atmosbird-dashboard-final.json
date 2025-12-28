@@ -1,10 +1,11 @@
 {
   "dashboard": {
-    "title": "AtmosBird - Sky Monitoring",
+    "uid": "e93c556b-ff12-44b7-a66f-80bde253f8b7",
+    "title": "AtmosBird - Hemel Monitoring",
     "tags": ["atmosbird", "sky", "astronomy"],
     "timezone": "browser",
     "schemaVersion": 38,
-    "version": 3,
+    "version": 4,
     "refresh": "5m",
     "panels": [
       {
@@ -15,7 +16,7 @@
         "gridPos": {"x": 0, "y": 0, "w": 24, "h": 4},
         "targets": [{
           "datasource": {"type": "postgres", "uid": "emsn_postgres"},
-          "rawSql": "SELECT observation_timestamp, sky_type, cloud_coverage as clouds_pct, ROUND(brightness::numeric, 1) as brightness, CONCAT('http://192.168.1.87:8090/atmosbird/', SUBSTRING(image_path FROM 19)) as photo_url FROM sky_observations ORDER BY observation_timestamp DESC LIMIT 1",
+          "rawSql": "SELECT TO_CHAR(observation_timestamp, 'YYYY-MM-DD HH24:MI:SS') as observation_timestamp, sky_type, cloud_coverage as clouds_pct, ROUND(brightness::numeric, 1) as brightness, CONCAT('http://192.168.1.87:8090/atmosbird/', SUBSTRING(image_path FROM 19)) as photo_url FROM sky_observations ORDER BY observation_timestamp DESC LIMIT 1",
           "format": "table",
           "refId": "A"
         }],
