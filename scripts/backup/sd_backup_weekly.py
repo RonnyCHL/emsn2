@@ -44,8 +44,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Tijdelijke locatie voor image (lokale schijf is sneller)
-TEMP_DIR = Path('/tmp/sd-backup')
+# Tijdelijke locatie voor image
+# Gebruik USB schijf als temp (meer ruimte dan /tmp)
+# Fallback naar /tmp als USB niet beschikbaar
+USB_TEMP = Path('/mnt/usb/sd-backup-temp')
+TMP_TEMP = Path('/tmp/sd-backup')
+
+def get_temp_dir():
+    """Bepaal beste temp directory op basis van beschikbare ruimte"""
+    # Probeer USB schijf eerst
+    if USB_TEMP.parent.exists():
+        try:
+            usb_stat = os.statvfs(USB_TEMP.parent)
+            usb_free = (usb_stat.f_frsize * usb_stat.f_bavail) / (1024**3)
+            if usb_free > 10:
+                return USB_TEMP
+        except Exception:
+            pass
+
+    # Fallback naar /tmp
+    return TMP_TEMP
+
+TEMP_DIR = get_temp_dir()
 
 
 def send_alert(subject: str, message: str):
@@ -72,19 +92,27 @@ def send_alert(subject: str, message: str):
 
 def check_prerequisites():
     """Controleer of alle benodigdheden aanwezig zijn"""
+    global TEMP_DIR
+    TEMP_DIR = get_temp_dir()
+
     # Check NAS mount
     if not NAS_BACKUP_BASE.exists():
         raise RuntimeError(f"NAS backup directory niet gevonden: {NAS_BACKUP_BASE}")
 
-    # Check disk space (minimaal 10GB vrij op /tmp)
-    tmp_stat = os.statvfs('/tmp')
-    free_gb = (tmp_stat.f_frsize * tmp_stat.f_bavail) / (1024**3)
-    if free_gb < 10:
-        raise RuntimeError(f"Onvoldoende vrije ruimte in /tmp: {free_gb:.1f}GB (minimaal 10GB nodig)")
-
     # Check of we root zijn (nodig voor dd)
     if os.geteuid() != 0:
         raise RuntimeError("Dit script moet als root draaien (sudo)")
+
+    # Check disk space op temp directory
+    temp_parent = TEMP_DIR.parent if not TEMP_DIR.exists() else TEMP_DIR
+    tmp_stat = os.statvfs(temp_parent)
+    free_gb = (tmp_stat.f_frsize * tmp_stat.f_bavail) / (1024**3)
+
+    logger.info(f"Temp directory: {TEMP_DIR}")
+    logger.info(f"Vrije ruimte: {free_gb:.1f} GB")
+
+    if free_gb < 10:
+        raise RuntimeError(f"Onvoldoende vrije ruimte in {temp_parent}: {free_gb:.1f}GB (minimaal 10GB nodig)")
 
 
 def get_sd_device():
