@@ -1,0 +1,29 @@
+[Unit]
+Description=EMSN Lifetime Sync - Berging Station
+Documentation=https://github.com/RonnyCHL/emsn2
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2/scripts/sync
+
+Environment=PYTHONUNBUFFERED=1
+Environment=PG_PASS=IwnadBon2iN
+Environment=MQTT_PASS=IwnadBon2iN
+
+ExecStart=/home/ronny/emsn2/venv/bin/python3 \
+    /home/ronny/emsn2/scripts/sync/lifetime_sync.py \
+    --station berging
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lifetime-sync-berging
+
+Nice=10
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

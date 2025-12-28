@@ -1,0 +1,11 @@
+[Unit]
+Description=EMSN Lifetime Sync Timer - Berging (hourly)
+Documentation=https://github.com/RonnyCHL/emsn2
+
+[Timer]
+OnCalendar=*:10
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -153,6 +153,26 @@ sudo docker logs -f emsn-vocalization-pytorch
 - Bij nieuwe model architectuur: services herstarten na code update
 - Ultimate modellen: ~35MB per stuk, ~7GB totaal (te groot voor GitHub)
 
+## Lifetime Sync (BirdNET-Pi → PostgreSQL)
+
+### Architectuur
+- **Script:** `/home/ronny/emsn2/scripts/sync/lifetime_sync.py`
+- **Draait op:** Beide Pi's (zolder + berging) via systemd timer
+- **Timers:** Zolder @:05, Berging @:10 (elk uur)
+
+### Sync Logica
+1. Match op **datum+tijd** (niet alleen file_name!)
+2. BirdNET-Pi wijzigt file_name bij soortcorrectie in WebUI
+3. Oude file_name verdwijnt uit SQLite → detecteert als UPDATE
+4. Soft delete: `deleted=TRUE` ipv harde delete (foreign key safe)
+
+### Geleerde Les (Claude)
+- **BirdNET-Pi WebUI soortcorrecties:** File_name bevat soortnaam en verandert mee!
+  - Oud: `Grasmus-91-2025-12-28-birdnet-07:03:27.mp3`
+  - Nieuw: `Roodborst-91-2025-12-28-birdnet-07:03:27.mp3`
+- Sync moet matchen op **datum+tijd**, niet alleen file_name
+- Bij meerdere detecties op zelfde seconde: check of oude file_name nog in SQLite bestaat
+
 ## Email (Rapporten)
 - **SMTP:** smtp.strato.de:587
 - **Credentials:** zie `.secrets`

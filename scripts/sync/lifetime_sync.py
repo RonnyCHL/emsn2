@@ -1,596 +1,635 @@
 #!/usr/bin/env python3
 """
-EMSN Lifetime Sync Script - Zolder Station
-Synchronizes bird detections from local SQLite to central PostgreSQL database on NAS
+EMSN Lifetime Sync - Bird Detection Synchronization
+
+Synchronizes bird detections from BirdNET-Pi SQLite to central PostgreSQL database.
+Supports both zolder and berging stations with INSERT, UPDATE, and soft DELETE.
+
+Key features:
+- Uses date+time as primary match key (BirdNET-Pi changes file_name on species edit)
+- Detects species corrections made in BirdNET-Pi WebUI
+- Updates file_name when species is corrected
+- Soft deletes removed detections (preserves data integrity)
+- Retry logic for database locks
+- MQTT status publishing
+
+Author: EMSN 2.0
 """
 
-import sqlite3
-import psycopg2
-from psycopg2.extras import execute_batch
+import argparse
 import json
+import logging
+import os
+import sqlite3
 import sys
+import time
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
+
 import paho.mqtt.client as mqtt
+import psycopg2
+from psycopg2.extras import execute_batch
 
-# Import secrets
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-try:
-    from emsn_secrets import get_postgres_config, get_mqtt_config
-    _pg = get_postgres_config()
-    _mqtt = get_mqtt_config()
-except ImportError:
-    import os
-    _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
-           'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')}
-    _mqtt = {'broker': '192.168.1.178', 'port': 1883,
-             'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')}
-
+# =============================================================================
 # Configuration
-SQLITE_DB = "/home/ronny/BirdNET-Pi/scripts/birds.db"
+# =============================================================================
+
+@dataclass
+class StationConfig:
+    """Configuration for a BirdNET-Pi station."""
+    name: str
+    sqlite_path: Path
+    pg_user: str
+    detected_by_field: str
+
+
+STATIONS = {
+    "zolder": StationConfig(
+        name="zolder",
+        sqlite_path=Path("/home/ronny/BirdNET-Pi/scripts/birds.db"),
+        pg_user="birdpi_zolder",
+        detected_by_field="detected_by_zolder",
+    ),
+    "berging": StationConfig(
+        name="berging",
+        sqlite_path=Path("/home/ronny/BirdNET-Pi/scripts/birds.db"),
+        pg_user="birdpi_berging",
+        detected_by_field="detected_by_berging",
+    ),
+}
+
 LOG_DIR = Path("/mnt/usb/logs")
-STATION_NAME = "zolder"
+SQLITE_RETRY_ATTEMPTS = 3
+SQLITE_RETRY_DELAY = 5  # seconds
 
-# PostgreSQL Configuration (from secrets)
-PG_CONFIG = {
-    'host': _pg.get('host', '192.168.1.25'),
-    'port': _pg.get('port', 5433),
-    'database': _pg.get('database', 'emsn'),
-    'user': _pg.get('user', 'birdpi_zolder'),
-    'password': _pg.get('password', '')
-}
 
-# MQTT Configuration (from secrets)
-MQTT_CONFIG = {
-    'broker': _mqtt.get('broker', '192.168.1.178'),
-    'port': _mqtt.get('port', 1883),
-    'username': _mqtt.get('username', 'ecomonitor'),
-    'password': _mqtt.get('password', ''),
-    'topic_status': 'emsn2/zolder/sync/status',
-    'topic_stats': 'emsn2/zolder/sync/stats'
-}
+def load_secrets() -> dict:
+    """Load database and MQTT credentials."""
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "config"))
+    try:
+        from emsn_secrets import get_postgres_config, get_mqtt_config
+        return {
+            "postgres": get_postgres_config(),
+            "mqtt": get_mqtt_config(),
+        }
+    except ImportError:
+        return {
+            "postgres": {
+                "host": "192.168.1.25",
+                "port": 5433,
+                "database": "emsn",
+                "user": os.environ.get("PG_USER", "birdpi_zolder"),
+                "password": os.environ.get("PG_PASS", ""),
+            },
+            "mqtt": {
+                "broker": "192.168.1.178",
+                "port": 1883,
+                "username": "ecomonitor",
+                "password": os.environ.get("MQTT_PASS", ""),
+            },
+        }
 
-class SyncLogger:
-    """Simple logger for sync operations"""
 
-    def __init__(self, log_dir):
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.log_file = self.log_dir / f"lifetime_sync_{datetime.now().strftime('%Y%m%d')}.log"
+# =============================================================================
+# Logging
+# =============================================================================
 
-    def log(self, level, message):
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        log_entry = f"[{timestamp}] [{level}] {message}"
-        print(log_entry)
-        with open(self.log_file, 'a') as f:
-            f.write(log_entry + '\n')
+def setup_logging(station: str) -> logging.Logger:
+    """Configure logging for the sync process."""
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_file = LOG_DIR / f"lifetime_sync_{station}_{datetime.now():%Y%m%d}.log"
 
-    def info(self, message):
-        self.log('INFO', message)
+    logger = logging.getLogger(f"lifetime_sync_{station}")
+    logger.setLevel(logging.INFO)
 
-    def error(self, message):
-        self.log('ERROR', message)
+    # Clear existing handlers
+    logger.handlers.clear()
 
-    def warning(self, message):
-        self.log('WARNING', message)
+    # Console handler
+    console = logging.StreamHandler()
+    console.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    logger.addHandler(console)
 
-    def success(self, message):
-        self.log('SUCCESS', message)
+    # File handler
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+# =============================================================================
+# MQTT Publisher
+# =============================================================================
 
 class MQTTPublisher:
-    """MQTT publisher for sync status updates"""
+    """Publishes sync status to MQTT broker."""
 
-    def __init__(self, config, logger):
+    def __init__(self, config: dict, station: str, logger: logging.Logger):
         self.config = config
+        self.station = station
         self.logger = logger
-        self.client = None
-        self.connected = False
+        self.client: Optional[mqtt.Client] = None
+        self.topic_status = f"emsn2/{station}/sync/status"
+        self.topic_stats = f"emsn2/{station}/sync/stats"
 
-    def connect(self):
-        """Connect to MQTT broker"""
+    def connect(self) -> bool:
+        """Establish MQTT connection."""
         try:
             self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-            self.client.username_pw_set(self.config['username'], self.config['password'])
-            self.client.on_connect = self._on_connect
-            self.client.on_disconnect = self._on_disconnect
-            self.client.connect(self.config['broker'], self.config['port'], 60)
+            self.client.username_pw_set(
+                self.config["username"],
+                self.config["password"]
+            )
+            self.client.connect(self.config["broker"], self.config["port"], 60)
             self.client.loop_start()
+            self.logger.info(f"MQTT connected to {self.config['broker']}")
             return True
         except Exception as e:
-            self.logger.error(f"Failed to connect to MQTT broker: {e}")
+            self.logger.warning(f"MQTT connection failed: {e}")
             return False
 
-    def _on_connect(self, client, userdata, flags, reason_code, properties):
-        if reason_code == 0:
-            self.connected = True
-            self.logger.info("Connected to MQTT broker")
-        else:
-            self.logger.error(f"MQTT connection failed with code {reason_code}")
-
-    def _on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties):
-        self.connected = False
-        self.logger.warning("Disconnected from MQTT broker")
-
-    def publish_status(self, status, message, details=None):
-        """Publish sync status update"""
+    def publish_status(self, status: str, message: str, **extra) -> None:
+        """Publish sync status update."""
         if not self.client:
             return
 
         payload = {
-            'station': STATION_NAME,
-            'timestamp': datetime.now().isoformat(),
-            'status': status,
-            'message': message
+            "station": self.station,
+            "timestamp": datetime.now().isoformat(),
+            "status": status,
+            "message": message,
+            **extra,
         }
 
-        if details:
-            payload.update(details)
-
         try:
-            self.client.publish(
-                self.config['topic_status'],
-                json.dumps(payload),
-                qos=1,
-                retain=False
-            )
+            self.client.publish(self.topic_status, json.dumps(payload), qos=1)
         except Exception as e:
-            self.logger.error(f"Failed to publish MQTT status: {e}")
+            self.logger.warning(f"MQTT publish failed: {e}")
 
-    def publish_stats(self, stats):
-        """Publish sync statistics"""
+    def publish_stats(self, stats: dict) -> None:
+        """Publish sync statistics."""
         if not self.client:
             return
 
         payload = {
-            'station': STATION_NAME,
-            'timestamp': datetime.now().isoformat(),
-            **stats
+            "station": self.station,
+            "timestamp": datetime.now().isoformat(),
+            **stats,
         }
 
         try:
-            self.client.publish(
-                self.config['topic_stats'],
-                json.dumps(payload),
-                qos=1,
-                retain=True
-            )
+            self.client.publish(self.topic_stats, json.dumps(payload), qos=1, retain=True)
         except Exception as e:
-            self.logger.error(f"Failed to publish MQTT stats: {e}")
+            self.logger.warning(f"MQTT stats publish failed: {e}")
 
-    def disconnect(self):
-        """Disconnect from MQTT broker"""
+    def disconnect(self) -> None:
+        """Close MQTT connection."""
         if self.client:
             self.client.loop_stop()
             self.client.disconnect()
 
-class BirdDetectionSync:
-    """Synchronizes bird detections from SQLite to PostgreSQL"""
 
-    def __init__(self, logger, mqtt_publisher):
-        self.logger = logger
-        self.mqtt = mqtt_publisher
-        self.sqlite_conn = None
-        self.pg_conn = None
+# =============================================================================
+# Database Connections
+# =============================================================================
 
-    def connect_databases(self):
-        """Connect to both SQLite and PostgreSQL databases"""
+def connect_sqlite(path: Path, logger: logging.Logger) -> Optional[sqlite3.Connection]:
+    """Connect to SQLite with retry logic for database locks."""
+    for attempt in range(1, SQLITE_RETRY_ATTEMPTS + 1):
         try:
-            # Connect to SQLite
-            self.logger.info(f"Connecting to SQLite database: {SQLITE_DB}")
-            self.sqlite_conn = sqlite3.connect(SQLITE_DB)
-            self.sqlite_conn.row_factory = sqlite3.Row
+            conn = sqlite3.connect(str(path), timeout=30)
+            conn.row_factory = sqlite3.Row
+            logger.info(f"SQLite connected: {path}")
+            return conn
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e).lower() and attempt < SQLITE_RETRY_ATTEMPTS:
+                logger.warning(f"SQLite locked, retry {attempt}/{SQLITE_RETRY_ATTEMPTS} in {SQLITE_RETRY_DELAY}s")
+                time.sleep(SQLITE_RETRY_DELAY)
+            else:
+                logger.error(f"SQLite connection failed: {e}")
+                return None
+    return None
 
-            # Connect to PostgreSQL
-            self.logger.info(f"Connecting to PostgreSQL at {PG_CONFIG['host']}:{PG_CONFIG['port']}")
-            self.pg_conn = psycopg2.connect(**PG_CONFIG)
 
-            self.logger.success("Database connections established")
-            return True
+def connect_postgres(config: dict, logger: logging.Logger) -> Optional[psycopg2.extensions.connection]:
+    """Connect to PostgreSQL database."""
+    try:
+        conn = psycopg2.connect(
+            host=config["host"],
+            port=config["port"],
+            database=config["database"],
+            user=config["user"],
+            password=config["password"],
+        )
+        logger.info(f"PostgreSQL connected: {config['host']}:{config['port']}")
+        return conn
+    except psycopg2.Error as e:
+        logger.error(f"PostgreSQL connection failed: {e}")
+        return None
 
-        except sqlite3.Error as e:
-            self.logger.error(f"SQLite connection error: {e}")
-            return False
-        except psycopg2.Error as e:
-            self.logger.error(f"PostgreSQL connection error: {e}")
-            return False
 
-    def get_sqlite_detections(self):
-        """Fetch all detections from SQLite database"""
-        try:
-            cursor = self.sqlite_conn.cursor()
+# =============================================================================
+# Sync Logic
+# =============================================================================
 
-            # Query to get all bird detections
-            query = """
-                SELECT
-                    Date,
-                    Time,
-                    Sci_Name,
-                    Com_Name,
-                    Confidence,
-                    Lat,
-                    Lon,
-                    Cutoff,
-                    Week,
-                    Sens,
-                    Overlap,
-                    File_Name
-                FROM detections
-                ORDER BY Date, Time
-            """
+@dataclass
+class SyncResult:
+    """Results of a sync operation."""
+    inserted: int = 0
+    updated: int = 0
+    soft_deleted: int = 0
+    errors: int = 0
 
-            cursor.execute(query)
-            detections = cursor.fetchall()
 
-            self.logger.info(f"Found {len(detections)} detections in SQLite database")
-            return detections
+def get_sqlite_detections(conn: sqlite3.Connection) -> dict:
+    """
+    Fetch all detections from SQLite, keyed by file_name.
 
-        except sqlite3.Error as e:
-            self.logger.error(f"Error reading from SQLite: {e}")
-            return []
+    Returns dict mapping file_name -> detection data
+    """
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT
+            Date, Time, Sci_Name, Com_Name, Confidence,
+            Lat, Lon, Cutoff, Week, Sens, Overlap, File_Name
+        FROM detections
+        WHERE File_Name IS NOT NULL AND File_Name != ''
+    """)
 
-    def get_existing_detections(self):
-        """Get set of existing detections in PostgreSQL for deduplication"""
-        try:
-            cursor = self.pg_conn.cursor()
-
-            query = """
-                SELECT detection_timestamp, species
-                FROM bird_detections
-                WHERE station = %s
-            """
-
-            cursor.execute(query, (STATION_NAME,))
-            existing = set()
-
-            for row in cursor.fetchall():
-                # Create unique key from timestamp and species
-                key = (row[0], row[1])
-                existing.add(key)
-
-            self.logger.info(f"Found {len(existing)} existing detections in PostgreSQL")
-            return existing
-
-        except psycopg2.Error as e:
-            self.logger.error(f"Error reading from PostgreSQL: {e}")
-            return set()
-
-    def get_pg_detections_full(self):
-        """Get all detections from PostgreSQL with full details for comparison"""
-        try:
-            cursor = self.pg_conn.cursor()
-
-            query = """
-                SELECT id, detection_timestamp, species, common_name
-                FROM bird_detections
-                WHERE station = %s
-            """
-
-            cursor.execute(query, (STATION_NAME,))
-            detections = {}
-
-            for row in cursor.fetchall():
-                # Key by (timestamp, species) - unique combination
-                key = (row[1], row[2])  # (timestamp, species)
-                detections[key] = {
-                    'id': row[0],
-                    'timestamp': row[1],
-                    'species': row[2],
-                    'common_name': row[3]
-                }
-
-            return detections
-
-        except psycopg2.Error as e:
-            self.logger.error(f"Error reading from PostgreSQL: {e}")
-            return {}
-
-    def get_sqlite_detections_keyed(self):
-        """Get SQLite detections indexed by (timestamp, species) for comparison"""
-        try:
-            cursor = self.sqlite_conn.cursor()
-
-            query = """
-                SELECT Date, Time, Sci_Name, Com_Name
-                FROM detections
-            """
-
-            cursor.execute(query)
-            detections = {}
-
-            for row in cursor.fetchall():
-                date_str = row[0]
-                time_str = row[1]
-
-                try:
-                    timestamp = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
-                    key = (timestamp, row[2])  # (timestamp, species)
-                    detections[key] = {
-                        'timestamp': timestamp,
-                        'species': row[2],
-                        'common_name': row[3]
-                    }
-                except ValueError:
-                    continue
-
-            return detections
-
-        except sqlite3.Error as e:
-            self.logger.error(f"Error reading from SQLite: {e}")
-            return {}
-
-    def sync_deletions(self):
-        """Detect and sync deletions from SQLite to PostgreSQL"""
-
-        self.logger.info("Checking for deletions...")
-
-        # Get all records from both databases keyed by (timestamp, species)
-        pg_detections = self.get_pg_detections_full()
-        sqlite_detections = self.get_sqlite_detections_keyed()
-
-        deleted_ids = []
-
-        for key, pg_record in pg_detections.items():
-            if key not in sqlite_detections:
-                # Record was deleted in BirdNET-Pi
-                deleted_ids.append(pg_record['id'])
-                self.logger.info(f"  Marked for deletion: {pg_record['timestamp']} - {pg_record['species']} ({pg_record['common_name']})")
-
-        # Perform deletions
-        deleted_count = 0
-        if deleted_ids:
-            deleted_count = self.delete_detections(deleted_ids)
-        else:
-            self.logger.info("  No deletions found")
-
-        return deleted_count
-
-    def delete_detections(self, ids):
-        """Delete detections from PostgreSQL by ID"""
-        try:
-            cursor = self.pg_conn.cursor()
-
-            # Delete in batches
-            query = "DELETE FROM bird_detections WHERE id = ANY(%s) AND station = %s"
-            cursor.execute(query, (ids, STATION_NAME))
-
-            deleted_count = cursor.rowcount
-            self.pg_conn.commit()
-
-            self.logger.success(f"Deleted {deleted_count} records from PostgreSQL")
-            return deleted_count
-
-        except psycopg2.Error as e:
-            self.pg_conn.rollback()
-            self.logger.error(f"Error deleting detections: {e}")
-            return 0
-
-    def sync_detections(self):
-        """Main sync logic: transfer new detections from SQLite to PostgreSQL"""
-
-        # Get all detections from SQLite
-        sqlite_detections = self.get_sqlite_detections()
-        if not sqlite_detections:
-            self.logger.warning("No detections found in SQLite database")
-            return 0
-
-        # Get existing detections from PostgreSQL
-        existing_detections = self.get_existing_detections()
-
-        # Prepare new detections for insertion
-        new_detections = []
-        skipped = 0
-
-        for row in sqlite_detections:
-            # Parse datetime
-            date_str = row['Date']
-            time_str = row['Time']
-
-            try:
-                detection_timestamp = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
-            except ValueError:
-                self.logger.warning(f"Invalid datetime format: {date_str} {time_str}")
-                skipped += 1
-                continue
-
-            species = row['Sci_Name']
-
-            # Check if this detection already exists
-            key = (detection_timestamp, species)
-            if key in existing_detections:
-                skipped += 1
-                continue
-
-            # Parse confidence
-            try:
-                confidence = float(row['Confidence'])
-            except (ValueError, TypeError):
-                self.logger.warning(f"Invalid confidence value: {row['Confidence']}")
-                confidence = 0.0
-
-            # Prepare record for PostgreSQL
-            detection = {
-                'station': STATION_NAME,
-                'detection_timestamp': detection_timestamp,
-                'date': detection_timestamp.date(),
-                'time': detection_timestamp.time(),
-                'species': species,
-                'common_name': row['Com_Name'],
-                'confidence': confidence,
-                'latitude': row['Lat'] if row['Lat'] else None,
-                'longitude': row['Lon'] if row['Lon'] else None,
-                'cutoff': float(row['Cutoff']) if row['Cutoff'] else None,
-                'week': int(row['Week']) if row['Week'] else None,
-                'sensitivity': float(row['Sens']) if row['Sens'] else None,
-                'overlap': float(row['Overlap']) if row['Overlap'] else None,
-                'file_name': row['File_Name'],
-                'detected_by_zolder': True,
-                'detected_by_berging': False,
-                'dual_detection': False,
-                'time_diff_seconds': None,
-                'rarity_score': 0,
-                'rarity_tier': None
+    detections = {}
+    for row in cursor.fetchall():
+        file_name = row["File_Name"]
+        if file_name:
+            detections[file_name] = {
+                "date": row["Date"],
+                "time": row["Time"],
+                "species": row["Sci_Name"],
+                "common_name": row["Com_Name"],
+                "confidence": float(row["Confidence"]) if row["Confidence"] else 0.0,
+                "latitude": row["Lat"],
+                "longitude": row["Lon"],
+                "cutoff": float(row["Cutoff"]) if row["Cutoff"] else None,
+                "week": int(row["Week"]) if row["Week"] else None,
+                "sensitivity": float(row["Sens"]) if row["Sens"] else None,
+                "overlap": float(row["Overlap"]) if row["Overlap"] else None,
             }
 
-            new_detections.append(detection)
+    return detections
 
-        # Insert new detections
-        if new_detections:
-            self.logger.info(f"Inserting {len(new_detections)} new detections (skipped {skipped} existing)")
-            inserted = self.insert_detections(new_detections)
-            return inserted
-        else:
-            self.logger.info(f"No new detections to sync (all {len(sqlite_detections)} already exist)")
-            return 0
 
-    def insert_detections(self, detections):
-        """Batch insert detections into PostgreSQL"""
-        try:
-            cursor = self.pg_conn.cursor()
+def get_postgres_detections(conn: psycopg2.extensions.connection, station: str) -> tuple[dict, dict]:
+    """
+    Fetch all detections from PostgreSQL for a station.
 
+    Returns:
+        - dict mapping file_name -> {id, species, common_name, deleted, date, time}
+        - dict mapping date+time -> list of detections (for species correction matching)
+    """
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, file_name, species, common_name, deleted, date, time
+        FROM bird_detections
+        WHERE station = %s AND file_name IS NOT NULL
+    """, (station,))
+
+    by_filename = {}
+    by_datetime = {}  # date+time -> list of detections (can have multiple)
+    for row in cursor.fetchall():
+        file_name = row[1]
+        date_val = row[5]
+        time_val = row[6]
+        if file_name:
+            detection = {
+                "id": row[0],
+                "file_name": file_name,
+                "species": row[2],
+                "common_name": row[3],
+                "deleted": row[4] or False,
+            }
+            by_filename[file_name] = detection
+            # Also index by date+time for species correction matching
+            if date_val and time_val:
+                dt_key = f"{date_val}_{time_val}"
+                if dt_key not in by_datetime:
+                    by_datetime[dt_key] = []
+                by_datetime[dt_key].append(detection)
+
+    return by_filename, by_datetime
+
+
+def sync_station(
+    station_config: StationConfig,
+    pg_config: dict,
+    logger: logging.Logger,
+) -> SyncResult:
+    """
+    Synchronize a single station's detections to PostgreSQL.
+
+    Logic:
+    1. For each SQLite detection (by file_name):
+       - Exists in PG by file_name? -> Already synced (check restore)
+       - Not in PG by file_name, but date+time exists? -> Species correction (UPDATE)
+       - Not in PG at all? -> INSERT
+    2. For each PG detection not in SQLite:
+       - Mark as deleted (soft delete)
+    """
+    result = SyncResult()
+    station = station_config.name
+
+    # Connect to databases
+    sqlite_conn = connect_sqlite(station_config.sqlite_path, logger)
+    if not sqlite_conn:
+        result.errors = 1
+        return result
+
+    pg_conn = connect_postgres(pg_config, logger)
+    if not pg_conn:
+        sqlite_conn.close()
+        result.errors = 1
+        return result
+
+    try:
+        # Fetch all detections
+        sqlite_data = get_sqlite_detections(sqlite_conn)
+        pg_by_filename, pg_by_datetime = get_postgres_detections(pg_conn, station)
+
+        logger.info(f"SQLite: {len(sqlite_data)} detections, PostgreSQL: {len(pg_by_filename)} detections")
+
+        cursor = pg_conn.cursor()
+
+        # Prepare batch operations
+        to_insert = []
+        to_update = []
+        to_restore = []
+        matched_pg_ids = set()
+
+        # Process SQLite detections
+        for file_name, sqlite_det in sqlite_data.items():
+            dt_key = f"{sqlite_det['date']}_{sqlite_det['time']}"
+
+            # Case 1: File exists in PG (already synced)
+            if file_name in pg_by_filename:
+                pg_det = pg_by_filename[file_name]
+                matched_pg_ids.add(pg_det["id"])
+
+                # Check if previously deleted, now restored
+                if pg_det["deleted"]:
+                    to_restore.append(pg_det["id"])
+
+            # Case 2: File not in PG, but date+time exists -> Possible species correction
+            elif dt_key in pg_by_datetime:
+                # Find the matching detection (there might be multiple at same time)
+                # Only update if the PG detection's file_name is NOT in SQLite (was corrected)
+                pg_candidates = pg_by_datetime[dt_key]
+                matched = False
+                for pg_det in pg_candidates:
+                    pg_file = pg_det["file_name"]
+                    # Only update if:
+                    # 1. Not already matched
+                    # 2. The old file_name doesn't exist in SQLite anymore (species was corrected)
+                    if pg_det["id"] not in matched_pg_ids and pg_file not in sqlite_data:
+                        matched_pg_ids.add(pg_det["id"])
+                        to_update.append({
+                            "id": pg_det["id"],
+                            "species": sqlite_det["species"],
+                            "common_name": sqlite_det["common_name"],
+                            "file_name": file_name,
+                        })
+                        matched = True
+                        break
+
+                # If no match found, insert as new
+                if not matched:
+                    try:
+                        dt = datetime.strptime(
+                            f"{sqlite_det['date']} {sqlite_det['time']}",
+                            "%Y-%m-%d %H:%M:%S"
+                        )
+                    except ValueError:
+                        logger.warning(f"Invalid datetime for {file_name}")
+                        continue
+
+                    to_insert.append({
+                        "station": station,
+                        "detection_timestamp": dt,
+                        "date": dt.date(),
+                        "time": dt.time(),
+                        "species": sqlite_det["species"],
+                        "common_name": sqlite_det["common_name"],
+                        "confidence": sqlite_det["confidence"],
+                        "latitude": sqlite_det["latitude"],
+                        "longitude": sqlite_det["longitude"],
+                        "cutoff": sqlite_det["cutoff"],
+                        "week": sqlite_det["week"],
+                        "sensitivity": sqlite_det["sensitivity"],
+                        "overlap": sqlite_det["overlap"],
+                        "file_name": file_name,
+                        "detected_by_zolder": station == "zolder",
+                        "detected_by_berging": station == "berging",
+                        "deleted": False,
+                    })
+
+            # Case 3: New detection - INSERT
+            else:
+                try:
+                    dt = datetime.strptime(
+                        f"{sqlite_det['date']} {sqlite_det['time']}",
+                        "%Y-%m-%d %H:%M:%S"
+                    )
+                except ValueError:
+                    logger.warning(f"Invalid datetime for {file_name}")
+                    continue
+
+                to_insert.append({
+                    "station": station,
+                    "detection_timestamp": dt,
+                    "date": dt.date(),
+                    "time": dt.time(),
+                    "species": sqlite_det["species"],
+                    "common_name": sqlite_det["common_name"],
+                    "confidence": sqlite_det["confidence"],
+                    "latitude": sqlite_det["latitude"],
+                    "longitude": sqlite_det["longitude"],
+                    "cutoff": sqlite_det["cutoff"],
+                    "week": sqlite_det["week"],
+                    "sensitivity": sqlite_det["sensitivity"],
+                    "overlap": sqlite_det["overlap"],
+                    "file_name": file_name,
+                    "detected_by_zolder": station == "zolder",
+                    "detected_by_berging": station == "berging",
+                    "deleted": False,
+                })
+
+        # Find detections to soft delete (in PG but not matched from SQLite)
+        to_delete = []
+        for file_name, pg_det in pg_by_filename.items():
+            if pg_det["id"] not in matched_pg_ids and not pg_det["deleted"]:
+                to_delete.append(pg_det["id"])
+
+        # Execute INSERT
+        if to_insert:
             insert_query = """
                 INSERT INTO bird_detections (
                     station, detection_timestamp, date, time, species, common_name,
                     confidence, latitude, longitude, cutoff, week, sensitivity, overlap,
-                    file_name, detected_by_zolder, detected_by_berging, dual_detection,
-                    time_diff_seconds, rarity_score, rarity_tier
+                    file_name, detected_by_zolder, detected_by_berging, deleted
                 ) VALUES (
-                    %(station)s, %(detection_timestamp)s, %(date)s, %(time)s, %(species)s, %(common_name)s,
-                    %(confidence)s, %(latitude)s, %(longitude)s, %(cutoff)s, %(week)s, %(sensitivity)s, %(overlap)s,
-                    %(file_name)s, %(detected_by_zolder)s, %(detected_by_berging)s, %(dual_detection)s,
-                    %(time_diff_seconds)s, %(rarity_score)s, %(rarity_tier)s
+                    %(station)s, %(detection_timestamp)s, %(date)s, %(time)s,
+                    %(species)s, %(common_name)s, %(confidence)s, %(latitude)s,
+                    %(longitude)s, %(cutoff)s, %(week)s, %(sensitivity)s, %(overlap)s,
+                    %(file_name)s, %(detected_by_zolder)s, %(detected_by_berging)s, %(deleted)s
                 )
+                ON CONFLICT (file_name, station) WHERE file_name IS NOT NULL
+                DO NOTHING
             """
+            execute_batch(cursor, insert_query, to_insert, page_size=100)
+            result.inserted = len(to_insert)
+            logger.info(f"Inserted {result.inserted} new detections")
 
-            # Use execute_batch for better performance
-            execute_batch(cursor, insert_query, detections, page_size=100)
-            self.pg_conn.commit()
-
-            self.logger.success(f"Successfully inserted {len(detections)} detections")
-            return len(detections)
-
-        except psycopg2.Error as e:
-            self.pg_conn.rollback()
-            self.logger.error(f"Error inserting detections: {e}")
-            return 0
-
-    def get_statistics(self):
-        """Get sync statistics from PostgreSQL"""
-        try:
-            cursor = self.pg_conn.cursor()
-
-            stats_query = """
-                SELECT
-                    COUNT(*) as total_detections,
-                    COUNT(DISTINCT species) as unique_species,
-                    MIN(detection_timestamp) as first_detection,
-                    MAX(detection_timestamp) as last_detection,
-                    AVG(confidence) as avg_confidence
-                FROM bird_detections
-                WHERE station = %s
+        # Execute UPDATE (species corrections with file_name update)
+        if to_update:
+            update_query = """
+                UPDATE bird_detections
+                SET species = %(species)s, common_name = %(common_name)s, file_name = %(file_name)s
+                WHERE id = %(id)s
             """
+            execute_batch(cursor, update_query, to_update, page_size=100)
+            result.updated = len(to_update)
+            logger.info(f"Updated {result.updated} species corrections")
+            for upd in to_update[:5]:  # Log first 5
+                logger.info(f"  Updated ID {upd['id']}: -> {upd['common_name']} ({upd['file_name']})")
 
-            cursor.execute(stats_query, (STATION_NAME,))
-            row = cursor.fetchone()
+        # Execute RESTORE
+        if to_restore:
+            cursor.execute("""
+                UPDATE bird_detections
+                SET deleted = FALSE, deleted_at = NULL
+                WHERE id = ANY(%s)
+            """, (to_restore,))
+            logger.info(f"Restored {len(to_restore)} previously deleted detections")
 
-            if row:
-                return {
-                    'total_detections': row[0],
-                    'unique_species': row[1],
-                    'first_detection': row[2].isoformat() if row[2] else None,
-                    'last_detection': row[3].isoformat() if row[3] else None,
-                    'avg_confidence': float(row[4]) if row[4] else 0.0
-                }
+        # Execute SOFT DELETE
+        if to_delete:
+            cursor.execute("""
+                UPDATE bird_detections
+                SET deleted = TRUE, deleted_at = NOW()
+                WHERE id = ANY(%s)
+            """, (to_delete,))
+            result.soft_deleted = len(to_delete)
+            logger.info(f"Soft deleted {result.soft_deleted} removed detections")
 
-            return {}
-
-        except psycopg2.Error as e:
-            self.logger.error(f"Error getting statistics: {e}")
-            return {}
-
-    def close_connections(self):
-        """Close database connections"""
-        if self.sqlite_conn:
-            self.sqlite_conn.close()
-            self.logger.info("SQLite connection closed")
-
-        if self.pg_conn:
-            self.pg_conn.close()
-            self.logger.info("PostgreSQL connection closed")
-
-def main():
-    """Main execution function"""
-
-    # Initialize logger
-    logger = SyncLogger(LOG_DIR)
-    logger.info("=" * 80)
-    logger.info("EMSN Lifetime Sync - Zolder Station")
-    logger.info("=" * 80)
-
-    # Initialize MQTT publisher
-    mqtt_pub = MQTTPublisher(MQTT_CONFIG, logger)
-    mqtt_pub.connect()
-
-    # Publish start status
-    mqtt_pub.publish_status('running', 'Lifetime sync started')
-
-    try:
-        # Initialize sync handler
-        sync = BirdDetectionSync(logger, mqtt_pub)
-
-        # Connect to databases
-        if not sync.connect_databases():
-            logger.error("Failed to connect to databases")
-            mqtt_pub.publish_status('error', 'Database connection failed')
-            sys.exit(1)
-
-        # Perform bi-directional sync
-        logger.info("Starting bi-directional synchronization...")
-
-        # Step 1: Sync deletions (records removed in BirdNET-Pi)
-        deleted_count = sync.sync_deletions()
-
-        # Step 2: Sync new detections (including species changes - old species deleted, new species added)
-        synced_count = sync.sync_detections()
-
-        # Get statistics
-        stats = sync.get_statistics()
-
-        # Log results
-        logger.info("-" * 80)
-        logger.success(f"Sync completed:")
-        logger.info(f"  - New detections added: {synced_count}")
-        logger.info(f"  - Detections deleted: {deleted_count}")
-        logger.info(f"Total detections in database: {stats.get('total_detections', 0)}")
-        logger.info(f"Unique species: {stats.get('unique_species', 0)}")
-        logger.info(f"Average confidence: {stats.get('avg_confidence', 0):.4f}")
-        logger.info("-" * 80)
-
-        # Publish completion status
-        mqtt_pub.publish_status(
-            'completed',
-            f'Sync completed successfully',
-            {
-                'synced_count': synced_count,
-                'deleted_count': deleted_count,
-                'total_detections': stats.get('total_detections', 0)
-            }
-        )
-
-        # Publish statistics
-        mqtt_pub.publish_stats(stats)
-
-        # Close connections
-        sync.close_connections()
-
-        logger.success("Lifetime sync completed successfully")
+        pg_conn.commit()
 
     except Exception as e:
-        logger.error(f"Unexpected error during sync: {e}")
-        mqtt_pub.publish_status('error', f'Sync failed: {str(e)}')
-        sys.exit(1)
-
+        logger.error(f"Sync error: {e}")
+        pg_conn.rollback()
+        result.errors = 1
     finally:
-        mqtt_pub.disconnect()
+        sqlite_conn.close()
+        pg_conn.close()
+
+    return result
+
+
+def get_station_stats(pg_config: dict, station: str) -> dict:
+    """Get statistics for a station from PostgreSQL."""
+    try:
+        conn = psycopg2.connect(**pg_config)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT
+                COUNT(*) FILTER (WHERE NOT deleted) as active_detections,
+                COUNT(*) FILTER (WHERE deleted) as deleted_detections,
+                COUNT(DISTINCT species) FILTER (WHERE NOT deleted) as unique_species,
+                AVG(confidence) FILTER (WHERE NOT deleted) as avg_confidence,
+                MAX(detection_timestamp) FILTER (WHERE NOT deleted) as last_detection
+            FROM bird_detections
+            WHERE station = %s
+        """, (station,))
+
+        row = cursor.fetchone()
+        conn.close()
+
+        return {
+            "active_detections": row[0] or 0,
+            "deleted_detections": row[1] or 0,
+            "unique_species": row[2] or 0,
+            "avg_confidence": float(row[3]) if row[3] else 0.0,
+            "last_detection": row[4].isoformat() if row[4] else None,
+        }
+    except Exception:
+        return {}
+
+
+# =============================================================================
+# Main
+# =============================================================================
+
+def main():
+    parser = argparse.ArgumentParser(description="EMSN Lifetime Sync")
+    parser.add_argument(
+        "--station",
+        choices=["zolder", "berging"],
+        required=True,
+        help="Station to sync",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without making changes",
+    )
+    args = parser.parse_args()
+
+    station = args.station
+    station_config = STATIONS[station]
+
+    # Setup
+    logger = setup_logging(station)
+    secrets = load_secrets()
+    pg_config = secrets["postgres"].copy()
+    pg_config["user"] = station_config.pg_user
+
+    logger.info("=" * 70)
+    logger.info(f"EMSN Lifetime Sync - {station.upper()}")
+    logger.info("=" * 70)
+
+    # MQTT
+    mqtt_pub = MQTTPublisher(secrets["mqtt"], station, logger)
+    mqtt_pub.connect()
+    mqtt_pub.publish_status("running", "Sync started")
+
+    # Sync
+    if args.dry_run:
+        logger.info("DRY RUN - no changes will be made")
+
+    result = sync_station(station_config, pg_config, logger)
+
+    # Stats
+    stats = get_station_stats(pg_config, station)
+
+    # Report
+    logger.info("-" * 70)
+    logger.info(f"Sync completed: +{result.inserted} inserted, "
+                f"~{result.updated} updated, -{result.soft_deleted} deleted")
+    logger.info(f"Database: {stats.get('active_detections', 0)} active, "
+                f"{stats.get('unique_species', 0)} species")
+    logger.info("-" * 70)
+
+    # MQTT status
+    if result.errors:
+        mqtt_pub.publish_status("error", "Sync completed with errors", **vars(result))
+    else:
+        mqtt_pub.publish_status("completed", "Sync successful", **vars(result))
+
+    mqtt_pub.publish_stats(stats)
+    mqtt_pub.disconnect()
+
+    return 0 if result.errors == 0 else 1
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
