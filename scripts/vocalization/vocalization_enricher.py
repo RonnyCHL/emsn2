@@ -46,7 +46,7 @@ BERGING_SSH = {
 }
 
 LOG_DIR = Path('/mnt/usb/logs')
-BATCH_SIZE = 50  # Process this many at a time
+BATCH_SIZE = 200  # TURBO MODE: verhoogd van 50 voor snellere backlog verwerking
 
 
 class VocalizationEnricher:
