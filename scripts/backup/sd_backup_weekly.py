@@ -146,8 +146,57 @@ def get_sd_size_bytes(device: str) -> int:
     return int(result.stdout.strip())
 
 
+def create_compressed_image_stream(device: str, output_path: Path) -> bool:
+    """
+    Maak gecomprimeerd image door direct te streamen: dd | pigz > file
+    Dit vereist geen lokale temp ruimte voor het raw image.
+    """
+    logger.info(f"Maak gecomprimeerd image van {device} naar {output_path}")
+
+    # Sync eerst alle buffers
+    subprocess.run(['sync'], check=True)
+
+    # Bepaal SD grootte
+    sd_size = get_sd_size_bytes(device)
+    sd_size_gb = sd_size / (1024**3)
+    logger.info(f"SD kaart grootte: {sd_size_gb:.1f} GB")
+
+    # Gebruik pigz voor parallelle compressie, anders gzip
+    gzip_cmd = 'pigz' if shutil.which('pigz') else 'gzip'
+
+    # Stream direct: dd | pigz > output.img.gz
+    cmd = f'dd if={device} bs=4M status=progress 2>&1 | {gzip_cmd} > {output_path}'
+
+    logger.info(f"Streaming met compressie naar {output_path}")
+    logger.info("Dit kan 30-60 minuten duren...")
+
+    try:
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=False,  # Laat output door voor progress
+            timeout=14400  # 4 uur timeout voor grote schijven
+        )
+
+        if result.returncode == 0 and output_path.exists():
+            final_size = output_path.stat().st_size / (1024**3)
+            compression = (1 - final_size / sd_size_gb) * 100
+            logger.info(f"Image succesvol gemaakt: {final_size:.2f} GB ({compression:.0f}% compressie)")
+            return True
+        else:
+            logger.error(f"dd|gzip gefaald met code {result.returncode}")
+            return False
+
+    except subprocess.TimeoutExpired:
+        logger.error("Timeout na 4 uur")
+        return False
+    except Exception as e:
+        logger.error(f"Fout: {e}")
+        return False
+
+
 def create_raw_image(device: str, output_path: Path) -> bool:
-    """Maak raw image met dd"""
+    """Maak raw image met dd (legacy, voor kleine SD kaarten)"""
     logger.info(f"Maak raw image van {device} naar {output_path}")
 
     # Sync eerst alle buffers
@@ -308,36 +357,27 @@ def main():
     compressed_name = f"{image_name}.gz"
 
     try:
-        # Pre-flight checks
-        check_prerequisites()
-        logger.info("Pre-flight checks OK")
+        # Check of we root zijn
+        if os.geteuid() != 0:
+            raise RuntimeError("Dit script moet als root draaien (sudo)")
 
-        # Maak temp directory
-        TEMP_DIR.mkdir(parents=True, exist_ok=True)
+        # Check NAS mount
+        if not NAS_BACKUP_BASE.exists():
+            raise RuntimeError(f"NAS backup directory niet gevonden: {NAS_BACKUP_BASE}")
+
+        # Maak output directory op NAS
+        IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
         # Bepaal SD device
         sd_device = get_sd_device()
         logger.info(f"SD device: {sd_device}")
 
-        # Stap 1: Maak raw image
-        raw_image = TEMP_DIR / image_name
-        if not create_raw_image(sd_device, raw_image):
-            raise RuntimeError("Maken raw image gefaald")
+        # Direct streamen naar NAS: dd | pigz > NAS/image.gz
+        # Dit vereist geen lokale temp ruimte!
+        final_path = IMAGES_DIR / compressed_name
 
-        # Stap 2: Shrink image (optioneel)
-        shrink_image(raw_image)
-
-        # Stap 3: Comprimeer
-        compressed_image = TEMP_DIR / compressed_name
-        if not compress_image(raw_image, compressed_image):
-            raise RuntimeError("Comprimeren image gefaald")
-
-        # Verwijder raw image (bespaar ruimte)
-        raw_image.unlink()
-
-        # Stap 4: Kopieer naar NAS
-        if not copy_to_nas(compressed_image, IMAGES_DIR):
-            raise RuntimeError("Kopieren naar NAS gefaald")
+        if not create_compressed_image_stream(sd_device, final_path):
+            raise RuntimeError("Maken gecomprimeerd image gefaald")
 
         # Success!
         duration = (datetime.now() - start_time).total_seconds() / 60

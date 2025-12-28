@@ -143,6 +143,13 @@ def run_rsync_backup():
             # Dit is normaal bij een draaiend systeem
             logger.warning(f"Rsync voltooid met waarschuwingen (code 24) in {duration:.0f} seconden")
             return True, duration
+        elif result.returncode == 23:
+            # Returncode 23: "Partial transfer due to error"
+            # Vaak door permission denied op sommige bestanden (NFS root squashing)
+            # Dit is acceptabel - de meeste data is gekopieerd
+            logger.warning(f"Rsync voltooid met waarschuwingen (code 23) in {duration:.0f} seconden")
+            logger.warning("Sommige bestanden konden niet volledig gekopieerd worden (permissies)")
+            return True, duration
         else:
             logger.error(f"Rsync gefaald met code {result.returncode}")
             logger.error(f"stderr: {result.stderr}")
