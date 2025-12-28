@@ -4,10 +4,16 @@ EMSN 2.0 - Vocalization Enricher Service
 
 Verrijkt bird_detections in de database met vocalisatie type (zang/roep/alarm).
 Draait periodiek en classificeert detecties waar vocalization_type NULL is.
+
+Audio wordt opgehaald via:
+- Lokaal filesystem voor zolder
+- SSH voor berging (robuuster dan SSHFS mount)
 """
 
 import sys
 import time
+import tempfile
+import subprocess
 import psycopg2
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -30,7 +36,13 @@ PG_CONFIG = {
 # BirdNET audio locations per station
 AUDIO_PATHS = {
     'zolder': Path('/home/ronny/BirdSongs/Extracted/By_Date'),
-    'berging': Path('/mnt/berging-audio/Extracted/By_Date')  # Via SSHFS mount
+    'berging': '/home/ronny/BirdSongs/Extracted/By_Date'  # Remote path on berging
+}
+
+# SSH config for berging
+BERGING_SSH = {
+    'host': '192.168.1.87',
+    'user': 'ronny',
 }
 
 LOG_DIR = Path('/mnt/usb/logs')
@@ -111,25 +123,37 @@ class VocalizationEnricher:
             return []
 
     def find_audio_file(self, detection):
-        """Find the audio file for a detection."""
+        """Find the audio file for a detection.
+
+        For zolder: returns local Path
+        For berging: fetches via SSH and returns temp file path
+        """
         station = detection['station']
         base_path = AUDIO_PATHS.get(station)
 
-        if not base_path or not base_path.exists():
+        if not base_path:
             return None
 
         # BirdNET-Pi organizes files as:
         # By_Date/YYYY-MM-DD/Species_Name/filename.mp3
         date_str = detection['date'].strftime('%Y-%m-%d')
         species_dir_name = detection['common_name'].replace(' ', '_')
+        file_name = detection['file_name']
 
+        if station == 'zolder':
+            # Local filesystem access
+            return self._find_local_audio(base_path, date_str, species_dir_name, file_name, detection)
+        else:
+            # Berging: fetch via SSH
+            return self._fetch_berging_audio(base_path, date_str, species_dir_name, file_name)
+
+    def _find_local_audio(self, base_path, date_str, species_dir_name, file_name, detection):
+        """Find audio file on local filesystem (zolder)."""
         date_dir = base_path / date_str / species_dir_name
 
         if not date_dir.exists():
             return None
 
-        # Find the matching audio file
-        file_name = detection['file_name']
         if file_name:
             # Try exact match first
             audio_file = date_dir / file_name
@@ -156,9 +180,45 @@ class VocalizationEnricher:
 
         return None
 
+    def _fetch_berging_audio(self, base_path, date_str, species_dir_name, file_name):
+        """Fetch audio file from berging via SSH.
+
+        Returns path to temporary file, or None if not found.
+        """
+        if not file_name:
+            return None
+
+        remote_path = f"{base_path}/{date_str}/{species_dir_name}/{file_name}"
+
+        # Create temp file for the audio
+        temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
+        temp_path = temp_file.name
+        temp_file.close()
+
+        try:
+            # Use scp to fetch the file
+            cmd = [
+                'scp', '-q', '-o', 'ConnectTimeout=5',
+                f"{BERGING_SSH['user']}@{BERGING_SSH['host']}:{remote_path}",
+                temp_path
+            ]
+            result = subprocess.run(cmd, capture_output=True, timeout=30)
+
+            if result.returncode == 0 and Path(temp_path).stat().st_size > 0:
+                return Path(temp_path)
+            else:
+                # File not found or error
+                Path(temp_path).unlink(missing_ok=True)
+                return None
+
+        except (subprocess.TimeoutExpired, Exception) as e:
+            Path(temp_path).unlink(missing_ok=True)
+            return None
+
     def classify_detection(self, detection):
         """Classify a single detection."""
         common_name = detection['common_name']
+        station = detection['station']
 
         # Check if we have a model for this species
         if not self.classifier.has_model(common_name):
@@ -176,6 +236,13 @@ class VocalizationEnricher:
                 return result['type_nl'], result['confidence']
         except Exception as e:
             self.log('WARNING', f"Classification error for {common_name}: {e}")
+        finally:
+            # Cleanup temp files (berging audio fetched via SSH)
+            if station == 'berging' and audio_file and '/tmp/' in str(audio_file):
+                try:
+                    Path(audio_file).unlink(missing_ok=True)
+                except:
+                    pass
 
         return None, None
 
