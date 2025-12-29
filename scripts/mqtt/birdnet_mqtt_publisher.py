@@ -5,6 +5,7 @@ Monitors BirdNET-Pi SQLite database and publishes new detections to MQTT
 Includes real-time vocalization classification (song/call/alarm)
 
 Refactored: 2025-12-29 - Gebruikt nu core modules voor config
+Updated: 2025-12-29 - Startup catchup protection + age filter
 """
 
 import os
@@ -63,6 +64,10 @@ TOPIC_STATS = f"birdnet/{STATION_NAME}/stats"
 STATE_FILE = Path(f"/mnt/usb/logs/birdnet_mqtt_{STATION_NAME}_state.json")
 CHECK_INTERVAL = 30  # seconds
 
+# Catchup protection settings
+MAX_CATCHUP_DETECTIONS = 50  # Skip to current if backlog exceeds this
+MAX_DETECTION_AGE_SECONDS = 3600  # 1 hour - older detections are skipped for MQTT
+
 # Logging
 LOG_DIR = Path("/mnt/usb/logs")
 logging.basicConfig(
@@ -81,6 +86,7 @@ class BirdNetMQTTPublisher:
         self.last_detection_id = self.load_last_id()
         self.client = None
         self.connected = False
+        self._check_catchup_needed()
 
     def load_last_id(self):
         """Load last processed detection ID"""
@@ -100,6 +106,54 @@ class BirdNetMQTTPublisher:
                 json.dump({"last_detection_id": self.last_detection_id}, f)
         except Exception as e:
             logger.warning(f"Could not save state: {e}")
+
+    def _check_catchup_needed(self):
+        """Check if we need to skip ahead due to large backlog.
+
+        Prevents CPU storm when restarting after crash/power outage.
+        Old detections are already synced to PostgreSQL via lifetime_sync.
+        """
+        if not BIRDNET_DB.exists():
+            return
+
+        try:
+            conn = sqlite3.connect(str(BIRDNET_DB))
+            cursor = conn.cursor()
+            cursor.execute("SELECT MAX(rowid) FROM detections")
+            max_id = cursor.fetchone()[0] or 0
+            conn.close()
+
+            backlog = max_id - self.last_detection_id
+
+            if backlog > MAX_CATCHUP_DETECTIONS:
+                logger.warning(
+                    f"Large backlog detected: {backlog} detections behind. "
+                    f"Skipping to current (ID {max_id}) to prevent CPU storm. "
+                    f"Old detections are synced via lifetime_sync."
+                )
+                self.last_detection_id = max_id
+                self.save_last_id()
+            elif backlog > 0:
+                logger.info(f"Small backlog: {backlog} detections to process")
+
+        except Exception as e:
+            logger.error(f"Catchup check failed: {e}")
+
+    def _is_detection_too_old(self, detection):
+        """Check if detection is older than MAX_DETECTION_AGE_SECONDS."""
+        try:
+            detection_date = detection.get("Date", "")
+            detection_time = detection.get("Time", "")
+            if not detection_date or not detection_time:
+                return False
+
+            dt_str = f"{detection_date} {detection_time}"
+            detection_dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
+            age_seconds = (datetime.now() - detection_dt).total_seconds()
+
+            return age_seconds > MAX_DETECTION_AGE_SECONDS
+        except Exception:
+            return False
 
     def connect_mqtt(self):
         """Connect to MQTT broker"""
@@ -320,9 +374,19 @@ class BirdNetMQTTPublisher:
                 detections = self.get_new_detections()
 
                 for detection in detections:
+                    rowid = detection.get('rowid', self.last_detection_id)
+
+                    # Skip old detections - only update state, don't publish
+                    if self._is_detection_too_old(detection):
+                        species = detection.get("Com_Name", "Unknown")
+                        logger.debug(f"Skipping old detection: {species} (age > 1 hour)")
+                        if rowid > self.last_detection_id:
+                            self.last_detection_id = rowid
+                            self.save_last_id()
+                        continue
+
                     if self.publish_detection(detection):
                         # Update last ID after successful publish
-                        rowid = detection.get('rowid', self.last_detection_id)
                         if rowid > self.last_detection_id:
                             self.last_detection_id = rowid
                             self.save_last_id()
