@@ -7,10 +7,8 @@ Type=oneshot
 User=ronny
 Group=ronny
 WorkingDirectory=/home/ronny/emsn2/scripts/reports
-Environment="ANTHROPIC_API_KEY=REDACTED_API_KEY"
-Environment="EMSN_DB_PASSWORD=REDACTED_DB_PASS"
-Environment="EMSN_SMTP_PASSWORD=REDACTED_SMTP_PASS"
-ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/reports/seasonal_report.py
+EnvironmentFile=/home/ronny/.env.emsn-reports
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/reports/seasonal_report.py --pending
 StandardOutput=append:/mnt/usb/logs/emsn-seasonal-report.log
 StandardError=append:/mnt/usb/logs/emsn-seasonal-report.error.log
 

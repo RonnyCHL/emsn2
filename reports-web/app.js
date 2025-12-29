@@ -1376,10 +1376,10 @@ async function previewReport() {
         }
 
         // Convert markdown to basic HTML (simple conversion)
-        let html = data.preview_content || '';
+        let html = data.content || data.preview_content || '';
 
         // Highlight custom text section
-        if (customText && data.preview_content.includes(customText)) {
+        if (customText && html && html.includes(customText)) {
             html = html.replace(customText, `<div class="custom-text-highlight">${customText}</div>`);
         }
 

@@ -7,10 +7,8 @@ Wants=network-online.target
 Type=oneshot
 User=ronny
 WorkingDirectory=/home/ronny/emsn2/scripts/reports
-Environment="EMSN_DB_PASSWORD=REDACTED_DB_PASS"
-Environment="ANTHROPIC_API_KEY=REDACTED_API_KEY"
-Environment="EMSN_SMTP_PASSWORD=REDACTED_SMTP_PASS"
-ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/reports/monthly_report.py
+EnvironmentFile=/home/ronny/.env.emsn-reports
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/reports/monthly_report.py --pending
 StandardOutput=append:/mnt/usb/logs/emsn-monthly-report.log
 StandardError=append:/mnt/usb/logs/emsn-monthly-report.error.log
 

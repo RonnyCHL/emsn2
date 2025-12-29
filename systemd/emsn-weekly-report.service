@@ -8,7 +8,7 @@ Type=oneshot
 User=ronny
 WorkingDirectory=/home/ronny/emsn2/scripts/reports
 EnvironmentFile=/home/ronny/.env.emsn-reports
-ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/reports/weekly_report.py
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/reports/weekly_report.py --pending
 StandardOutput=append:/mnt/usb/logs/emsn-weekly-report.log
 StandardError=append:/mnt/usb/logs/emsn-weekly-report.error.log
 

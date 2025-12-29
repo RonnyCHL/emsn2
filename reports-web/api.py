@@ -1474,6 +1474,138 @@ def update_pending_report(report_id):
         return jsonify({'error': str(e)}), 500
 
 
+def send_approved_report_emails(report_file, report_title, report_type):
+    """Send approved report to all auto-mode recipients for this report type"""
+    results = {'sent_count': 0, 'failed_count': 0, 'recipients': []}
+
+    # Map report_type to recipient report_types
+    type_map = {
+        'weekly': 'weekly',
+        'monthly': 'monthly',
+        'seasonal': 'seasonal',
+        'yearly': 'yearly'
+    }
+    recipient_type = type_map.get(report_type, report_type)
+
+    # Load email config
+    config = load_email_config()
+    if not config:
+        return results
+
+    smtp_password = os.getenv('EMSN_SMTP_PASSWORD')
+    if not smtp_password:
+        return results
+
+    # Get auto-mode recipients for this report type
+    recipients = config.get('recipients', [])
+    auto_recipients = []
+    for r in recipients:
+        if isinstance(r, dict):
+            if r.get('mode') == 'auto' and recipient_type in r.get('report_types', []):
+                auto_recipients.append(r)
+        elif isinstance(r, str):
+            # Old format - include all
+            auto_recipients.append({'email': r, 'name': ''})
+
+    if not auto_recipients:
+        return results
+
+    # Check if report exists
+    report_path = REPORTS_DIR / report_file
+    if not report_path.exists():
+        return results
+
+    # Read report content
+    with open(report_path, 'r', encoding='utf-8') as f:
+        report_content = f.read()
+
+    smtp_config = config.get('smtp', {})
+    email_config = config.get('email', {})
+
+    # Generate PDF once
+    pdf_filename = report_file.replace('.md', '.pdf')
+    pdf_path = REPORTS_DIR / pdf_filename
+
+    try:
+        success, error = generate_pdf_with_logo(report_path, pdf_path, title=report_title)
+        if not success:
+            print(f"PDF generation failed: {error}")
+            return results
+    except Exception as e:
+        print(f"PDF generation error: {e}")
+        return results
+
+    # Read PDF for attachment
+    with open(pdf_path, 'rb') as pdf_file:
+        pdf_data = pdf_file.read()
+
+    # Send to each recipient
+    for recipient in auto_recipients:
+        email_addr = recipient.get('email') if isinstance(recipient, dict) else recipient
+        name = recipient.get('name', '') if isinstance(recipient, dict) else ''
+
+        try:
+            msg = MIMEMultipart('mixed')
+            msg['Subject'] = f"EMSN Rapport: {report_title}"
+            msg['From'] = f"{email_config.get('from_name', 'EMSN')} <{email_config.get('from_address', smtp_config.get('username'))}>"
+            msg['To'] = email_addr
+
+            # Email body
+            greeting = f"Beste {name}" if name else "Beste vogelliefhebber"
+            body = f"""{greeting},
+
+Hierbij ontvangt u het EMSN vogelrapport: {report_title}
+
+Dit rapport is gegenereerd door het Ecologisch Monitoring Systeem Nijverdal (EMSN),
+een citizen science project voor het monitoren van de lokale vogelpopulatie in
+Nijverdal en omgeving. Met behulp van BirdNET-Pi wordt 24/7 de vogelactiviteit
+geregistreerd via geluidsherkenning.
+
+Het volledige rapport is als PDF bijgevoegd.
+
+Met vriendelijke groet,
+
+Ronny Hullegie
+EMSN Vogelmonitoring Nijverdal
+https://www.ronnyhullegie.nl
+"""
+            report_name = report_file.replace('.md', '').replace(' ', '_')
+            footer = get_email_footer(email_addr, report_name)
+            body += footer
+
+            msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+            # Attach PDF
+            attachment = MIMEApplication(pdf_data, _subtype='pdf')
+            attachment['Content-Disposition'] = f'attachment; filename="{pdf_filename}"'
+            msg.attach(attachment)
+
+            # Send
+            server = smtplib.SMTP(smtp_config.get('host'), smtp_config.get('port', 587))
+            if smtp_config.get('use_tls', True):
+                server.starttls()
+            server.login(smtp_config.get('username'), smtp_password)
+            server.sendmail(
+                email_config.get('from_address', smtp_config.get('username')),
+                [email_addr],
+                msg.as_string()
+            )
+            server.quit()
+
+            results['sent_count'] += 1
+            results['recipients'].append({'email': email_addr, 'status': 'success'})
+
+            # Log successful send
+            log_email_sent(report_file, [email_addr], status='success')
+
+        except Exception as e:
+            results['failed_count'] += 1
+            results['recipients'].append({'email': email_addr, 'status': 'failed', 'error': str(e)})
+            log_email_sent(report_file, [email_addr], status='failed', error=str(e))
+
+    return results
+
+
 @app.route('/api/pending/<int:report_id>/approve', methods=['POST'])
 def approve_pending_report(report_id):
     """Approve a pending report and trigger sending"""
@@ -1501,17 +1633,72 @@ def approve_pending_report(report_id):
         """, (report_id,))
 
         conn.commit()
+        cur.close()
+        conn.close()
 
-        # TODO: Insert custom text into markdown if present
-        # TODO: Regenerate PDF with custom text
-        # TODO: Trigger email sending
+        # Get report file info
+        report_file = report['report_filename']
+        report_title = report['report_title']
+        report_type = report['report_type']
+        custom_text = report.get('custom_text')
+        custom_text_position = report.get('custom_text_position', 'after_intro')
 
+        # Insert custom text into markdown if present
+        if custom_text:
+            md_path = Path(report['markdown_path'])
+            if md_path.exists():
+                with open(md_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                custom_block = f"\n\n---\n\n**Persoonlijke notitie:**\n\n{custom_text}\n\n---\n\n"
+
+                # Insert at appropriate position
+                if custom_text_position == 'after_intro':
+                    lines = content.split('\n')
+                    for i, line in enumerate(lines):
+                        if line.startswith('## ') and i > 10:
+                            content = '\n'.join(lines[:i]) + custom_block + '\n'.join(lines[i:])
+                            break
+                elif custom_text_position == 'before_intro':
+                    # Insert after frontmatter
+                    if '---' in content:
+                        parts = content.split('---', 2)
+                        if len(parts) >= 3:
+                            content = parts[0] + '---' + parts[1] + '---' + custom_block + parts[2]
+                elif custom_text_position == 'before_conclusion':
+                    # Insert before last ## section
+                    lines = content.split('\n')
+                    last_section = len(lines) - 1
+                    for i in range(len(lines) - 1, -1, -1):
+                        if lines[i].startswith('## '):
+                            last_section = i
+                            break
+                    content = '\n'.join(lines[:last_section]) + custom_block + '\n'.join(lines[last_section:])
+                else:  # after_conclusion - append at end
+                    content = content + custom_block
+
+                with open(md_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+
+        # Send email to all auto-mode recipients for this report type
+        email_results = send_approved_report_emails(report_file, report_title, report_type)
+
+        # Update sent_at in database
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE pending_reports
+            SET sent_at = NOW()
+            WHERE id = %s
+        """, (report_id,))
+        conn.commit()
         cur.close()
         conn.close()
 
         return jsonify({
             'success': True,
-            'message': f"Rapport '{report['report_title']}' goedgekeurd. Verzending gestart."
+            'message': f"Rapport '{report_title}' goedgekeurd en verzonden naar {email_results['sent_count']} ontvanger(s).",
+            'email_results': email_results
         })
 
     except Exception as e:
