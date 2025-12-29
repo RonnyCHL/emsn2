@@ -1,0 +1,25 @@
+[Unit]
+Description=AtmosBird Climate Control - Anti-condens systeem
+Documentation=https://github.com/RonnyHullegie/emsn2
+After=network.target
+
+[Service]
+Type=simple
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2/scripts/atmosbird
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/atmosbird/climate_control.py
+Restart=always
+RestartSec=30
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=atmosbird-climate
+
+# Security
+NoNewPrivileges=false
+SupplementaryGroups=gpio
+
+[Install]
+WantedBy=multi-user.target

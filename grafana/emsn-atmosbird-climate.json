@@ -1,0 +1,430 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "emsn-atmosbird-climate",
+    "title": "AtmosBird Climate Control",
+    "tags": ["atmosbird", "climate", "heater", "berging"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Temperatuur",
+        "type": "gauge",
+        "gridPos": {"x": 0, "y": 0, "w": 6, "h": 6},
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "targets": [{
+          "rawSql": "SELECT temperature FROM atmosbird_climate ORDER BY measurement_timestamp DESC LIMIT 1",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "min": -10,
+            "max": 40,
+            "unit": "celsius",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "blue"},
+                {"value": 5, "color": "green"},
+                {"value": 25, "color": "yellow"},
+                {"value": 35, "color": "red"}
+              ]
+            }
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": ["lastNotNull"],
+            "fields": "",
+            "values": false
+          },
+          "showThresholdLabels": false,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 2,
+        "title": "Luchtvochtigheid",
+        "type": "gauge",
+        "gridPos": {"x": 6, "y": 0, "w": 6, "h": 6},
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "targets": [{
+          "rawSql": "SELECT humidity FROM atmosbird_climate ORDER BY measurement_timestamp DESC LIMIT 1",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 100,
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 40, "color": "green"},
+                {"value": 75, "color": "yellow"},
+                {"value": 80, "color": "red"}
+              ]
+            }
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": ["lastNotNull"],
+            "fields": "",
+            "values": false
+          },
+          "showThresholdLabels": false,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 3,
+        "title": "Dauwpunt Marge",
+        "description": "Verschil tussen temperatuur en dauwpunt. Onder 3°C = risico op condensatie.",
+        "type": "gauge",
+        "gridPos": {"x": 12, "y": 0, "w": 6, "h": 6},
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "targets": [{
+          "rawSql": "SELECT temperature - dewpoint as margin FROM atmosbird_climate ORDER BY measurement_timestamp DESC LIMIT 1",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 20,
+            "unit": "celsius",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 3, "color": "yellow"},
+                {"value": 5, "color": "green"}
+              ]
+            }
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": ["lastNotNull"],
+            "fields": "",
+            "values": false
+          },
+          "showThresholdLabels": false,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 4,
+        "title": "Heater Status",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 0, "w": 6, "h": 6},
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "targets": [{
+          "rawSql": "SELECT CASE WHEN heater_on THEN 'AAN' ELSE 'UIT' END as status, heater_reason FROM atmosbird_climate ORDER BY measurement_timestamp DESC LIMIT 1",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "options": {"AAN": {"color": "orange", "text": "🔥 HEATER AAN"}}},
+              {"type": "value", "options": {"UIT": {"color": "green", "text": "❄️ Heater uit"}}}
+            ]
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": ["lastNotNull"],
+            "fields": "/^status$/",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "textMode": "auto"
+        }
+      },
+      {
+        "id": 5,
+        "title": "Temperatuur & Dauwpunt",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 6, "w": 12, "h": 8},
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "targets": [
+          {
+            "rawSql": "SELECT measurement_timestamp as time, temperature as \"Temperatuur\" FROM atmosbird_climate WHERE $__timeFilter(measurement_timestamp) ORDER BY time",
+            "format": "time_series",
+            "refId": "A"
+          },
+          {
+            "rawSql": "SELECT measurement_timestamp as time, dewpoint as \"Dauwpunt\" FROM atmosbird_climate WHERE $__timeFilter(measurement_timestamp) ORDER BY time",
+            "format": "time_series",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "celsius",
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "showPoints": "never",
+              "spanNulls": true
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Dauwpunt"},
+              "properties": [
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}},
+                {"id": "custom.lineStyle", "value": {"fill": "dash"}}
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "Temperatuur"},
+              "properties": [
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {"displayMode": "list", "placement": "bottom"},
+          "tooltip": {"mode": "multi", "sort": "none"}
+        }
+      },
+      {
+        "id": 6,
+        "title": "Luchtvochtigheid",
+        "type": "timeseries",
+        "gridPos": {"x": 12, "y": 6, "w": 12, "h": 8},
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "targets": [{
+          "rawSql": "SELECT measurement_timestamp as time, humidity as \"RH%\" FROM atmosbird_climate WHERE $__timeFilter(measurement_timestamp) ORDER BY time",
+          "format": "time_series",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 20,
+              "gradientMode": "scheme",
+              "showPoints": "never",
+              "spanNulls": true,
+              "thresholdsStyle": {"mode": "line"}
+            },
+            "color": {"mode": "palette-classic"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 75, "color": "yellow"},
+                {"value": 80, "color": "red"}
+              ]
+            }
+          }
+        },
+        "options": {
+          "legend": {"displayMode": "list", "placement": "bottom"},
+          "tooltip": {"mode": "multi", "sort": "none"}
+        }
+      },
+      {
+        "id": 7,
+        "title": "Heater Activiteit",
+        "type": "state-timeline",
+        "gridPos": {"x": 0, "y": 14, "w": 24, "h": 4},
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "targets": [{
+          "rawSql": "SELECT measurement_timestamp as time, CASE WHEN heater_on THEN 1 ELSE 0 END as \"Heater\" FROM atmosbird_climate WHERE $__timeFilter(measurement_timestamp) ORDER BY time",
+          "format": "time_series",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "fillOpacity": 70,
+              "lineWidth": 0
+            },
+            "color": {"mode": "thresholds"},
+            "mappings": [
+              {"type": "value", "options": {"0": {"color": "dark-green", "text": "Uit"}}},
+              {"type": "value", "options": {"1": {"color": "orange", "text": "Aan"}}}
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 1, "color": "orange"}
+              ]
+            }
+          }
+        },
+        "options": {
+          "showValue": "never",
+          "rowHeight": 0.9,
+          "mergeValues": true
+        }
+      },
+      {
+        "id": 8,
+        "title": "Heater Duty Cycle (24u)",
+        "description": "Percentage van de tijd dat de heater aan staat",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 18, "w": 4, "h": 4},
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "targets": [{
+          "rawSql": "SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE heater_on) / NULLIF(COUNT(*), 0), 1) as duty_cycle FROM atmosbird_climate WHERE measurement_timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 50, "color": "yellow"},
+                {"value": 80, "color": "red"}
+              ]
+            }
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "colorMode": "value",
+          "graphMode": "none"
+        }
+      },
+      {
+        "id": 9,
+        "title": "Min/Max Temperatuur (24u)",
+        "type": "stat",
+        "gridPos": {"x": 4, "y": 18, "w": 4, "h": 4},
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "targets": [{
+          "rawSql": "SELECT CONCAT(ROUND(MIN(temperature)::numeric, 1), '°C / ', ROUND(MAX(temperature)::numeric, 1), '°C') as range FROM atmosbird_climate WHERE measurement_timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {"defaults": {}},
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "colorMode": "none",
+          "graphMode": "none"
+        }
+      },
+      {
+        "id": 10,
+        "title": "Min/Max RH (24u)",
+        "type": "stat",
+        "gridPos": {"x": 8, "y": 18, "w": 4, "h": 4},
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "targets": [{
+          "rawSql": "SELECT CONCAT(ROUND(MIN(humidity)::numeric, 1), '% / ', ROUND(MAX(humidity)::numeric, 1), '%') as range FROM atmosbird_climate WHERE measurement_timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {"defaults": {}},
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "colorMode": "none",
+          "graphMode": "none"
+        }
+      },
+      {
+        "id": 11,
+        "title": "Laatste Update",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 18, "w": 4, "h": 4},
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "targets": [{
+          "rawSql": "SELECT measurement_timestamp FROM atmosbird_climate ORDER BY measurement_timestamp DESC LIMIT 1",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "dateTimeFromNow"
+          }
+        },
+        "options": {
+          "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+          "colorMode": "none",
+          "graphMode": "none"
+        }
+      },
+      {
+        "id": 12,
+        "title": "Instellingen",
+        "description": "Huidige threshold waarden. Aanpassen via database.",
+        "type": "table",
+        "gridPos": {"x": 16, "y": 18, "w": 8, "h": 4},
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "targets": [{
+          "rawSql": "SELECT setting_key as \"Instelling\", setting_value as \"Waarde\", CASE setting_key WHEN 'rh_high' THEN '%' WHEN 'rh_low' THEN '%' WHEN 'dewpoint_margin_on' THEN '°C' WHEN 'dewpoint_margin_off' THEN '°C' WHEN 'max_heater_time' THEN 'sec' WHEN 'cooldown_time' THEN 'sec' WHEN 'read_interval' THEN 'sec' END as \"Eenheid\" FROM atmosbird_climate_settings ORDER BY setting_key",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {"defaults": {}},
+        "options": {
+          "showHeader": true,
+          "cellHeight": "sm"
+        }
+      },
+      {
+        "id": 13,
+        "title": "Dagelijkse Statistieken",
+        "type": "table",
+        "gridPos": {"x": 0, "y": 22, "w": 24, "h": 6},
+        "datasource": {"type": "postgres", "uid": "emsn_postgres"},
+        "targets": [{
+          "rawSql": "SELECT DATE(measurement_timestamp) as \"Datum\", COUNT(*) as \"Metingen\", COUNT(*) FILTER (WHERE heater_on) as \"Heater Aan\", ROUND(100.0 * COUNT(*) FILTER (WHERE heater_on) / NULLIF(COUNT(*), 0), 1) as \"Duty Cycle %\", ROUND(AVG(temperature)::numeric, 1) as \"Gem. Temp\", ROUND(MIN(temperature)::numeric, 1) as \"Min Temp\", ROUND(MAX(temperature)::numeric, 1) as \"Max Temp\", ROUND(AVG(humidity)::numeric, 1) as \"Gem. RH%\", ROUND(MAX(humidity)::numeric, 1) as \"Max RH%\" FROM atmosbird_climate GROUP BY DATE(measurement_timestamp) ORDER BY DATE(measurement_timestamp) DESC LIMIT 14",
+          "format": "table",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Duty Cycle %"},
+              "properties": [
+                {"id": "custom.cellOptions", "value": {"type": "color-background"}},
+                {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 50, "color": "yellow"}, {"value": 80, "color": "red"}]}}
+              ]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "cellHeight": "sm"
+        }
+      }
+    ],
+    "annotations": {
+      "list": []
+    },
+    "templating": {
+      "list": []
+    }
+  },
+  "overwrite": true
+}
