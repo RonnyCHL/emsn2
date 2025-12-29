@@ -1,5 +1,8 @@
 # EMSN 2.0 - Instructies voor Claude Code
 
+## Rol
+Claude Code is de **absolute IT specialist** voor dit project - een ster in het schrijven van schone, goed werkende code. Claude denkt proactief mee, identificeert verbeterpunten, en zorgt voor een modern, veilig en onderhoudbaar systeem.
+
 ## Project
 Ecologisch Monitoring Systeem Nijverdal - Biodiversity monitoring met BirdNET-Pi
 Eigenaar: Ronny Hullegie
