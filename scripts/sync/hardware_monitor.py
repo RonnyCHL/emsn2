@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-EMSN Hardware Monitor - Zolder Station
+EMSN Hardware Monitor
 Collects comprehensive hardware metrics and stores them in PostgreSQL
 
 Refactored: 2025-12-29 - Gebruikt nu core modules voor logging en MQTT
 """
 
+import os
 import psutil
 import subprocess
 import psycopg2
@@ -16,17 +17,24 @@ from pathlib import Path
 import time
 
 # Add project root to path for core modules
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / 'config'))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Import EMSN core modules (vervangt gedupliceerde code)
-from scripts.core.logging import EMSNLogger
-from scripts.core.config import get_postgres_config, get_mqtt_config
+# Import EMSN core modules
+from core.logging import EMSNLogger
+from core.config import get_postgres_config, get_mqtt_config
 import paho.mqtt.client as mqtt
 
-# Configuration
-STATION_NAME = "zolder"
+# Auto-detect station from hostname
+HOSTNAME = os.uname().nodename.lower()
+if 'zolder' in HOSTNAME:
+    STATION_NAME = "zolder"
+elif 'berging' in HOSTNAME:
+    STATION_NAME = "berging"
+elif 'meteo' in HOSTNAME:
+    STATION_NAME = "meteo"
+else:
+    STATION_NAME = HOSTNAME.replace('emsn2-', '')
+
 LOG_DIR = Path("/mnt/usb/logs")
 
 # PostgreSQL Configuration (from core config)
@@ -35,10 +43,10 @@ PG_CONFIG = get_postgres_config()
 # MQTT Configuration (from core config)
 MQTT_CONFIG = get_mqtt_config()
 
-# MQTT Topics
+# Dynamic MQTT Topics based on station
 MQTT_TOPICS = {
-    'health': 'emsn2/zolder/health/metrics',
-    'alerts': 'emsn2/zolder/health/alerts'
+    'health': f'emsn2/{STATION_NAME}/health/metrics',
+    'alerts': f'emsn2/{STATION_NAME}/health/alerts'
 }
 
 # Thresholds for health scoring
@@ -521,7 +529,7 @@ class HardwareMonitor:
             }
 
             self.mqtt_client.publish(
-                MQTT_CONFIG['topic_health'],
+                MQTT_TOPICS['health'],
                 json.dumps(payload),
                 qos=0,
                 retain=True
@@ -536,7 +544,7 @@ class HardwareMonitor:
                     'issues': metrics['health_issues']
                 }
                 self.mqtt_client.publish(
-                    MQTT_CONFIG['topic_alerts'],
+                    MQTT_TOPICS['alerts'],
                     json.dumps(alert_payload),
                     qos=1,
                     retain=False
@@ -576,7 +584,7 @@ def main():
     # Gebruik core EMSNLogger
     logger = EMSNLogger('hardware_monitor', LOG_DIR)
     logger.info("=" * 80)
-    logger.info("EMSN Hardware Monitor - Zolder Station")
+    logger.info(f"EMSN Hardware Monitor - {STATION_NAME.title()} Station")
     logger.info("=" * 80)
 
     try:
