@@ -19,15 +19,15 @@ LOGS_DIR = Path('/app/logs')
 # Maximum samples per klasse (song/call/alarm) om geheugen te sparen
 MAX_PER_CLASS = 2000
 
-# Try to load from secrets.py first (when running on Pi)
+# Try to load from core modules first (when running on Pi)
 try:
-    sys.path.insert(0, str(Path(__file__).parent.parent / 'config'))
-    from emsn_secrets import get_postgres_config
+    sys.path.insert(0, str(Path(__file__).parent))
+    from core.config import get_postgres_config
     _pg = get_postgres_config()
 except ImportError:
     _pg = {}
 
-# Database config (secrets or environment variables)
+# Database config (core module or environment variables)
 PG_HOST = _pg.get('host') or os.environ.get('PG_HOST', '192.168.1.25')
 PG_PORT = _pg.get('port') or os.environ.get('PG_PORT', '5433')
 PG_DB = _pg.get('database') or os.environ.get('PG_DB', 'emsn')

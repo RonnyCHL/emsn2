@@ -13,21 +13,17 @@ from pathlib import Path
 import psycopg2
 from anthropic import Anthropic
 
-# Import secrets
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-try:
-    from emsn_secrets import get_postgres_config
-    _pg = get_postgres_config()
-except ImportError:
-    _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
-           'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')}
+# Import core modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.config import get_postgres_config
 
-# Configuration (from secrets)
-DB_HOST = _pg.get('host', '192.168.1.25')
-DB_PORT = _pg.get('port', 5433)
-DB_NAME = _pg.get('database', 'emsn')
-DB_USER = _pg.get('user', 'birdpi_zolder')
-DB_PASSWORD = _pg.get('password', '') or os.getenv("EMSN_DB_PASSWORD", "")
+# Configuration (from core module)
+_pg = get_postgres_config()
+DB_HOST = _pg['host']
+DB_PORT = _pg['port']
+DB_NAME = _pg['database']
+DB_USER = _pg['user']
+DB_PASSWORD = _pg['password']
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 if not ANTHROPIC_API_KEY:

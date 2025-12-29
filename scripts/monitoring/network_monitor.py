@@ -29,27 +29,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Config path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
+# Core modules path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-    from emsn_secrets import get_postgres_config, get_mqtt_config
+    from core.config import get_postgres_config, get_mqtt_config
     _pg = get_postgres_config()
     _mqtt = get_mqtt_config()
-except ImportError:
-    _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
-           'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')}
-    _mqtt = {'broker': '192.168.1.178', 'port': 1883,
-             'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')}
+except ImportError as e:
+    logger.error(f"Failed to import core modules: {e}")
+    sys.exit(1)
 
-# PostgreSQL config
-PG_CONFIG = {
-    'host': _pg.get('host', '192.168.1.25'),
-    'port': _pg.get('port', 5433),
-    'database': _pg.get('database', 'emsn'),
-    'user': _pg.get('user', 'birdpi_zolder'),
-    'password': _pg.get('password', '')
-}
+# PostgreSQL config (from core module)
+PG_CONFIG = _pg
 
 # ============================================================
 # NETWERK APPARATEN CONFIGURATIE

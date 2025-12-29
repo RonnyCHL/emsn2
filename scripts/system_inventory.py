@@ -427,13 +427,13 @@ def get_database_info() -> dict:
     if not HAS_PSYCOPG2:
         return {"error": "psycopg2 niet geinstalleerd"}
 
-    # Try to load from secrets.py first
+    # Try to load from core modules
     db_password = None
     try:
         import sys
         from pathlib import Path
-        sys.path.insert(0, str(Path(__file__).parent.parent / 'config'))
-        from emsn_secrets import get_postgres_config
+        sys.path.insert(0, str(Path(__file__).parent))
+        from core.config import get_postgres_config
         _pg = get_postgres_config()
         db_password = _pg.get('password', '')
     except ImportError:

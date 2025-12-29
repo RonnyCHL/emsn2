@@ -18,12 +18,12 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 
-# Add config path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
+# Add core modules path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
     import psycopg2
-    from emsn_secrets import get_postgres_config
+    from core.config import get_postgres_config
 except ImportError as e:
     print(f"Import error: {e}")
     sys.exit(1)

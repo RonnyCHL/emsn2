@@ -26,13 +26,13 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-# Add config path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
+# Add core modules path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
     import psutil
     import paho.mqtt.client as mqtt
-    from emsn_secrets import get_mqtt_config, get_postgres_config
+    from core.config import get_mqtt_config, get_postgres_config
 except ImportError as e:
     print(f"Import error: {e}")
     sys.exit(1)

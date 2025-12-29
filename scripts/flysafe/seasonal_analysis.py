@@ -24,24 +24,13 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from collections import defaultdict
 
-# Import secrets
+# Import core modules
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-try:
-    from emsn_secrets import get_postgres_config
-    _pg = get_postgres_config()
-except ImportError:
-    _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
-           'user': 'birdpi_zolder', 'password': os.getenv('EMSN_DB_PASSWORD', '')}
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.config import get_postgres_config
 
-# Configuration (from secrets)
-DB_CONFIG = {
-    'host': _pg.get('host', '192.168.1.25'),
-    'port': _pg.get('port', 5433),
-    'database': _pg.get('database', 'emsn'),
-    'user': _pg.get('user', 'birdpi_zolder'),
-    'password': _pg.get('password', '') or os.getenv('EMSN_DB_PASSWORD', '')
-}
+# Configuration (from core module)
+DB_CONFIG = get_postgres_config()
 
 LOGS_DIR = Path("/mnt/usb/logs")
 REPORTS_DIR = Path("/mnt/usb/flysafe/reports")

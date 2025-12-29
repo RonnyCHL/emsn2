@@ -23,10 +23,10 @@ try:
 except ImportError:
     HAS_PSYCOPG2 = False
 
-# Import secrets voor credentials
-sys.path.insert(0, str(Path(__file__).parent.parent / 'config'))
+# Import core modules voor credentials
+sys.path.insert(0, str(Path(__file__).parent))
 try:
-    from emsn_secrets import get_postgres_config
+    from core.config import get_postgres_config
     _pg = get_postgres_config()
 except ImportError:
     _pg = {

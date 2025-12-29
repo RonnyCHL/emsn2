@@ -37,43 +37,11 @@ NAS_THUMBNAIL_DIR = f"{NAS_BASE}/thumbnails"
 THUMBNAIL_SIZE = (320, 180)  # 16:9 aspect voor dashboard preview
 THUMBNAIL_QUALITY = 75
 
-# Import secrets
-_secrets_paths = [
-    Path(__file__).parent.parent.parent / 'config',
-    Path.home() / 'emsn2' / 'config',
-    Path.home() / 'emsn2',
-]
-for _path in _secrets_paths:
-    if _path.exists():
-        sys.path.insert(0, str(_path))
-        break
+# Import core modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.config import get_postgres_config
 
-try:
-    from emsn_secrets import get_postgres_config
-    _pg = get_postgres_config()
-except ImportError:
-    # Fallback: lees .secrets bestand direct
-    _secrets_file = Path.home() / 'emsn2' / '.secrets'
-    _pg = {}
-    if _secrets_file.exists():
-        with open(_secrets_file) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    if key == 'PG_HOST': _pg['host'] = value
-                    elif key == 'PG_PORT': _pg['port'] = int(value)
-                    elif key == 'PG_DB': _pg['database'] = value
-                    elif key == 'PG_USER': _pg['user'] = value
-                    elif key == 'PG_PASS': _pg['password'] = value
-
-DB_CONFIG = {
-    'host': _pg.get('host', '192.168.1.25'),
-    'port': _pg.get('port', 5433),
-    'database': _pg.get('database', 'emsn'),
-    'user': _pg.get('user', 'postgres'),
-    'password': _pg.get('password', '')
-}
+DB_CONFIG = get_postgres_config()
 
 # Logging
 logging.basicConfig(

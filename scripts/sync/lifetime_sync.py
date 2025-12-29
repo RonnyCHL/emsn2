@@ -67,9 +67,9 @@ SQLITE_RETRY_DELAY = 5  # seconds
 
 def load_secrets() -> dict:
     """Load database and MQTT credentials."""
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "config"))
+    sys.path.insert(0, str(Path(__file__).parent.parent))
     try:
-        from emsn_secrets import get_postgres_config, get_mqtt_config
+        from core.config import get_postgres_config, get_mqtt_config
         return {
             "postgres": get_postgres_config(),
             "mqtt": get_mqtt_config(),

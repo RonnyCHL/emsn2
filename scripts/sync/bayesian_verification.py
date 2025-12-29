@@ -452,25 +452,15 @@ def calculate_bayesian_verification_score(
 # Test function
 if __name__ == "__main__":
     import os
+    import sys
     from pathlib import Path
 
-    # Import secrets for test
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-    try:
-        from emsn_secrets import get_postgres_config
-        _pg = get_postgres_config()
-    except ImportError:
-        _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
-               'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')}
+    # Import core modules for test
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from core.config import get_postgres_config
 
-    # Test configuration (from secrets)
-    PG_CONFIG = {
-        'host': _pg.get('host', '192.168.1.25'),
-        'port': _pg.get('port', 5433),
-        'database': _pg.get('database', 'emsn'),
-        'user': _pg.get('user', 'birdpi_zolder'),
-        'password': _pg.get('password', '')
-    }
+    # Test configuration (from core module)
+    PG_CONFIG = get_postgres_config()
 
     print("=" * 70)
     print("EMSN Bayesian Verification Model - Test")
