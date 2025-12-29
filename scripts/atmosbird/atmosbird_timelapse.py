@@ -2,6 +2,8 @@
 """
 AtmosBird Timelapse Generator
 Creates daily timelapse videos from sky observations
+
+Refactored: 2025-12-29 - Gebruikt nu core modules voor config en logging
 """
 
 import os
@@ -12,29 +14,26 @@ from pathlib import Path
 import subprocess
 import shutil
 
+# Add project root to path for core modules
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / 'config'))
+
+# Import EMSN core modules
+from scripts.core.logging import EMSNLogger
+from scripts.core.config import get_postgres_config
+
 # Configuration
 STATION_ID = "berging"
 TIMELAPSE_DIR = "/mnt/usb/atmosbird/timelapse"
 TEMP_DIR = "/tmp/atmosbird_timelapse"
 FPS = 24  # Frames per second for output video
 
-# Import secrets
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-try:
-    from emsn_secrets import get_postgres_config
-    _pg = get_postgres_config()
-except ImportError:
-    _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
-           'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')}
+# Database configuration (from core config)
+DB_CONFIG = get_postgres_config()
 
-# Database configuration (from secrets)
-DB_CONFIG = {
-    'host': _pg.get('host', '192.168.1.25'),
-    'port': _pg.get('port', 5433),
-    'database': _pg.get('database', 'emsn'),
-    'user': _pg.get('user', 'birdpi_zolder'),
-    'password': _pg.get('password', '')
-}
+# Module logger
+_logger = EMSNLogger('atmosbird_timelapse', Path('/mnt/usb/logs'))
 
 
 class TimelapseGenerator:
@@ -44,6 +43,7 @@ class TimelapseGenerator:
         date: datetime object for which day to generate (default: yesterday)
         """
         self.conn = None
+        self.logger = _logger
         if date:
             self.target_date = date
         else:
@@ -54,9 +54,8 @@ class TimelapseGenerator:
         self.temp_dir.mkdir(parents=True, exist_ok=True)
 
     def log(self, level, message):
-        """Log message with timestamp"""
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] [{level}] {message}", flush=True)
+        """Log message with timestamp - nu via core logger"""
+        self.logger.log(level, message)
 
     def connect_db(self):
         """Connect to PostgreSQL database"""

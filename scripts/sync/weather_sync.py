@@ -2,6 +2,8 @@
 """
 EMSN Weather Sync Script - MeteoPi Station
 Synchronizes weather data from local SQLite to central PostgreSQL database on NAS
+
+Refactored: 2025-12-29 - Gebruikt nu core modules voor logging en MQTT
 """
 
 import sqlite3
@@ -11,152 +13,61 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-import paho.mqtt.client as mqtt
 
-# Import secrets
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-try:
-    from emsn_secrets import get_postgres_config, get_mqtt_config
-    _pg = get_postgres_config()
-    _mqtt = get_mqtt_config()
-except ImportError:
-    import os
-    _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
-           'user': 'meteopi', 'password': os.environ.get('EMSN_DB_PASSWORD', '')}
-    _mqtt = {'broker': '192.168.1.178', 'port': 1883,
-             'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')}
+# Add project root to path for core modules
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / 'config'))
+
+# Import EMSN core modules (vervangt gedupliceerde code)
+from scripts.core.logging import EMSNLogger
+from scripts.core.config import get_postgres_config, get_mqtt_config
+from scripts.core.mqtt import MQTTPublisher as CoreMQTTPublisher
 
 # Configuration
 SQLITE_DB = "/home/ronny/davis-integration/weather_production.db"
 LOG_DIR = Path("/mnt/usb/logs")
 STATION_NAME = "meteo"
 
-# PostgreSQL Configuration (from secrets, override user for meteo)
+# MQTT Topics
+MQTT_TOPICS = {
+    'status': 'emsn2/meteo/sync/status',
+    'stats': 'emsn2/meteo/sync/stats',
+    'weather': 'emsn2/meteo/weather/current'
+}
+
+# PostgreSQL Configuration (override user for meteo)
+_pg = get_postgres_config()
 PG_CONFIG = {
-    'host': _pg.get('host', '192.168.1.25'),
-    'port': _pg.get('port', 5433),
-    'database': _pg.get('database', 'emsn'),
-    'user': 'meteopi',
-    'password': _pg.get('password', '')
+    'host': _pg.get('host'),
+    'port': _pg.get('port'),
+    'database': _pg.get('database'),
+    'user': 'meteopi',  # Meteo heeft eigen user
+    'password': _pg.get('password')
 }
 
-# MQTT Configuration (from secrets)
-MQTT_CONFIG = {
-    'broker': _mqtt.get('broker', '192.168.1.178'),
-    'port': _mqtt.get('port', 1883),
-    'username': _mqtt.get('username', 'ecomonitor'),
-    'password': _mqtt.get('password', ''),
-    'topic_status': 'emsn2/meteo/sync/status',
-    'topic_stats': 'emsn2/meteo/sync/stats',
-    'topic_weather': 'emsn2/meteo/weather/current'
-}
 
-class SyncLogger:
-    """Simple logger for sync operations"""
+class WeatherMQTTPublisher(CoreMQTTPublisher):
+    """Weather-specifieke MQTT publisher met convenience methods."""
 
-    def __init__(self, log_dir):
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.log_file = self.log_dir / f"weather_sync_{datetime.now().strftime('%Y%m%d')}.log"
-
-    def log(self, level, message):
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        log_entry = f"[{timestamp}] [{level}] {message}"
-        print(log_entry)
-        with open(self.log_file, 'a') as f:
-            f.write(log_entry + '\n')
-
-    def info(self, message):
-        self.log('INFO', message)
-
-    def error(self, message):
-        self.log('ERROR', message)
-
-    def warning(self, message):
-        self.log('WARNING', message)
-
-    def success(self, message):
-        self.log('SUCCESS', message)
-
-class MQTTPublisher:
-    """MQTT publisher for weather updates"""
-
-    def __init__(self, config, logger):
-        self.config = config
-        self.logger = logger
-        self.client = None
-        self.connected = False
-
-    def connect(self):
-        """Connect to MQTT broker"""
-        try:
-            self.client = mqtt.Client()
-            self.client.username_pw_set(self.config['username'], self.config['password'])
-            self.client.on_connect = self._on_connect
-            self.client.on_disconnect = self._on_disconnect
-            self.client.connect(self.config['broker'], self.config['port'], 60)
-            self.client.loop_start()
-            return True
-        except Exception as e:
-            self.logger.error(f"Failed to connect to MQTT broker: {e}")
-            return False
-
-    def _on_connect(self, client, userdata, flags, rc):
-        if rc == 0:
-            self.connected = True
-            self.logger.info("Connected to MQTT broker")
-        else:
-            self.logger.error(f"MQTT connection failed with code {rc}")
-
-    def _on_disconnect(self, client, userdata, rc):
-        self.connected = False
-        self.logger.warning("Disconnected from MQTT broker")
+    def __init__(self, logger):
+        super().__init__(logger)
 
     def publish_status(self, status, message, details=None):
         """Publish sync status update"""
-        if not self.client:
-            return
-
         payload = {
             'station': STATION_NAME,
             'timestamp': datetime.now().isoformat(),
             'status': status,
             'message': message
         }
-
         if details:
             payload.update(details)
-
-        try:
-            self.client.publish(
-                self.config['topic_status'],
-                json.dumps(payload),
-                qos=1,
-                retain=False
-            )
-        except Exception as e:
-            self.logger.error(f"Failed to publish MQTT status: {e}")
+        self.publish(MQTT_TOPICS['status'], payload, qos=1)
 
     def publish_weather(self, weather_data):
         """Publish current weather data"""
-        if not self.client:
-            return
-
-        try:
-            self.client.publish(
-                self.config['topic_weather'],
-                json.dumps(weather_data),
-                qos=0,
-                retain=True
-            )
-        except Exception as e:
-            self.logger.error(f"Failed to publish weather data: {e}")
-
-    def disconnect(self):
-        """Disconnect from MQTT broker"""
-        if self.client:
-            self.client.loop_stop()
-            self.client.disconnect()
+        self.publish(MQTT_TOPICS['weather'], weather_data, qos=0, retain=True)
 
 class WeatherDataSync:
     """Synchronizes weather data from SQLite to PostgreSQL"""
@@ -387,14 +298,14 @@ class WeatherDataSync:
 def main():
     """Main execution function"""
 
-    # Initialize logger
-    logger = SyncLogger(LOG_DIR)
+    # Initialize logger (gebruikt nu core EMSNLogger)
+    logger = EMSNLogger('weather_sync', LOG_DIR)
     logger.info("=" * 80)
     logger.info("EMSN Weather Sync - MeteoPi Station")
     logger.info("=" * 80)
 
-    # Initialize MQTT publisher
-    mqtt_pub = MQTTPublisher(MQTT_CONFIG, logger)
+    # Initialize MQTT publisher (gebruikt nu core MQTTPublisher)
+    mqtt_pub = WeatherMQTTPublisher(logger)
     mqtt_pub.connect()
 
     # Publish start status

@@ -21,17 +21,16 @@ from pathlib import Path
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / 'config'))
 
 from scripts.vocalization.vocalization_classifier import VocalizationClassifier
 
-# Configuration
-PG_CONFIG = {
-    'host': '192.168.1.25',
-    'port': 5433,
-    'database': 'emsn',
-    'user': 'birdpi_zolder',
-    'password': 'IwnadBon2iN'
-}
+# Import secrets - NOOIT hardcoded credentials!
+try:
+    from emsn_secrets import get_postgres_config
+    PG_CONFIG = get_postgres_config()
+except ImportError:
+    raise ImportError("emsn_secrets niet gevonden - controleer /home/ronny/emsn2/config/emsn_secrets.py")
 
 # BirdNET audio locations per station
 AUDIO_PATHS = {
@@ -39,14 +38,14 @@ AUDIO_PATHS = {
     'berging': '/home/ronny/BirdSongs/Extracted/By_Date'  # Remote path on berging
 }
 
-# SSH config for berging
+# SSH config for berging - importeer uit netwerk config wanneer beschikbaar
 BERGING_SSH = {
     'host': '192.168.1.87',
     'user': 'ronny',
 }
 
 LOG_DIR = Path('/mnt/usb/logs')
-BATCH_SIZE = 200  # TURBO MODE: verhoogd van 50 voor snellere backlog verwerking
+BATCH_SIZE = 50  # Normaal: 50 per batch
 
 
 class VocalizationEnricher:

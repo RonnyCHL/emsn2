@@ -2,6 +2,8 @@
 """
 EMSN Hardware Monitor - Zolder Station
 Collects comprehensive hardware metrics and stores them in PostgreSQL
+
+Refactored: 2025-12-29 - Gebruikt nu core modules voor logging en MQTT
 """
 
 import psutil
@@ -11,43 +13,32 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-import paho.mqtt.client as mqtt
 import time
-import os
 
-# Import secrets
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-try:
-    from emsn_secrets import get_postgres_config, get_mqtt_config
-    _pg = get_postgres_config()
-    _mqtt = get_mqtt_config()
-except ImportError:
-    _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
-           'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')}
-    _mqtt = {'broker': '192.168.1.178', 'port': 1883,
-             'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')}
+# Add project root to path for core modules
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / 'config'))
+
+# Import EMSN core modules (vervangt gedupliceerde code)
+from scripts.core.logging import EMSNLogger
+from scripts.core.config import get_postgres_config, get_mqtt_config
+import paho.mqtt.client as mqtt
 
 # Configuration
 STATION_NAME = "zolder"
 LOG_DIR = Path("/mnt/usb/logs")
 
-# PostgreSQL Configuration (from secrets)
-PG_CONFIG = {
-    'host': _pg.get('host', '192.168.1.25'),
-    'port': _pg.get('port', 5433),
-    'database': _pg.get('database', 'emsn'),
-    'user': _pg.get('user', 'birdpi_zolder'),
-    'password': _pg.get('password', '')
-}
+# PostgreSQL Configuration (from core config)
+PG_CONFIG = get_postgres_config()
 
-# MQTT Configuration (from secrets)
-MQTT_CONFIG = {
-    'broker': _mqtt.get('broker', '192.168.1.178'),
-    'port': _mqtt.get('port', 1883),
-    'username': _mqtt.get('username', 'ecomonitor'),
-    'password': _mqtt.get('password', ''),
-    'topic_health': 'emsn2/zolder/health/metrics',
-    'topic_alerts': 'emsn2/zolder/health/alerts'
+# MQTT Configuration (from core config)
+MQTT_CONFIG = get_mqtt_config()
+
+# MQTT Topics
+MQTT_TOPICS = {
+    'health': 'emsn2/zolder/health/metrics',
+    'alerts': 'emsn2/zolder/health/alerts'
 }
 
 # Thresholds for health scoring
@@ -61,33 +52,6 @@ THRESHOLDS = {
     'disk_warning': 85.0,
     'disk_critical': 95.0
 }
-
-class HardwareLogger:
-    """Logger for hardware monitoring"""
-
-    def __init__(self, log_dir):
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.log_file = self.log_dir / f"hardware_monitor_{datetime.now().strftime('%Y%m%d')}.log"
-
-    def log(self, level, message):
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        log_entry = f"[{timestamp}] [{level}] {message}"
-        print(log_entry)
-        with open(self.log_file, 'a') as f:
-            f.write(log_entry + '\n')
-
-    def info(self, message):
-        self.log('INFO', message)
-
-    def error(self, message):
-        self.log('ERROR', message)
-
-    def warning(self, message):
-        self.log('WARNING', message)
-
-    def debug(self, message):
-        self.log('DEBUG', message)
 
 class RaspberryPiMetrics:
     """Raspberry Pi specific metrics collector"""
@@ -609,7 +573,8 @@ class HardwareMonitor:
 
 def main():
     """Main execution function"""
-    logger = HardwareLogger(LOG_DIR)
+    # Gebruik core EMSNLogger
+    logger = EMSNLogger('hardware_monitor', LOG_DIR)
     logger.info("=" * 80)
     logger.info("EMSN Hardware Monitor - Zolder Station")
     logger.info("=" * 80)

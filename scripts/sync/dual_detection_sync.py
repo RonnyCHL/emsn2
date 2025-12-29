@@ -5,35 +5,29 @@ Detecteert en markeert vogels die op beide stations (zolder + berging) zijn waar
 binnen een configureerbaar tijdsvenster.
 
 Dit script draait alleen op het centrale station (zolder) omdat het beide datasets vergelijkt.
+
+Refactored: 2025-12-29 - Gebruikt nu core modules voor logging en MQTT
 """
 
 import psycopg2
 from psycopg2.extras import execute_batch
 import json
 import sys
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
-import paho.mqtt.client as mqtt
+
+# Add project root to path for core modules
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / 'config'))
+
+# Import EMSN core modules (vervangt gedupliceerde code)
+from scripts.core.logging import EMSNLogger
+from scripts.core.config import get_postgres_config, get_mqtt_config
+from scripts.core.mqtt import MQTTPublisher as CoreMQTTPublisher
 
 # Import Bayesian verification model
 from bayesian_verification import BayesianVerificationModel, calculate_bayesian_verification_score
-
-# Import secrets voor credentials
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-try:
-    from emsn_secrets import get_postgres_config, get_mqtt_config
-    _pg = get_postgres_config()
-    _mqtt = get_mqtt_config()
-except ImportError:
-    _pg = {
-        'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
-        'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')
-    }
-    _mqtt = {
-        'broker': '192.168.1.178', 'port': 1883,
-        'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')
-    }
 
 # Configuration
 STATION_NAME = "zolder"  # Dit script draait alleen op zolder (centraal)
@@ -43,153 +37,45 @@ LOG_DIR = Path("/mnt/usb/logs")
 TIME_WINDOW_SECONDS = 30  # Maximale tijd tussen detecties om als dual te markeren
 MIN_CONFIDENCE = 0.7     # Minimale confidence voor dual detection
 
-# PostgreSQL Configuration (credentials uit secrets)
-PG_CONFIG = {
-    'host': _pg.get('host', '192.168.1.25'),
-    'port': _pg.get('port', 5433),
-    'database': _pg.get('database', 'emsn'),
-    'user': _pg.get('user', 'birdpi_zolder'),
-    'password': _pg.get('password', '')
-}
+# PostgreSQL Configuration (from core config)
+PG_CONFIG = get_postgres_config()
 
-# MQTT Configuration (credentials uit secrets)
-MQTT_CONFIG = {
-    'broker': _mqtt.get('broker', '192.168.1.178'),
-    'port': _mqtt.get('port', 1883),
-    'username': _mqtt.get('username', 'ecomonitor'),
-    'password': _mqtt.get('password', ''),
-    'topic_status': 'emsn2/dual/sync/status',
-    'topic_stats': 'emsn2/dual/sync/stats',
-    'topic_alert': 'emsn2/dual/detection/new'
+# MQTT Topics
+MQTT_TOPICS = {
+    'status': 'emsn2/dual/sync/status',
+    'stats': 'emsn2/dual/sync/stats',
+    'alert': 'emsn2/dual/detection/new'
 }
 
 
-class SyncLogger:
-    """Simple logger for sync operations"""
+class DualMQTTPublisher(CoreMQTTPublisher):
+    """Dual detection-specifieke MQTT publisher met convenience methods."""
 
-    def __init__(self, log_dir):
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.log_file = self.log_dir / f"dual_detection_{datetime.now().strftime('%Y%m%d')}.log"
-
-    def log(self, level, message):
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        log_entry = f"[{timestamp}] [{level}] {message}"
-        print(log_entry)
-        with open(self.log_file, 'a') as f:
-            f.write(log_entry + '\n')
-
-    def info(self, message):
-        self.log('INFO', message)
-
-    def error(self, message):
-        self.log('ERROR', message)
-
-    def warning(self, message):
-        self.log('WARNING', message)
-
-    def success(self, message):
-        self.log('SUCCESS', message)
-
-
-class MQTTPublisher:
-    """MQTT publisher for dual detection updates"""
-
-    def __init__(self, config, logger):
-        self.config = config
-        self.logger = logger
-        self.client = None
-        self.connected = False
-
-    def connect(self):
-        """Connect to MQTT broker"""
-        try:
-            self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-            self.client.username_pw_set(self.config['username'], self.config['password'])
-            self.client.on_connect = self._on_connect
-            self.client.on_disconnect = self._on_disconnect
-            self.client.connect(self.config['broker'], self.config['port'], 60)
-            self.client.loop_start()
-            return True
-        except Exception as e:
-            self.logger.error(f"Failed to connect to MQTT broker: {e}")
-            return False
-
-    def _on_connect(self, client, userdata, flags, reason_code, properties):
-        if reason_code == 0:
-            self.connected = True
-            self.logger.info("Connected to MQTT broker")
-        else:
-            self.logger.error(f"MQTT connection failed with code {reason_code}")
-
-    def _on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties):
-        self.connected = False
-        self.logger.warning("Disconnected from MQTT broker")
+    def __init__(self, logger):
+        super().__init__(logger)
 
     def publish_status(self, status, message, details=None):
         """Publish sync status update"""
-        if not self.client:
-            return
-
         payload = {
             'timestamp': datetime.now().isoformat(),
             'status': status,
             'message': message
         }
-
         if details:
             payload.update(details)
-
-        try:
-            self.client.publish(
-                self.config['topic_status'],
-                json.dumps(payload),
-                qos=1,
-                retain=False
-            )
-        except Exception as e:
-            self.logger.error(f"Failed to publish MQTT status: {e}")
+        self.publish(MQTT_TOPICS['status'], payload, qos=1)
 
     def publish_stats(self, stats):
         """Publish dual detection statistics"""
-        if not self.client:
-            return
-
         payload = {
             'timestamp': datetime.now().isoformat(),
             **stats
         }
-
-        try:
-            self.client.publish(
-                self.config['topic_stats'],
-                json.dumps(payload),
-                qos=1,
-                retain=True
-            )
-        except Exception as e:
-            self.logger.error(f"Failed to publish MQTT stats: {e}")
+        self.publish(MQTT_TOPICS['stats'], payload, qos=1, retain=True)
 
     def publish_new_dual(self, detection):
         """Publish alert for new dual detection"""
-        if not self.client:
-            return
-
-        try:
-            self.client.publish(
-                self.config['topic_alert'],
-                json.dumps(detection),
-                qos=1,
-                retain=False
-            )
-        except Exception as e:
-            self.logger.error(f"Failed to publish dual detection alert: {e}")
-
-    def disconnect(self):
-        """Disconnect from MQTT broker"""
-        if self.client:
-            self.client.loop_stop()
-            self.client.disconnect()
+        self.publish(MQTT_TOPICS['alert'], detection, qos=1)
 
 
 class DualDetectionSync:
@@ -529,15 +415,15 @@ class DualDetectionSync:
 def main():
     """Main execution function"""
 
-    # Initialize logger
-    logger = SyncLogger(LOG_DIR)
+    # Initialize logger (gebruikt nu core EMSNLogger)
+    logger = EMSNLogger('dual_detection', LOG_DIR)
     logger.info("=" * 80)
     logger.info("EMSN Dual Detection Sync")
     logger.info(f"Time window: {TIME_WINDOW_SECONDS}s | Min confidence: {MIN_CONFIDENCE}")
     logger.info("=" * 80)
 
-    # Initialize MQTT publisher
-    mqtt_pub = MQTTPublisher(MQTT_CONFIG, logger)
+    # Initialize MQTT publisher (gebruikt nu core MQTTPublisher)
+    mqtt_pub = DualMQTTPublisher(logger)
     mqtt_pub.connect()
 
     # Publish start status

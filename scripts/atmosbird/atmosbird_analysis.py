@@ -2,6 +2,8 @@
 """
 AtmosBird Advanced Analysis Script
 Analyzes sky observations for ISS passes, moon phases, stars, and meteors
+
+Refactored: 2025-12-29 - Gebruikt nu core modules voor config en logging
 """
 
 import os
@@ -18,6 +20,15 @@ from astral.sun import sun
 from astral.moon import phase
 import ephem
 
+# Add project root to path for core modules
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / 'config'))
+
+# Import EMSN core modules
+from scripts.core.logging import EMSNLogger
+from scripts.core.config import get_postgres_config
+
 # Configuration
 STATION_ID = "berging"
 LOCATION_LAT = 52.360179  # Berging camera locatie, Nijverdal
@@ -30,31 +41,8 @@ CAMERA_FOV_HORIZONTAL = 102  # graden horizontaal (4:3 aspect)
 CAMERA_FOV_VERTICAL = 67  # graden verticaal
 CAMERA_POINTING = "zenith"  # camera kijkt recht omhoog
 
-# Import secrets - probeer meerdere locaties
-_secrets_paths = [
-    Path(__file__).parent.parent.parent / 'config',  # Als in emsn2/scripts/atmosbird/
-    Path.home() / 'emsn2' / 'config',                 # Fallback naar home directory
-]
-for _path in _secrets_paths:
-    if _path.exists():
-        sys.path.insert(0, str(_path))
-        break
-
-try:
-    from emsn_secrets import get_postgres_config
-    _pg = get_postgres_config()
-except ImportError:
-    _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
-           'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')}
-
-# Database configuration (from secrets)
-DB_CONFIG = {
-    'host': _pg.get('host', '192.168.1.25'),
-    'port': _pg.get('port', 5433),
-    'database': _pg.get('database', 'emsn'),
-    'user': _pg.get('user', 'birdpi_zolder'),
-    'password': _pg.get('password', '')
-}
+# Database configuration (from core config)
+DB_CONFIG = get_postgres_config()
 
 # ISS tracking API
 ISS_PASSES_API = "https://api.n2yo.com/rest/v1/satellite/visualpasses"
@@ -63,17 +51,20 @@ ISS_NORAD_ID = 25544  # ISS NORAD catalog number
 # Storage
 DETECTION_DIR = "/mnt/usb/atmosbird/detecties"
 
+# Module logger
+_logger = EMSNLogger('atmosbird_analysis', Path('/mnt/usb/logs'))
+
 
 class SkyAnalyzer:
     def __init__(self):
         self.conn = None
         self.observer = None
+        self.logger = _logger
         self.setup_observer()
 
     def log(self, level, message):
-        """Log message with timestamp"""
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] [{level}] {message}", flush=True)
+        """Log message with timestamp - nu via core logger"""
+        self.logger.log(level, message)
 
     def connect_db(self):
         """Connect to PostgreSQL database"""

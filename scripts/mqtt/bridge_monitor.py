@@ -2,6 +2,8 @@
 """
 EMSN MQTT Bridge Monitor v2.0
 Monitors bridge status, sends alerts on disconnection, and logs events to PostgreSQL
+
+Refactored: 2025-12-29 - Gebruikt nu core modules voor config
 """
 
 import os
@@ -19,36 +21,26 @@ import yaml
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-# Import secrets voor credentials
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-try:
-    from emsn_secrets import get_postgres_config, get_mqtt_config
-    _pg = get_postgres_config()
-    _mqtt = get_mqtt_config()
-except ImportError:
-    _pg = {
-        'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
-        'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')
-    }
-    _mqtt = {
-        'broker': '192.168.1.178', 'port': 1883,
-        'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')
-    }
+# Add project root to path for core modules
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / 'config'))
 
-# Configuration (credentials uit secrets)
-MQTT_BROKER = _mqtt.get('broker') or "192.168.1.178"
-MQTT_PORT = _mqtt.get('port') or 1883
-MQTT_USER = _mqtt.get('username') or "ecomonitor"
-MQTT_PASS = _mqtt.get('password') or ""
+# Import EMSN core modules
+from scripts.core.config import get_postgres_config, get_mqtt_config
 
-# Database configuration (credentials uit secrets)
-DB_CONFIG = {
-    'host': _pg.get('host') or '192.168.1.25',
-    'port': _pg.get('port') or 5433,
-    'database': _pg.get('database') or 'emsn',
-    'user': _pg.get('user') or 'birdpi_zolder',
-    'password': _pg.get('password') or ''
-}
+# Get configurations from core
+_pg = get_postgres_config()
+_mqtt = get_mqtt_config()
+
+# Configuration (from core config)
+MQTT_BROKER = _mqtt.get('broker')
+MQTT_PORT = _mqtt.get('port')
+MQTT_USER = _mqtt.get('username')
+MQTT_PASS = _mqtt.get('password')
+
+# Database configuration (from core config)
+DB_CONFIG = _pg
 
 # Topics to monitor
 BRIDGE_TOPICS = [
@@ -57,7 +49,7 @@ BRIDGE_TOPICS = [
 ]
 
 # Email config
-CONFIG_PATH = Path("/home/ronny/emsn2/config")
+CONFIG_PATH = PROJECT_ROOT / 'config'
 EMAIL_FILE = CONFIG_PATH / "email.yaml"
 SMTP_PASSWORD = os.getenv("EMSN_SMTP_PASSWORD")
 

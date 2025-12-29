@@ -3,6 +3,8 @@
 AtmosBird Sky Capture Script
 Captures sky photos every 10 minutes with Pi Camera NoIR
 Analyzes cloud coverage, brightness, and stores to NAS + PostgreSQL
+
+Refactored: 2025-12-29 - Gebruikt nu core modules voor config
 """
 
 import os
@@ -16,6 +18,15 @@ import numpy as np
 from PIL import Image
 import cv2
 
+# Add project root to path for core modules
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / 'config'))
+
+# Import EMSN core modules
+from scripts.core.logging import EMSNLogger
+from scripts.core.config import get_postgres_config
+
 # Configuration
 CAMERA_WIDTH = 4608
 CAMERA_HEIGHT = 2592
@@ -28,28 +39,16 @@ TIMELAPSE_DIR = f"{NAS_BASE}/timelapse"
 DETECTION_DIR = f"{NAS_BASE}/detecties"
 TEMP_DIR = "/tmp/atmosbird"
 
-# Import secrets
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-try:
-    from emsn_secrets import get_postgres_config
-    _pg = get_postgres_config()
-except ImportError:
-    _pg = {'host': '192.168.1.25', 'port': 5433, 'database': 'emsn',
-           'user': 'birdpi_zolder', 'password': os.environ.get('EMSN_DB_PASSWORD', '')}
-
-# Database configuration (from secrets)
-DB_CONFIG = {
-    'host': _pg.get('host', '192.168.1.25'),
-    'port': _pg.get('port', 5433),
-    'database': _pg.get('database', 'emsn'),
-    'user': _pg.get('user', 'birdpi_zolder'),
-    'password': _pg.get('password', '')
-}
+# Database configuration (from core config)
+DB_CONFIG = get_postgres_config()
 
 # Analysis thresholds
 DAYTIME_BRIGHTNESS_THRESHOLD = 100  # Mean brightness > 100 = daytime
 CLOUD_THRESHOLD_CLEAR = 20          # < 20% clouds = clear
 CLOUD_THRESHOLD_OVERCAST = 80       # > 80% clouds = overcast
+
+# Module logger
+_logger = EMSNLogger('atmosbird_capture', Path('/mnt/usb/logs'))
 
 
 class SkyCapture:
@@ -58,14 +57,14 @@ class SkyCapture:
         self.temp_image_path = None
         self.final_image_path = None
         self.conn = None
+        self.logger = _logger
 
         # Create temp directory
         Path(TEMP_DIR).mkdir(parents=True, exist_ok=True)
 
     def log(self, level, message):
-        """Log message with timestamp"""
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] [{level}] {message}", flush=True)
+        """Log message with timestamp - nu via core logger"""
+        self.logger.log(level, message)
 
     def connect_db(self):
         """Connect to PostgreSQL database"""

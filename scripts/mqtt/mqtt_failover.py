@@ -3,6 +3,8 @@
 EMSN MQTT Failover Monitor
 Checks bridge health and takes corrective action if needed
 Run via timer every 5 minutes
+
+Refactored: 2025-12-29 - Gebruikt nu core modules voor config
 """
 
 import os
@@ -17,23 +19,27 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import yaml
 
-# Import secrets
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-try:
-    from emsn_secrets import get_mqtt_config
-    _mqtt = get_mqtt_config()
-except ImportError:
-    _mqtt = {'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')}
+# Add project root to path for core modules
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / 'config'))
+
+# Import EMSN core modules
+from scripts.core.config import get_mqtt_config
+from scripts.core.network import HOSTS
+
+# Get MQTT config from core
+_mqtt = get_mqtt_config()
 
 # Configuration
 LOG_DIR = Path("/mnt/usb/logs")
 STATE_FILE = LOG_DIR / "mqtt_failover_state.json"
-CONFIG_PATH = Path("/home/ronny/emsn2/config")
+CONFIG_PATH = PROJECT_ROOT / "config"
 EMAIL_FILE = CONFIG_PATH / "email.yaml"
 SMTP_PASSWORD = os.getenv("EMSN_SMTP_PASSWORD")
 
-MQTT_USER = _mqtt.get('username', 'ecomonitor')
-MQTT_PASS = _mqtt.get('password', '')
+MQTT_USER = _mqtt.get('username')
+MQTT_PASS = _mqtt.get('password')
 
 # Logging
 logging.basicConfig(
@@ -237,7 +243,7 @@ class MQTTFailover:
             issues.append("Zolder Mosquitto is down")
 
         # Check Berging Mosquitto
-        berging_ok = self.check_mosquitto_status("192.168.1.87")
+        berging_ok = self.check_mosquitto_status(HOSTS['berging'])
         logger.info(f"Berging Mosquitto: {'OK' if berging_ok else 'DOWN'}")
         if not berging_ok:
             issues.append("Berging Mosquitto is down")
@@ -274,14 +280,14 @@ class MQTTFailover:
                             actions.append("Restarted Zolder Mosquitto")
 
                     if not berging_ok:
-                        if self.restart_mosquitto("192.168.1.87"):
+                        if self.restart_mosquitto(HOSTS['berging']):
                             actions.append("Restarted Berging Mosquitto")
 
                     # If only bridges are down, restart both to re-establish
                     if zolder_ok and berging_ok and bridges:
                         if not all(bridges.values()):
                             self.restart_mosquitto("localhost")
-                            self.restart_mosquitto("192.168.1.87")
+                            self.restart_mosquitto(HOSTS['berging'])
                             actions.append("Restarted both Mosquitto services to reconnect bridges")
 
             # Send alert if needed

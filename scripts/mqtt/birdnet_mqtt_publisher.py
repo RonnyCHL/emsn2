@@ -3,6 +3,8 @@
 EMSN BirdNET MQTT Publisher
 Monitors BirdNET-Pi SQLite database and publishes new detections to MQTT
 Includes real-time vocalization classification (song/call/alarm)
+
+Refactored: 2025-12-29 - Gebruikt nu core modules voor config
 """
 
 import os
@@ -16,13 +18,16 @@ from datetime import datetime
 from pathlib import Path
 import paho.mqtt.client as mqtt
 
-# Import secrets voor credentials
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-try:
-    from emsn_secrets import get_mqtt_config
-    _mqtt = get_mqtt_config()
-except ImportError:
-    _mqtt = {'username': 'ecomonitor', 'password': os.environ.get('EMSN_MQTT_PASSWORD', '')}
+# Add project root to path for core modules
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / 'config'))
+
+# Import EMSN core modules
+from scripts.core.config import get_mqtt_config
+
+# Get MQTT config from core
+_mqtt = get_mqtt_config()
 
 # Import vocalization classifier (lazy loaded)
 _vocalization_classifier = None
