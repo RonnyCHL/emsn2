@@ -21,16 +21,15 @@ from pathlib import Path
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / 'config'))
+sys.path.insert(0, str(PROJECT_ROOT / 'scripts'))
 
 from scripts.vocalization.vocalization_classifier import VocalizationClassifier
+from core.logging import EMSNLogger
+from core.config import get_postgres_config
+from core.network import HOSTS
 
-# Import secrets - NOOIT hardcoded credentials!
-try:
-    from emsn_secrets import get_postgres_config
-    PG_CONFIG = get_postgres_config()
-except ImportError:
-    raise ImportError("emsn_secrets niet gevonden - controleer /home/ronny/emsn2/config/emsn_secrets.py")
+# Database config via core module
+PG_CONFIG = get_postgres_config()
 
 # BirdNET audio locations per station
 AUDIO_PATHS = {
@@ -38,9 +37,9 @@ AUDIO_PATHS = {
     'berging': '/home/ronny/BirdSongs/Extracted/By_Date'  # Remote path on berging
 }
 
-# SSH config for berging - importeer uit netwerk config wanneer beschikbaar
+# SSH config for berging via core network module
 BERGING_SSH = {
-    'host': '192.168.1.87',
+    'host': HOSTS['berging'],
     'user': 'ronny',
 }
 
@@ -54,15 +53,11 @@ class VocalizationEnricher:
     def __init__(self):
         self.pg_conn = None
         self.classifier = None
-        self.log_file = LOG_DIR / f"vocalization_enricher_{datetime.now().strftime('%Y%m%d')}.log"
-        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        self.logger = EMSNLogger('vocalization-enricher', log_dir=LOG_DIR)
 
     def log(self, level, message):
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        entry = f"[{timestamp}] [{level}] {message}"
-        print(entry)
-        with open(self.log_file, 'a') as f:
-            f.write(entry + '\n')
+        """Log via EMSNLogger."""
+        self.logger.log(level, message)
 
     def connect(self):
         """Connect to PostgreSQL database."""

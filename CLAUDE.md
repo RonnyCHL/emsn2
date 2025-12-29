@@ -248,3 +248,18 @@ curl -X POST http://192.168.1.178:8081/api/nestbox/events \
 - fix: bug fix
 - docs: documentatie update
 - chore: opruimen/onderhoud
+
+## NAS Security
+
+### Credentials Management
+- **Docker .env:** `/volume1/docker/.env` (chmod 600) - PostgreSQL en Grafana credentials
+- **go2rtc:** Tuya credentials staan inline in go2rtc.yaml (known limitation - go2rtc ondersteunt geen env vars in stream URLs)
+
+### Permissies
+- `.env` → 600 (alleen owner)
+- `go2rtc.yaml` → 600 (alleen owner, bevat Tuya credentials)
+- `docker-compose.yml` bestanden → 644 (geen secrets meer)
+
+### Known Limitation: go2rtc Tuya
+go2rtc vereist credentials in de stream URL. Dit is een beperking van go2rtc, niet van EMSN.
+Mitigatie: bestand heeft restrictieve permissies (600) en staat niet in git.

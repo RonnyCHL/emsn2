@@ -15,9 +15,10 @@ from pathlib import Path
 from datetime import datetime, timedelta
 import psycopg2
 
-# Add config path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-from station_config import POSTGRES_CONFIG, POSTGRES_USERS
+# Add scripts path for core modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.logging import EMSNLogger
+from core.config import get_postgres_config
 
 # Configuration
 SILENCE_DAYTIME_HOURS = 2    # Warning if no detections for 2 hours during daytime
@@ -35,26 +36,21 @@ class HardwareChecker:
     def __init__(self):
         self.conn = None
         self.anomalies_found = []
+        self.logger = EMSNLogger('hardware-checker')
 
     def connect(self):
         """Connect to PostgreSQL"""
         try:
-            self.conn = psycopg2.connect(
-                host=POSTGRES_CONFIG['host'],
-                port=POSTGRES_CONFIG['port'],
-                database=POSTGRES_CONFIG['database'],
-                user=POSTGRES_USERS['zolder']['user'],
-                password=POSTGRES_USERS['zolder']['password']
-            )
+            pg_config = get_postgres_config()
+            self.conn = psycopg2.connect(**pg_config)
             return True
         except Exception as e:
-            print(f"[ERROR] Database connection failed: {e}")
+            self.log("ERROR", f"Database connection failed: {e}")
             return False
 
     def log(self, level, message):
-        """Log message"""
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        print(f"[{timestamp}] [{level}] {message}")
+        """Log via EMSNLogger"""
+        self.logger.log(level, message)
 
     def check_station_silence(self, station_id):
         """Check if a bird detection station has been silent"""

@@ -29,6 +29,11 @@ from typing import Optional, Tuple, List, Dict
 import psycopg2
 from psycopg2.extras import execute_values
 
+# Add scripts path for core modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.config import get_postgres_config
+from core.network import HOSTS
+
 # Configuratie
 ARCHIVE_BASE = Path("/mnt/nas-birdnet-archive")
 STATIONS = {
@@ -38,21 +43,15 @@ STATIONS = {
         "is_local": True
     },
     "berging": {
-        "host": "192.168.1.87",
+        "host": HOSTS['berging'],
         "birdsongs_path": "/home/ronny/BirdSongs/Extracted/By_Date",
         "is_local": False,
         "ssh_user": "ronny"
     }
 }
 
-# Database configuratie
-DB_CONFIG = {
-    "host": "192.168.1.25",
-    "port": 5433,
-    "database": "emsn",
-    "user": "birdpi_zolder",
-    "password": os.environ.get("PG_PASS", "IwnadBon2iN")
-}
+# Database configuratie via core module
+DB_CONFIG = get_postgres_config()
 
 # Logging setup
 logging.basicConfig(

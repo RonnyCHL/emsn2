@@ -18,9 +18,10 @@ import psycopg2
 from psycopg2.extras import execute_batch
 from collections import Counter
 
-# Add config path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'config'))
-from station_config import POSTGRES_CONFIG, POSTGRES_USERS
+# Add scripts path for core modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.logging import EMSNLogger
+from core.config import get_postgres_config
 
 # Configuration
 LOOKBACK_DAYS = 365
@@ -33,20 +34,13 @@ class BaselineLearner:
 
     def __init__(self):
         self.conn = None
-        self.log_entries = []
+        self.logger = EMSNLogger('baseline-learner')
 
     def connect(self):
         """Connect to PostgreSQL"""
         try:
-            # Get credentials from POSTGRES_USERS
-            user_config = POSTGRES_USERS.get('zolder', {})
-            self.conn = psycopg2.connect(
-                host=POSTGRES_CONFIG['host'],
-                port=POSTGRES_CONFIG['port'],
-                database=POSTGRES_CONFIG['database'],
-                user=user_config.get('user', 'birdpi_zolder'),
-                password=user_config.get('password', '')
-            )
+            pg_config = get_postgres_config()
+            self.conn = psycopg2.connect(**pg_config)
             self.log("INFO", "Connected to database")
             return True
         except Exception as e:
@@ -54,11 +48,8 @@ class BaselineLearner:
             return False
 
     def log(self, level, message):
-        """Log message"""
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        entry = f"[{timestamp}] [{level}] {message}"
-        print(entry)
-        self.log_entries.append(entry)
+        """Log via EMSNLogger"""
+        self.logger.log(level, message)
 
     def get_species_detections(self, lookback_days=LOOKBACK_DAYS):
         """Get all species with their detections from last N days"""
