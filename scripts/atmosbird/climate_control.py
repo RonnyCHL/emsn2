@@ -244,39 +244,49 @@ class ClimateController:
         return (b * gamma) / (a - gamma)
 
     def read_sensor(self) -> bool:
-        """Lees DHT22 sensor."""
+        """Lees DHT22 sensor met meerdere retries voor lange kabel."""
         if not self.dht_device:
             return False
 
-        try:
-            temperature = self.dht_device.temperature
-            humidity = self.dht_device.humidity
+        # Retries voor lange kabel - balans tussen snelheid en betrouwbaarheid
+        max_retries = 4
+        retry_delay = 2.0  # seconden tussen retries (DHT22 minimum)
 
-            if temperature is not None and humidity is not None:
-                self.state.temperature = temperature
-                self.state.humidity = humidity
-                self.state.dewpoint = self.calculate_dewpoint(temperature, humidity)
-                self.state.last_reading = datetime.now()
-                self.state.read_errors = 0
+        for attempt in range(max_retries):
+            try:
+                temperature = self.dht_device.temperature
+                humidity = self.dht_device.humidity
 
-                logger.info(
-                    f"Sensor: {temperature:.1f}°C, {humidity:.1f}% RH, "
-                    f"dauwpunt: {self.state.dewpoint:.1f}°C"
-                )
-                return True
-            else:
-                self.state.read_errors += 1
-                logger.warning(f"Sensor gaf geen data (poging {self.state.read_errors})")
-                return False
+                if temperature is not None and humidity is not None:
+                    self.state.temperature = temperature
+                    self.state.humidity = humidity
+                    self.state.dewpoint = self.calculate_dewpoint(temperature, humidity)
+                    self.state.last_reading = datetime.now()
+                    self.state.read_errors = 0
 
-        except RuntimeError as e:
-            self.state.read_errors += 1
-            logger.warning(f"Sensor leesfout: {e} (poging {self.state.read_errors})")
-            return False
-        except Exception as e:
-            self.state.read_errors += 1
-            logger.error(f"Onverwachte sensor fout: {e}")
-            return False
+                    logger.info(
+                        f"Sensor: {temperature:.1f}°C, {humidity:.1f}% RH, "
+                        f"dauwpunt: {self.state.dewpoint:.1f}°C"
+                    )
+                    return True
+
+            except RuntimeError as e:
+                # Normale DHT fouten - alleen loggen bij laatste retry
+                if attempt >= 2:
+                    logger.warning(f"Sensor leesfout: {e} (poging {attempt + 1}/{max_retries})")
+
+            except Exception as e:
+                logger.error(f"Onverwachte sensor fout: {e}")
+
+            # Wacht even voor volgende poging (behalve laatste)
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+
+        # Alle retries gefaald
+        self.state.read_errors += 1
+        if self.state.read_errors <= 3:
+            logger.warning(f"Sensor niet leesbaar na {max_retries} pogingen (fout #{self.state.read_errors})")
+        return False
 
     def set_heater(self, on: bool):
         """Zet heater aan of uit."""
@@ -329,7 +339,7 @@ class ClimateController:
         if self.state.temperature is None or self.state.humidity is None:
             return False
 
-        if self.state.read_errors > 5:
+        if self.state.read_errors > 10:
             logger.warning("Te veel leesfouten - heater uit voor veiligheid")
             return False
 
