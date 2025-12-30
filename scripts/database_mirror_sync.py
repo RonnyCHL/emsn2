@@ -10,10 +10,8 @@ Station: All
 
 import os
 import sys
-import shutil
 import sqlite3
 import logging
-from datetime import datetime
 from pathlib import Path
 
 # Paths
@@ -58,12 +56,10 @@ def verify_prerequisites():
 def get_record_count(db_path):
     """Get the number of records in detections table"""
     try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM detections")
-        count = cursor.fetchone()[0]
-        conn.close()
-        return count
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM detections")
+            return cursor.fetchone()[0]
     except Exception as e:
         logger.error(f"Failed to count records in {db_path}: {e}")
         return None
@@ -72,12 +68,10 @@ def get_record_count(db_path):
 def check_integrity(db_path):
     """Run SQLite PRAGMA integrity_check"""
     try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("PRAGMA integrity_check")
-        result = cursor.fetchone()[0]
-        conn.close()
-        return result == "ok"
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA integrity_check")
+            return cursor.fetchone()[0] == "ok"
     except Exception as e:
         logger.error(f"Integrity check failed for {db_path}: {e}")
         return False
@@ -93,6 +87,8 @@ def sync_database():
     logger.info("Starting database mirror sync")
 
     # Use SQLite backup API for atomic, consistent copy
+    source_conn = None
+    dest_conn = None
     try:
         logger.info(f"Creating atomic backup of {SOURCE_DB}")
         source_conn = sqlite3.connect(SOURCE_DB)
@@ -100,13 +96,15 @@ def sync_database():
 
         # SQLite backup API: creates consistent snapshot even with concurrent writes
         source_conn.backup(dest_conn)
-
-        source_conn.close()
-        dest_conn.close()
         logger.info("Backup completed")
     except Exception as e:
         logger.error(f"Backup failed: {e}")
         return False
+    finally:
+        if dest_conn:
+            dest_conn.close()
+        if source_conn:
+            source_conn.close()
 
     # Verify integrity of mirror
     logger.info("Running integrity check on mirror database")
