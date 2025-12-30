@@ -1,0 +1,21 @@
+[Unit]
+Description=EMSN Log Cleanup
+Documentation=https://github.com/emsn/bird-detection
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2/scripts/maintenance
+
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/maintenance/log_cleanup.py
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=log-cleanup
+
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

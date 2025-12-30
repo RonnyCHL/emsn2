@@ -1,0 +1,12 @@
+[Unit]
+Description=EMSN Weekly System Report Timer
+Documentation=https://github.com/emsn/bird-detection
+
+[Timer]
+# Run every Sunday at 08:00
+OnCalendar=Sun *-*-* 08:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

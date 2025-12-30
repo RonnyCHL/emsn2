@@ -1,0 +1,11 @@
+[Unit]
+Description=EMSN Log Cleanup Timer
+
+[Timer]
+# Run daily at 04:00
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
