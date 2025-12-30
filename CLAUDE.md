@@ -41,6 +41,7 @@ Lees dit bestand voor database, NAS, MQTT, Grafana en email wachtwoorden.
 ## Netwerk
 - **Pi Zolder (emsn2-zolder):** 192.168.1.178 - BirdNET-Pi, MQTT broker (hoofd), API server
 - **Pi Berging (emsn2-berging):** 192.168.1.87 - BirdNET-Pi, AtmosBird (Pi Camera NoIR), MQTT bridge
+- **Pi Meteo (emsn2-meteo):** 192.168.1.156 - Weerstation
 - **NAS (DS224Plus):** 192.168.1.25 - Opslag, PostgreSQL (port 5433), Grafana
 - **Homer Dashboard:** http://192.168.1.25:8181/ - Startpagina met alle links
 - **Ulanzi TC001:** 192.168.1.11 - AWTRIX Light LED matrix display
@@ -266,3 +267,29 @@ curl -X POST http://192.168.1.178:8081/api/nestbox/events \
 ### Known Limitation: go2rtc Tuya
 go2rtc vereist credentials in de stream URL. Dit is een beperking van go2rtc, niet van EMSN.
 Mitigatie: bestand heeft restrictieve permissies (600) en staat niet in git.
+
+## Reboot Monitoring & Watchdog
+
+### Hardware Watchdog
+Alle Pi's hebben hardware watchdog geconfigureerd via systemd:
+- **Config:** `/etc/systemd/system.conf.d/watchdog.conf`
+- **Timeout:** 60 seconden - Pi reboot automatisch bij freeze
+- Systemd stuurt heartbeats naar BCM2835 watchdog chip
+
+### Reboot Alert Service
+Bij elke boot draait `reboot-alert.service` die:
+1. Detecteert type shutdown (clean, watchdog, OOM, kernel panic, power loss)
+2. Stuurt MQTT alert naar broker
+3. Slaat state op voor volgende boot vergelijking
+
+### MQTT Topics
+- `emsn2/zolder/reboot` - Zolder reboot info (retained)
+- `emsn2/berging/reboot` - Berging reboot info (retained)
+- `emsn2/meteo/reboot` - Meteo reboot info (retained)
+- `emsn2/alerts` - Algemene alerts bij onverwachte reboots
+
+### Bestanden
+- **Script:** `/home/ronny/emsn2/scripts/monitoring/reboot_alert.py`
+- **Service:** `/etc/systemd/system/reboot-alert.service`
+- **State:** `/var/lib/emsn/reboot_state.json`
+- **Log:** `/mnt/usb/logs/reboot_alert.log`

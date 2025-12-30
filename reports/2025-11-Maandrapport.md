@@ -6,7 +6,7 @@ year: 2025
 period: 2025-11-01 tot 2025-11-30
 total_detections: 10826
 unique_species: 68
-generated: 2025-12-30 10:40:41
+generated: 2025-12-30 22:17:09
 ---
 
 ![EMSN Logo](logo.png)
@@ -19,71 +19,59 @@ generated: 2025-12-30 10:40:41
 
 ---
 
-# Vogelmonitoring Nijverdal - November 2025: De Wisseling van het Seizoen
+# Vogelverslag November 2025: Tussen Herfst en Winter
 
-November toonde zich dit jaar als een maand van grote contrasten, een typische overgangsfase waarin de herfst definitief plaatsmaakt voor de naderende winter. De bomen waren inmiddels grotendeels kaal, en de vogelwereld paste zich zichtbaar aan aan de veranderende omstandigheden. Met maar liefst 10.826 detecties en 68 verschillende soorten was dit een opmerkelijk actieve maand, waarin zowel standvogels als wintergasten een rol van betekenis speelden in het natuurtoneel rond onze monitoringstations.
+November toonde zich dit jaar als een echte overgangmaand, waarin de laatste herfstdagen plaatsmaakten voor de eerste winterse periodes. Met maar liefst 10.826 waarnemingen van 68 verschillende soorten in Nijverdal werd het een bijzonder productieve maand voor ons monitoringproject. De vogels leken goed te profiteren van de wisselende weersomstandigheden, waarbij vooral de koelere temperaturen en hoge luchtvochtigheid karakteristiek waren voor deze late herfstmaand.
 
-## Weer & Vogels: Een Maand van Temperatuurwisselingen
+## Weer & Vogels: Een Wisselvallige Maand
 
-November 2025 kenmerkte zich door een opvallend temperatuurverloop dat de vogelactiviteit sterk beïnvloedde. De maand kende een gemiddelde temperatuur van 7,2°C, maar achter dat cijfer schuilt een verhaal van grote variatie. De maand begon relatief zacht met temperaturen die in de eerste week nog gemiddeld 11,2°C bedroegen. Op 5 november werd met 16,8°C zelfs de warmste dag van de maand geregistreerd – een opmerkelijk zachte dag voor november waarop de vogels bijzonder actief waren.
+November 2025 kenmerkte zich door een gemiddelde temperatuur van 7,2°C, wat 4,6 graden kouder was dan oktober – een duidelijk signaal dat de winter naderde. De temperatuurschommelingen waren aanzienlijk: van een bijna zomerse 16,8°C op 5 november tot een koude -2,3°C op 21 november. Deze 19 graden spreiding zorgde voor een dynamische maand waarin vogels voortdurend moesten aanpassen aan veranderende omstandigheden.
 
-Vergeleken met oktober was november aanzienlijk kouder, met een temperatuurverschil van maar liefst 4,6 graden. Deze daling markeerde de definitieve overgang naar het winterseizoen. Het temperatuurverloop door de maand laat een duidelijke koeling zien: van 11,2°C gemiddeld in begin november daalde de temperatuur naar slechts 2,7°C in de vierde week. De koudste dag viel op 21 november, toen het kwik zelfs tot -2,3°C zakte – de eerste echte vorstdag die direct invloed had op de vogelactiviteit.
+Het temperatuurverloop door de maand toonde een geleidelijke afkoeling. De eerste week startte nog mild met gemiddeld 11,2°C, gevolgd door 10,4°C in week twee. Week drie koelde verder af naar 8,4°C, waarna week vier een forse daling liet zien naar slechts 2,7°C – de koudste periode van de maand. De laatste week herstelde zich enigszins naar 5,8°C. Deze koude periode medio november, met name rond de 20e tot 23e, bracht zelfs enkele nachtvorsten en zorgde voor een duidelijke verschuiving in vogelgedrag.
 
-Bijzonder interessant is de analyse van optimale temperatuuromstandigheden. Vogels bleken het actiefst bij temperaturen tussen 5 en 10°C, met maar liefst 7.105 detecties in deze temperatuurschijf. Dit is goed te verklaren: deze temperaturen zijn mild genoeg om energie te besparen, maar koel genoeg om actief op zoek te gaan naar voedsel voordat de echte winter begint. Bij temperaturen tussen 0 en 5°C werden nog altijd 3.872 detecties geregistreerd, wat aantoont dat veel soorten goed zijn aangepast aan koudere omstandigheden.
+De vogelactiviteit bleek opvallend genoeg het hoogst bij temperaturen tussen 5 en 10°C, waarbij maar liefst 7.105 detecties werden geregistreerd. Bij de koelere temperaturen van 0 tot 5°C werden nog 3.872 waarnemingen gedaan, terwijl bij de warmere periodes boven 10°C slechts 34 detecties plaatsvonden. Dit patroon illustreert perfect hoe novembertemperaturen optimaal zijn voor veel standvogels en wintergasten, die zich dan het actiefst tonen bij het zoeken naar voedsel en het claimen van territorium.
 
-De wind speelde eveneens een belangrijke rol deze maand. Met een gemiddelde windsnelheid van 4,3 m/s was het een matige maand, waarbij de windkracht geleidelijk toenam van 3,6 m/s in week 45 naar 4,7 m/s in de laatste week. De maximale windstoot bedroeg 32,6 m/s – een stevige storm die ongetwijfeld invloed had op de trekbewegingen. Opvallend is dat bij lichte wind en windstille momenten de meeste detecties plaatsvonden (10.826 en 8.571 respectievelijk), terwijl bij harde wind de activiteit terugliep tot 5.314 detecties. Dit bevestigt wat we al vermoedden: vogels schuilen bij hard weer en worden actiever zodra de wind gaat liggen.
+De wind speelde een belangrijke rol deze maand, met een gemiddelde snelheid van 4,3 m/s en windstoten tot 32,6 m/s. Interessant was dat vogels zich bij lichte wind het meest lieten horen (10.826 detecties in deze categorie), maar ook bij relatief windstille momenten nog steeds actief waren (8.571 detecties). Bij harde wind daalde de activiteit significant naar 5.314 detecties, wat aantoont dat vogels hun gedrag duidelijk aanpassen aan de windomstandigheden. De wind nam toe naarmate de maand vorderde: van 4,2 m/s in week één naar 4,7 m/s in de laatste week.
 
-Regenval was relatief beperkt deze november: slechts 6,7% van de tijd regende het, voornamelijk met lichte intensiteit (gemiddeld 1,17 mm/uur). Bij lichte regen werden nog 785 detecties geregistreerd bij een gemiddelde temperatuur van 6,1°C. De luchtvochtigheid was met gemiddeld 88% typisch herfstachtig, variërend tussen 55% en 97%. De luchtdruk schommelde tussen 993,5 en 1027,6 hPa, met een gemiddelde van 1012 hPa. Interessant genoeg waren vogels iets actiever bij hoge luchtdruk (6.453 detecties) dan bij lage druk (5.251 detecties), wat suggereert dat stabiel weer de voorkeur geniet. Het verschil tussen dag- en nachttemperaturen bleef beperkt tot 1,3°C, wat duidt op de bewolkte, grijze november-condities die we gewend zijn.
+De luchtvochtigheid lag hoog met gemiddeld 88%, variërend tussen 55% en 97% – typisch voor een Nederlandse november. Slechts 6,7% van de tijd regende het daadwerkelijk, met een gemiddelde regenintensiteit van 1,17 mm per uur en pieken tot 12,6 mm. Tijdens lichte regenbuien werden 785 detecties geregistreerd bij een aangename temperatuur van 6,1°C, wat suggereert dat veel vogelsoorten niet afgeschrikt worden door een beetje regen. De luchtdruk varieerde tussen 993,5 en 1027,6 hPa, met gemiddeld 1012,0 hPa. Bij hoge druk (6.453 detecties) waren vogels duidelijk actiever dan bij lage druk (5.251 detecties), een patroon dat past bij stabieler weer en betere foerageercondities.
 
-## Hoogtepunten: De Eksterpiek en Winterganzen
+Het verschil tussen dag- en nachttemperaturen was met 1,3°C relatief beperkt (overdag 7,5°C, 's nachts 6,2°C), wat typisch is voor bewolkte novemberdagen waarbij de warmte overdag beperkt blijft maar 's nachts ook minder snel wegstraalt.
 
-De absolute ster van november was onmiskenbaar de ekster (Pica pica), met maar liefst 3.388 detecties. Dit aantal is buitengewoon en weerspiegelt het typische gedrag van eksters in de late herfst, wanneer ze actief territoria aftasten en in kleine groepen fourageren. Hun karakteristieke geroep en opvallende verschijning maakten hen tot een constante factor bij beide monitoringstations.
+## Hoogtepunten en Bijzondere Momenten
 
-Een bijzonder hoogtepunt vormde de drukste dag van de maand: 26 november leverde 3.186 detecties op. Deze dag, met temperaturen tussen 1,1 en 5°C en relatief weinig wind, lijkt ideale omstandigheden te hebben geboden voor vogelactiviteit. Mogelijk speelden ook migratiebewegingen een rol, aangezien vlak daarvoor een koufront was doorgetrokken.
+De drukste dag van de maand was ongetwijfeld 26 november, met maar liefst 3.186 detecties. Deze woensdag combineerde ideale omstandigheden: een temperatuur rond de 2,8°C, lichte wind en droog weer. Het was alsof alle vogels in de omgeving besloten hadden om zich tegelijk te laten horen. Ook de zondag van die week (24 november) en de daaropvolgende zaterdag (29 november) waren bijzonder actief met respectievelijk 2.260 en 2.255 waarnemingen.
 
-## Patronen en Activiteit
+## De Kraaienheerschappij en Wintergasten
 
-De activiteitsverdeling over de week toonde interessante patronen. Woensdag was met 3.186 detecties de drukste dag (de eerdergenoemde 26ste), gevolgd door zondag (2.260) en zaterdag (2.255). Opmerkelijk stil was het op dinsdag, met slechts 179 detecties – mogelijk door technische omstandigheden of extreme weersinvloeden die dag. De meeste activiteit concentreerde zich in week 48, wat logisch is aangezien dit de laatste volledige week van de maand was en de monitoring toen optimaal functioneerde.
+De ekster domineerde volledig met 3.388 waarnemingen – ruim 31% van alle detecties. Deze intelligente vogel profiteerde optimaal van de omstandigheden en was door het kale geboomte goed zichtbaar en hoorbaar. De kauw volgde op gepaste afstand met 1.195 detecties, waarbij vooral hun sociale groepsgedrag opviel tijdens de koudere dagen.
 
-## De Top Vijf Soorten
+Maar de échte verrassingen kwamen van de wintergasten. Het roodborstje, met 1.116 waarnemingen, vestigde zich als een vaste aanwezigheid in tuinen en bosranden. Hun melodieuze gezang voegde een melancholische maar prachtige noot toe aan de grijze novemberdagen. De pimpelmees (1.067 detecties) en koolmees (855 detecties) bleven trouw aan voederplekken, waarbij hun acrobatische capriolen een blijvende bron van vermaak vormden.
 
-Na de ekster vormde de kauw (Corvus monedula) met 1.195 detecties de tweede aanwezige kraaiachtige. Kauwen zijn echte stadsvogels die zich uitstekend thuis voelen in de bebouwde omgeving van Nijverdal. Hun sociale gedrag en luidruchtige aanwezigheid in kleine kolonies maakten hen tot frequente gasten.
+De koperwiek was de ster onder de wintergasten met 885 waarnemingen. Deze Scandinavische lijster arriveerde in grotere aantallen dan verwacht, vooral zichtbaar vanaf half november toen de temperaturen daalden. Hun zachte, fluisterende contactroepjes waren regelmatig te horen in bessen dragende struiken.
 
-Het roodborstje (Erithacus rubecula) verraste met 1.116 detecties – een prachtig resultaat voor deze charismatische kleine zanger. Roodborstjes zijn in november bijzonder territoriaal en zingen al voor de lenteperiode, wat hun detecteerbaarheid vergroot. Hun aanwezigheid rond beide monitoringstations duidt op gevarieerd habitat met voldoende struikgewas.
+## Zeldzame Verschijningen
 
-De pimpelmees (Cyanistes caeruleus) en koolmees (Parus major) completeerden met respectievelijk 1.067 en 855 detecties het karakteristieke Nederlandse tuinvogel-duo. Deze mezenfamilie profiteerde van de relatief milde temperaturen begin november om nog flink voedselvoorraden aan te leggen voor de winter.
+De Turkse tortel gaf op 26 november drie opeenvolgende detecties bij het station 'berging', alle rond 8:28 uur met zeer hoge betrouwbaarheid (tot 98%). Deze normaal gesproken schaarse bezoeker lijkt zich tijdelijk in de buurt te hebben gevestigd.
 
-## Zeldzame en Bijzondere Waarnemingen
+Nog opmerkelijker was de brandgans op 29 november, een soort die we niet vaak in een stedelijke omgeving verwachten. De waterhoen gaf zich tweemaal prijs op 26 november, terwijl het waterral zelfs tweemaal op 30 november werd gedetecteerd – bijzonder voor deze schuwe moerasbewoner. Een watersnip op 29 november en een witgat op 26 november completeerden de lijst van onverwachte watervogelgasten, mogelijk aangevoerd door de natte omstandigheden en op zoek naar voedsel voor de langere trek.
 
-November bracht een schat aan bijzondere waarnemingen. De Turkse tortel (Streptopelia decaocto) werd op 26 november driemaal achtereenvolgens gedetecteerd bij het station 'berging', telkens met hoge betrouwbaarheid (boven 93%). Deze soort is in Nederland algemeen, maar toch altijd een mooie verschijning.
+## Ganzen in Overvloed
 
-Watergebonden soorten leverden de meest opwindende waarnemingen. Een brandgans (Branta leucopsis) op 29 november, een waterhoen (Gallinula chloropus) en maar liefst tweemaal een waterral (Rallus aquaticus) op 30 november wijzen op de aanwezigheid van waterrijke biotopen in de buurt. De waterral is een bijzonder schuw broekbewoner – deze detecties zijn dan ook echt waardevol.
+De drie ganzensoorten toonden interessante patronen. De kolgans leidde met 414 detecties, gevolgd door de grauwe gans (268) en de kleine rietgans (146). Hun piekactiviteit viel samen met de koudere periode medio november, waarbij ze waarschijnlijk doortrekkers waren op weg naar zuidelijker overwinteringsgebieden. Hun karakteristieke roepjes, vooral 's ochtends en 's avonds, waren een constant achtergrondgeluid.
 
-Ook steltlopers lieten zich opmerken: een watersnip (Gallinago gallinago) en een witgat (Tringa ochropus) werden gedetecteerd, beide soorten die doortrekken of overwinteren in Nederland en op zoek zijn naar voedselrijke, modderige oevers.
+## De Kleine Zangers
 
-## Ganzen: De Noordelijke Gasten
-
-De aanwezigheid van verschillende ganzensoorten onderstreepte het belang van Nijverdal als doortrekgebied. De kolgans (Anser albifrons) was met 414 detecties veruit de meest voorkomende gans, gevolgd door de grauwe gans (Anser anser, 268) en de kleine rietgans (Anser brachyrhynchus, 146). Deze arctische ganzen overwinteren in grote aantallen in Nederland en hun aanwezigheid in november past perfect in het traditionele trekpatroon. Hun roepende formaties boven Nijverdal zijn altijd indrukwekkend.
-
-## Andere Memorabele Soorten
-
-De koperwiek (Turdus iliacus) met 885 detecties was een opvallende wintergast uit Scandinavië. Deze lijsterachtige verschijnt elk najaar massaal in Nederland en foerageert in grote groepen op bessen en insecten. De staartmees (Aegithalos caudatus, 254 detecties) trok in karakteristieke rondreizende groepjes door het gebied, terwijl de vink (Fringilla coelebs, 219) zich opmerkelijk bescheiden hield voor een normaal gesproken zeer algemene soort.
-
-Het winterkoninkje (Troglodytes troglodytes) leverde met 150 detecties het bewijs dat ook deze minuscule bolletje veren goed te monitoren is, ondanks zijn teruggetrokken levenswijze in dicht kreupelhout.
+De staartmees verraste met 254 waarnemingen, vaak in kleine groepjes die door de struiken trokken. De vink (219 detecties) en winterkoning (150) completeerden het rijtje van kleinere zangvogels die November kleur gaven. Zelfs de roek, met 135 detecties, liet zich regelmatig zien – een soort die we normaal gesproken niet zo vaak waarnemen in stedelijk gebied.
 
 ## Vergelijking en Context
 
-Aangezien dit de eerste gemonitorde maand is van dit project, ontbreekt vergelijkingsmateriaal met eerdere perioden. Wel valt op dat alle 68 gedetecteerde soorten als "nieuw" zijn geregistreerd – een veelbelovend startpunt voor langetermijnmonitoring. Het totaal van 10.826 detecties in één maand getuigt van goed functionerende apparatuur en een vogelrijk gebied.
-
-De temperatuurdaling van 4,6°C ten opzichte van oktober heeft duidelijk invloed gehad op de soortensamenstelling. Zomervogels waren volledig verdwenen, terwijl wintergasten zoals koperwiek, kepen (Fringilla montifringilla werd ook gedetecteerd) en noordelijke ganzen hun intrede deden.
+Omdat dit de eerste volledige maand van monitoring is, kunnen we geen directe vergelijking maken met eerdere periodes. Wel is duidelijk dat de 4,6 graden koelere temperatuur ten opzichte van oktober een katalysator was voor de komst van wintergasten en trekvogels. De 68 waargenomen soorten vertegenwoordigen een indrukwekkende diversiteit voor een lokale stedelijke omgeving in november.
 
 ## Vooruitblik naar December
 
-De komende weken wordt verdere afkoeling verwacht. December brengt traditiegetrouw de echte winterse omstandigheden, met mogelijk sneeuw en langdurige vorst. We kunnen verwachten dat de aanwezigheid van standvogels zoals mezen, merels en vinken rond voederbronnen toeneemt. Wintergasten zoals sijzen, barmsijzen en eventueel pestvogels zullen waarschijnlijk in aantal toenemen naarmate de winter in Scandinavië strenger wordt.
+Met de winter voor de deur mogen we in december een verdere verschuiving verwachten. De aanwezigheid van koperwiek, keep en andere noordelijke gasten zal waarschijnlijk toenemen. Bij vorst en sneeuw zullen voederplekken nog belangrijker worden, wat mogelijk leidt tot concentraties van mezen, vinken en mussen. De ganzen zullen grotendeels zijn doorgetrokken, terwijl standvogels zoals ekster, kauw en merel hun territorium claimen voor het nieuwe seizoen. 
 
-De ganzen zullen naar verwachting in grote aantallen blijven, met mogelijk uitbreiding van het soortenpalet met bijvoorbeeld toendrarietganzen. Roofvogels zoals buizerds en sperwers kunnen actiever worden nu de vegetatie kaler is en prooien gemakkelijker te spotten zijn.
-
-Voor
+De vraag is of we bijzondere wintergasten zoals pestvogels of Siberische gasten mogen verwachten – de komende weken zullen het uitwijzen. Eén ding is zeker: ons monitoringproject heeft een veelbelovende start gemaakt, en het belooft een fascinerend vogeljaar te worden in Nijverdal.
 
 ---
 
