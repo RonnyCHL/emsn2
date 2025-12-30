@@ -43,15 +43,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Cleanup configuratie: tabel -> (kolom, dagen retentie)
+# VOLGORDE IS BELANGRIJK: child tables eerst (FK constraints)
+# ulanzi_notification_log: 7 dagen (98% is 'niet getoond', ~52K records/dag = 364K/week)
+# ulanzi_screenshots: moet VOOR notification_log (FK naar notification_log.id)
 CLEANUP_CONFIG = {
-    'ulanzi_notification_log': ('timestamp', 30),
+    'ulanzi_screenshots': ('timestamp', 7),           # Child table eerst
+    'ulanzi_notification_log': ('timestamp', 7),      # Dan parent
     'system_health': ('measurement_timestamp', 90),
     'performance_metrics': ('measurement_timestamp', 60),
     'anomaly_check_log': ('check_timestamp', 30),
     'nas_metrics': ('timestamp', 60),
     'mqtt_hourly_stats': ('hour_timestamp', 90),
     'mqtt_bridge_events': ('timestamp', 60),
-    'ulanzi_screenshots': ('timestamp', 30),
 }
 
 
