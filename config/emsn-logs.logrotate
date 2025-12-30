@@ -51,8 +51,10 @@
 }
 
 # BirdNET MQTT Publisher logs (large files!)
+# Covers both zolder and berging stations
 /mnt/usb/logs/birdnet-mqtt-publisher.error.log
-/mnt/usb/logs/birdnet_mqtt_zolder.log {
+/mnt/usb/logs/birdnet_mqtt_zolder.log
+/mnt/usb/logs/birdnet_mqtt_berging.log {
     daily
     rotate 3
     compress
@@ -192,4 +194,47 @@
     missingok
     notifempty
     create 644 ronny ronny
+}
+
+# Network monitor logs (can grow large)
+/mnt/usb/logs/network_monitor.log
+/mnt/usb/logs/network_monitor.error.log {
+    daily
+    rotate 3
+    compress
+    delaycompress
+    missingok
+    notifempty
+    size 5M
+    copytruncate
+    create 644 ronny ronny
+}
+
+# Backup cleanup logs
+/mnt/usb/logs/sd_backup_cleanup.log
+/mnt/usb/logs/backup_cleanup.log {
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 ronny ronny
+}
+
+# AtmosBird logs (berging only)
+/mnt/usb/logs/atmosbird-capture.log
+/mnt/usb/logs/atmosbird-capture.error.log
+/mnt/usb/logs/atmosbird-analysis.log
+/mnt/usb/logs/atmosbird-analysis.error.log
+/mnt/usb/logs/atmosbird-timelapse.log
+/mnt/usb/logs/atmosbird-timelapse.error.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    create 644 root root
 }

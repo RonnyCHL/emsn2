@@ -4,9 +4,9 @@ month: 11
 month_name: november
 year: 2025
 period: 2025-11-01 tot 2025-11-30
-total_detections: 10929
-unique_species: 82
-generated: 2025-12-16 18:58:10
+total_detections: 10826
+unique_species: 68
+generated: 2025-12-30 10:40:41
 ---
 
 ![EMSN Logo](logo.png)
@@ -14,66 +14,80 @@ generated: 2025-12-16 18:58:10
 # November 2025 - Vogelactiviteit
 
 **Periode:** 2025-11-01 tot 2025-11-30
-**Detecties:** 10,929
-**Soorten:** 82
+**Detecties:** 10,826
+**Soorten:** 68
 
 ---
 
-# Vogelrapport november 2025: Winterse transitie in Nijverdal
+# Vogelmonitoring Nijverdal - November 2025: De Wisseling van het Seizoen
 
-November toonde zich dit jaar als een echte overgangsmaand, waarin de herfst langzaam maar zeker plaatsmaakte voor winterse condities. De maand begon nog relatief mild, maar ontwikkelde zich tot een periode van toenemende kou die een duidelijke stempel drukte op de vogelactiviteit in Nijverdal. Met 10.929 waarnemingen verspreid over maar liefst 82 verschillende soorten, was dit een bijzonder productieve maand voor ons monitoringproject.
+November toonde zich dit jaar als een maand van grote contrasten, een typische overgangsfase waarin de herfst definitief plaatsmaakt voor de naderende winter. De bomen waren inmiddels grotendeels kaal, en de vogelwereld paste zich zichtbaar aan aan de veranderende omstandigheden. Met maar liefst 10.826 detecties en 68 verschillende soorten was dit een opmerkelijk actieve maand, waarin zowel standvogels als wintergasten een rol van betekenis speelden in het natuurtoneel rond onze monitoringstations.
 
-## Weer & Vogels: Een verhaal van geleidelijke afkoeling
+## Weer & Vogels: Een Maand van Temperatuurwisselingen
 
-De meteorologische ontwikkelingen van november waren bepalend voor wat we in de lucht en langs onze voedertafels zagen gebeuren. De maand kende een gemiddelde temperatuur van 7,2°C, wat beduidend kouder was dan oktober – een verschil van maar liefst 4,6 graden. Dit temperatuurverschil vertelt het verhaal van een versnelde overgang naar het winterseizoen.
+November 2025 kenmerkte zich door een opvallend temperatuurverloop dat de vogelactiviteit sterk beïnvloedde. De maand kende een gemiddelde temperatuur van 7,2°C, maar achter dat cijfer schuilt een verhaal van grote variatie. De maand begon relatief zacht met temperaturen die in de eerste week nog gemiddeld 11,2°C bedroegen. Op 5 november werd met 16,8°C zelfs de warmste dag van de maand geregistreerd – een opmerkelijk zachte dag voor november waarop de vogels bijzonder actief waren.
 
-Het temperatuurverloop liet een duidelijke trend zien: de eerste weken van november waren nog relatief mild, met een gemiddelde van 11,2°C in week 44 en 10,4°C in week 45. De warmste dag viel op 5 november, toen het kwik steeg tot 16,8°C – een laatste herinnering aan zachtere tijden. Vanaf half november zette de afkoeling echter stevig door. Week 47 was met gemiddeld slechts 2,7°C bijzonder koud, met als dieptepunt 21 november toen de temperatuur daalde tot -2,3°C, het koudste moment van de maand.
+Vergeleken met oktober was november aanzienlijk kouder, met een temperatuurverschil van maar liefst 4,6 graden. Deze daling markeerde de definitieve overgang naar het winterseizoen. Het temperatuurverloop door de maand laat een duidelijke koeling zien: van 11,2°C gemiddeld in begin november daalde de temperatuur naar slechts 2,7°C in de vierde week. De koudste dag viel op 21 november, toen het kwik zelfs tot -2,3°C zakte – de eerste echte vorstdag die direct invloed had op de vogelactiviteit.
 
-Deze temperatuurschommelingen hadden een direct effect op de vogelactiviteit. Onze data tonen overtuigend aan dat vogels het meest actief waren bij temperaturen tussen 5 en 10°C, met maar liefst 7.181 detecties in dit optimale bereik. Bij de koudere temperaturen tussen 0 en 5°C registreerden we 3.899 waarnemingen. Het verschil tussen dag- en nachttemperatuur was relatief bescheiden met 1,3°C, wat typisch is voor bewolkte herfstsituaties.
+Bijzonder interessant is de analyse van optimale temperatuuromstandigheden. Vogels bleken het actiefst bij temperaturen tussen 5 en 10°C, met maar liefst 7.105 detecties in deze temperatuurschijf. Dit is goed te verklaren: deze temperaturen zijn mild genoeg om energie te besparen, maar koel genoeg om actief op zoek te gaan naar voedsel voordat de echte winter begint. Bij temperaturen tussen 0 en 5°C werden nog altijd 3.872 detecties geregistreerd, wat aantoont dat veel soorten goed zijn aangepast aan koudere omstandigheden.
 
-De wind speelde eveneens een belangrijke rol in het gedrag van onze vogels. Met een gemiddelde windsnelheid van 4,3 m/s kende november voornamelijk lichte tot matige wind, hoewel er windstoten tot 32,6 m/s werden gemeten. Opmerkelijk was dat vogels ook bij verschillende windcondities actief bleven, met ruim 10.900 detecties bij lichte wind en nog altijd 8.642 waarnemingen tijdens windstille momenten. De wind nam licht toe naarmate de maand vorderde, van 3,6 m/s in week 45 tot 4,7 m/s in week 48.
+De wind speelde eveneens een belangrijke rol deze maand. Met een gemiddelde windsnelheid van 4,3 m/s was het een matige maand, waarbij de windkracht geleidelijk toenam van 3,6 m/s in week 45 naar 4,7 m/s in de laatste week. De maximale windstoot bedroeg 32,6 m/s – een stevige storm die ongetwijfeld invloed had op de trekbewegingen. Opvallend is dat bij lichte wind en windstille momenten de meeste detecties plaatsvonden (10.826 en 8.571 respectievelijk), terwijl bij harde wind de activiteit terugliep tot 5.314 detecties. Dit bevestigt wat we al vermoedden: vogels schuilen bij hard weer en worden actiever zodra de wind gaat liggen.
 
-Regenval bleef gelukkig beperkt: slechts 6,7% van de tijd viel er neerslag, met een gemiddelde intensiteit van 1,17 mm per uur en pieken tot 12,6 mm/uur. Tijdens lichte regen registreerden we 797 detecties bij een aangename temperatuur van gemiddeld 6,1°C. De luchtvochtigheid was met gemiddeld 88% typisch hoog voor een Nederlandse november, variërend tussen 55% en 97%. De luchtdruk schommelde tussen 993,5 en 1027,6 hPa, met een gemiddelde van 1012 hPa. Interessant genoeg waren vogels iets actiever tijdens periodes van hoge luchtdruk (6.516 detecties) vergeleken met lage druk (5.302 detecties), wat vaak samenhangt met helderder weer en betere vliegcondities.
+Regenval was relatief beperkt deze november: slechts 6,7% van de tijd regende het, voornamelijk met lichte intensiteit (gemiddeld 1,17 mm/uur). Bij lichte regen werden nog 785 detecties geregistreerd bij een gemiddelde temperatuur van 6,1°C. De luchtvochtigheid was met gemiddeld 88% typisch herfstachtig, variërend tussen 55% en 97%. De luchtdruk schommelde tussen 993,5 en 1027,6 hPa, met een gemiddelde van 1012 hPa. Interessant genoeg waren vogels iets actiever bij hoge luchtdruk (6.453 detecties) dan bij lage druk (5.251 detecties), wat suggereert dat stabiel weer de voorkeur geniet. Het verschil tussen dag- en nachttemperaturen bleef beperkt tot 1,3°C, wat duidt op de bewolkte, grijze november-condities die we gewend zijn.
 
-## Hoogtepunten van de maand
+## Hoogtepunten: De Eksterpiek en Winterganzen
 
-De drukste dag van november viel op 26 november met maar liefst 3.207 detecties – een dag die later blijkt bijzonder rijk te zijn geweest aan zeldzame waarnemingen. Het was een koude dag met temperaturen tussen 1,1°C en 5,0°C, wat blijkbaar ideale omstandigheden schiep voor intensieve vogelactiviteit. Woensdag bleek over de hele maand gezien de meest productieve dag met 3.207 waarnemingen, gevolgd door zondag (2.289) en zaterdag (2.277). Dinsdag viel op als opmerkelijk rustige dag met slechts 179 detecties.
+De absolute ster van november was onmiskenbaar de ekster (Pica pica), met maar liefst 3.388 detecties. Dit aantal is buitengewoon en weerspiegelt het typische gedrag van eksters in de late herfst, wanneer ze actief territoria aftasten en in kleine groepen fourageren. Hun karakteristieke geroep en opvallende verschijning maakten hen tot een constante factor bij beide monitoringstations.
 
-## De kopgroep: vijf dominante soorten
+Een bijzonder hoogtepunt vormde de drukste dag van de maand: 26 november leverde 3.186 detecties op. Deze dag, met temperaturen tussen 1,1 en 5°C en relatief weinig wind, lijkt ideale omstandigheden te hebben geboden voor vogelactiviteit. Mogelijk speelden ook migratiebewegingen een rol, aangezien vlak daarvoor een koufront was doorgetrokken.
 
-De ekster (Pica pica) kroonde zich tot onbetwiste nummer één van november met 3.388 waarnemingen. Deze intelligente kraaiachtigen profiteerden optimaal van de combinatie van natuurlijk voedselaanbod en menselijke nederzettingen. Hun aanwezigheid was gedurende de hele maand consistent, wat typerend is voor deze standvogels die territoriaal blijven, ook in de winter.
+## Patronen en Activiteit
 
-De kauw (Corvus monedula) volgde op respectabele afstand met 1.195 detecties. Deze sociale vogels waren vooral opvallend aanwezig in grotere groepen, op zoek naar voedsel in de koudere periodes. Hun piepende roep was een vertrouwd geluid boven Nijverdal.
+De activiteitsverdeling over de week toonde interessante patronen. Woensdag was met 3.186 detecties de drukste dag (de eerdergenoemde 26ste), gevolgd door zondag (2.260) en zaterdag (2.255). Opmerkelijk stil was het op dinsdag, met slechts 179 detecties – mogelijk door technische omstandigheden of extreme weersinvloeden die dag. De meeste activiteit concentreerde zich in week 48, wat logisch is aangezien dit de laatste volledige week van de maand was en de monitoring toen optimaal functioneerde.
 
-Verrassing op de derde plaats was het roodborstje (Erithacus rubecula) met 1.116 waarnemingen. Deze kleine zanger laat zich in november steeds nadrukkelijker zien bij voedertafels en in tuinen. Hun melodieuze wintergezang – zachter dan in het voorjaar – voegt een melancholische noot toe aan grijze novemberdagen.
+## De Top Vijf Soorten
 
-De pimpelmees (Cyanistes caeruleus) maakte zijn verwachte entree in de top met 1.067 detecties. Deze acrobatische mezensoort is een trouwe bezoeker van vetbollen en voedertafels zodra het kouder wordt. Hun aanwezigheid nam zichtbaar toe tijdens de koudste week van november.
+Na de ekster vormde de kauw (Corvus monedula) met 1.195 detecties de tweede aanwezige kraaiachtige. Kauwen zijn echte stadsvogels die zich uitstekend thuis voelen in de bebouwde omgeving van Nijverdal. Hun sociale gedrag en luidruchtige aanwezigheid in kleine kolonies maakten hen tot frequente gasten.
 
-Bijzonder was de sterke vertegenwoordiging van de koperwiek (Turdus iliacus) met 885 waarnemingen. Deze noordelijke wintergast verrijkt onze regio elk najaar met zijn komst uit Scandinavië en IJsland. De timing van hun aanwezigheid correleerde mooi met de temperatuurdaling halverwege de maand.
+Het roodborstje (Erithacus rubecula) verraste met 1.116 detecties – een prachtig resultaat voor deze charismatische kleine zanger. Roodborstjes zijn in november bijzonder territoriaal en zingen al voor de lenteperiode, wat hun detecteerbaarheid vergroot. Hun aanwezigheid rond beide monitoringstations duidt op gevarieerd habitat met voldoende struikgewas.
 
-## Zeldzame momenten van betekenis
+De pimpelmees (Cyanistes caeruleus) en koolmees (Parus major) completeerden met respectievelijk 1.067 en 855 detecties het karakteristieke Nederlandse tuinvogel-duo. Deze mezenfamilie profiteerde van de relatief milde temperaturen begin november om nog flink voedselvoorraden aan te leggen voor de winter.
 
-November bracht ons enkele werkelijk bijzondere waarnemingen. De Turkse tortel (Streptopelia decaocto) werd meerdere keren gedetecteerd op 26 november, met betrouwbaarheden boven de 93%. Deze zuidelijke soort breidt zijn range langzaam noordwaarts uit, en elke waarneming is betekenisvol.
+## Zeldzame en Bijzondere Waarnemingen
 
-Spectaculair was de detectie van een wilde zwaan (Cygnus cygnus) op 30 november om 20:31 uur – een late avondwaarneming met 94,3% zekerheid. Deze imposante zwaan trekt normaliter in oktober door, dus een waarneming eind november is opmerkelijk. Mogelijk profiteerde dit exemplaar van de relatief milde laatste dagen van de maand.
+November bracht een schat aan bijzondere waarnemingen. De Turkse tortel (Streptopelia decaocto) werd op 26 november driemaal achtereenvolgens gedetecteerd bij het station 'berging', telkens met hoge betrouwbaarheid (boven 93%). Deze soort is in Nederland algemeen, maar toch altijd een mooie verschijning.
 
-Een roerdomp (Botaurus stellaris) op 26 november (93,95% betrouwbaarheid) was een echte verrassing. Deze schuw levende rietvogel wordt zelden waargenomen, en de detectie suggereert geschikt habitat in de buurt van het monitoringstation bij de berging.
+Watergebonden soorten leverden de meest opwindende waarnemingen. Een brandgans (Branta leucopsis) op 29 november, een waterhoen (Gallinula chloropus) en maar liefst tweemaal een waterral (Rallus aquaticus) op 30 november wijzen op de aanwezigheid van waterrijke biotopen in de buurt. De waterral is een bijzonder schuw broekbewoner – deze detecties zijn dan ook echt waardevol.
 
-Ook werden een brandgans (Branta leucopsis), waterhoen (Gallinula chloropus), waterral (Rallus aquaticus) en watersnip (Gallinago gallinago) gedetecteerd – allemaal soorten die wijzen op de aanwezigheid van waterrijk habitat in de omgeving van Nijverdal.
+Ook steltlopers lieten zich opmerken: een watersnip (Gallinago gallinago) en een witgat (Tringa ochropus) werden gedetecteerd, beide soorten die doortrekken of overwinteren in Nederland en op zoek zijn naar voedselrijke, modderige oevers.
 
-## Patronen en vergelijkingen
+## Ganzen: De Noordelijke Gasten
 
-Met 3.047 simultane detecties op beide monitoringstations zagen we regelmatig vogels die tussen verschillende locaties pendelden. De activiteit was sterk geconcentreerd in week 48, hoewel dit deels te maken kan hebben met de dataregistratie.
+De aanwezigheid van verschillende ganzensoorten onderstreepte het belang van Nijverdal als doortrekgebied. De kolgans (Anser albifrons) was met 414 detecties veruit de meest voorkomende gans, gevolgd door de grauwe gans (Anser anser, 268) en de kleine rietgans (Anser brachyrhynchus, 146). Deze arctische ganzen overwinteren in grote aantallen in Nederland en hun aanwezigheid in november past perfect in het traditionele trekpatroon. Hun roepende formaties boven Nijverdal zijn altijd indrukwekkend.
 
-De overvloed aan nieuwe soorten – maar liefst 82 dit jaar – onderstreept dat november een maand van dynamiek is. Van trekvogels zoals de koperwiek en keep tot wintergasten zoals verschillende ganzensoorten, elke dag bracht nieuwe kansen. De aanwezigheid van drie ganzensoorten in de top (kolganzen, grauwe ganzen en kleine rietganzen) bevestigt dat Nijverdal in de trekroute ligt van deze arctische bezoekers.
+## Andere Memorabele Soorten
 
-## Vooruitblik naar december
+De koperwiek (Turdus iliacus) met 885 detecties was een opvallende wintergast uit Scandinavië. Deze lijsterachtige verschijnt elk najaar massaal in Nederland en foerageert in grote groepen op bessen en insecten. De staartmees (Aegithalos caudatus, 254 detecties) trok in karakteristieke rondreizende groepjes door het gebied, terwijl de vink (Fringilla coelebs, 219) zich opmerkelijk bescheiden hield voor een normaal gesproken zeer algemene soort.
 
-Terwijl we december ingaan, mogen we verwachten dat de winterse verhoudingen zich verder doorzetten. De meeste trekvogels zijn inmiddels doorgetrokken of gearriveerd op hun overwinteringsgebieden. De komende weken worden cruciaal voor onze standvogels en wintergasten. Bij aanhoudende vorst zullen voedertafels nog belangrijker worden, en kunnen we grote invasies van noordelijke soorten verwachten – denk aan sijzen, kepen en mogelijk zelfs pestvogels. De lange, donkere nachten maken ook uilvaarnemingen waarschijnlijker. Het samspel tussen temperatuur, voedselaanbod en daglichtlengte zal blijven bepalen wat we waarnemen, en elke sneeuwbui of vorstperiode kan nieuwe verrassingen brengen naar het relatief milde klimaat van Oost-Nederland.
+Het winterkoninkje (Troglodytes troglodytes) leverde met 150 detecties het bewijs dat ook deze minuscule bolletje veren goed te monitoren is, ondanks zijn teruggetrokken levenswijze in dicht kreupelhout.
+
+## Vergelijking en Context
+
+Aangezien dit de eerste gemonitorde maand is van dit project, ontbreekt vergelijkingsmateriaal met eerdere perioden. Wel valt op dat alle 68 gedetecteerde soorten als "nieuw" zijn geregistreerd – een veelbelovend startpunt voor langetermijnmonitoring. Het totaal van 10.826 detecties in één maand getuigt van goed functionerende apparatuur en een vogelrijk gebied.
+
+De temperatuurdaling van 4,6°C ten opzichte van oktober heeft duidelijk invloed gehad op de soortensamenstelling. Zomervogels waren volledig verdwenen, terwijl wintergasten zoals koperwiek, kepen (Fringilla montifringilla werd ook gedetecteerd) en noordelijke ganzen hun intrede deden.
+
+## Vooruitblik naar December
+
+De komende weken wordt verdere afkoeling verwacht. December brengt traditiegetrouw de echte winterse omstandigheden, met mogelijk sneeuw en langdurige vorst. We kunnen verwachten dat de aanwezigheid van standvogels zoals mezen, merels en vinken rond voederbronnen toeneemt. Wintergasten zoals sijzen, barmsijzen en eventueel pestvogels zullen waarschijnlijk in aantal toenemen naarmate de winter in Scandinavië strenger wordt.
+
+De ganzen zullen naar verwachting in grote aantallen blijven, met mogelijk uitbreiding van het soortenpalet met bijvoorbeeld toendrarietganzen. Roofvogels zoals buizerds en sperwers kunnen actiever worden nu de vegetatie kaler is en prooien gemakkelijker te spotten zijn.
+
+Voor
 
 ---
 
-## 📊 Statistieken
+## Statistieken
 
 ### Top 15 Soorten
 1. **Pica pica**: 3,388 detecties
@@ -83,7 +97,7 @@ Terwijl we december ingaan, mogen we verwachten dat de winterse verhoudingen zic
 5. **Turdus iliacus**: 885 detecties
 6. **Parus major**: 855 detecties
 7. **Anser albifrons**: 414 detecties
-8. **Anser anser**: 266 detecties
+8. **Anser anser**: 268 detecties
 9. **Aegithalos caudatus**: 254 detecties
 10. **Fringilla coelebs**: 219 detecties
 11. **Troglodytes troglodytes**: 150 detecties
@@ -92,120 +106,106 @@ Terwijl we december ingaan, mogen we verwachten dat de winterse verhoudingen zic
 14. **Turdus merula**: 118 detecties
 15. **Columba palumbus**: 71 detecties
 
-### 🦅 Zeldzame Waarnemingen
+### Zeldzame Waarnemingen
 
 - **Streptopelia decaocto** op 2025-11-26 08:28 (98.4% zekerheid, station berging)
 - **Streptopelia decaocto** op 2025-11-26 08:28 (95.2% zekerheid, station berging)
-- **Cygnus cygnus** op 2025-11-30 20:31 (94.3% zekerheid, station berging)
-- **Botaurus stellaris** op 2025-11-26 16:21 (94.0% zekerheid, station berging)
 - **Streptopelia decaocto** op 2025-11-26 08:28 (93.6% zekerheid, station berging)
 - **Branta leucopsis** op 2025-11-29 17:58 (92.6% zekerheid, station berging)
 - **Gallinula chloropus** op 2025-11-26 11:37 (92.4% zekerheid, station zolder)
 - **Rallus aquaticus** op 2025-11-30 09:37 (91.8% zekerheid, station zolder)
 - **Gallinula chloropus** op 2025-11-26 11:37 (91.7% zekerheid, station zolder)
 - **Gallinago gallinago** op 2025-11-29 08:44 (90.7% zekerheid, station berging)
+- **Rallus aquaticus** op 2025-11-30 09:37 (89.1% zekerheid, station zolder)
+- **Tringa ochropus** op 2025-11-26 11:09 (88.9% zekerheid, station zolder)
 
-### 🎉 Nieuwe Soorten deze Maand
+### Nieuwe Soorten deze Maand
 
-- Phalacrocorax carbo
+- Erithacus rubecula
+- Anthus spinoletta
+- Bombycilla garrulus
 - Strix aluco
+- Athene noctua
 - Chroicocephalus ridibundus
+- Acanthis flammea
+- Turdus philomelos
 - Gallinula chloropus
+- Phasianus colchicus
 - Corvus frugilegus
-- Melanitta nigra
+- Turdus pilaris
+- Fringilla montifringilla
+- Anser anser
 - Emberiza schoeniclus
+- Dendrocopos major
+- Certhia brachydactyla
 - Turdus iliacus
 - Rallus aquaticus
 - Perdix perdix
+- Motacilla cinerea
+- Human vocal
 - Gallinago gallinago
 - Cyanistes caeruleus
+- Garrulus glandarius
+- Picus viridis
 - Anser fabalis
+- Parus major
 - Streptopelia decaocto
 - Puffinus puffinus
+- Corvus corone
+- Buteo buteo
 - Corvus corax
-- Cygnus cygnus
 - Corvus monedula
 - Phylloscopus collybita
 - Fulica atra
 - Poecile palustris
-- Mareca strepera
-- Passer domesticus
-- Periparus ater
-- Chloris chloris
-- Grus grus
-- Columba livia
-- Anser brachyrhynchus
-- Tyto alba
-- Falco peregrinus
-- Pica pica
-- Alcedo atthis
-- Numenius arquata
-- Troglodytes troglodytes
-- Carduelis carduelis
-- Linaria cannabina
-- Somateria mollissima
-- Panurus biarmicus
-- Erithacus rubecula
-- Anthus spinoletta
-- Bombycilla garrulus
-- Ardea cinerea
-- Athene noctua
-- Acanthis flammea
-- Turdus philomelos
-- Phasianus colchicus
-- Hydroprogne caspia
-- Turdus pilaris
-- Fringilla montifringilla
-- Anser anser
-- Dendrocopos major
-- Alca torda
-- Certhia brachydactyla
-- Motacilla cinerea
-- Human vocal
-- Garrulus glandarius
-- Picus viridis
-- Parus major
-- Corvus corone
-- Buteo buteo
 - Anas crecca
 - Anser albifrons
-- Corvus cornix
-- Certhia familiaris
+- Mareca strepera
 - Columba palumbus
 - Tringa ochropus
-- Nycticorax nycticorax
+- Passer domesticus
+- Periparus ater
 - Spinus spinus
 - Prunella modularis
+- Chloris chloris
 - Scolopax rusticola
+- Grus grus
 - Pluvialis apricaria
+- Columba livia
 - Calidris alpina
+- Anser brachyrhynchus
+- Tyto alba
 - Branta leucopsis
+- Pica pica
 - Coccothraustes coccothraustes
 - Regulus ignicapilla
-- Botaurus stellaris
+- Alcedo atthis
 - Dog
 - Turdus merula
 - Fringilla coelebs
+- Numenius arquata
+- Troglodytes troglodytes
 - Haematopus ostralegus
-- Larus marinus
+- Carduelis carduelis
+- Linaria cannabina
 - Aegithalos caudatus
 
-### 📈 Activiteit per Week
+### Activiteit per Week
 
-- **Week 48**: 10,929 detecties
+- **Week 48**: 10,826 detecties
 
-### 📅 Drukste Dag
+### Drukste Dag
 
-**2025-11-26**: 3,207 detecties
+**2025-11-26**: 3,186 detecties
 
-### 🔢 Overige Gegevens
+### Overige Gegevens
 
-- **Dual detections:** 3,047
-- **Totaal dit jaar:** 10,929 detecties
-- **Soorten dit jaar:** 82
-- **Totaal all-time:** 10,929 detecties
+- **Dual detections:** 3,043
+- **Totaal dit jaar:** 10,826 detecties
+- **Soorten dit jaar:** 68
+- **Totaal all-time:** 10,826 detecties
 
-### 🌤️ Weerdata
+### Weerdata
 
 **Temperatuur:**
 - Gemiddeld: 7.2°C
@@ -227,12 +227,12 @@ Terwijl we december ingaan, mogen we verwachten dat de winterse verhoudingen zic
 - Verschil: 1.3°C
 
 **Optimale Temperatuur voor Vogels:**
-- Meeste activiteit: 5-10°C (7,181 detecties)
+- Meeste activiteit: 5-10°C (7,105 detecties)
 
 **Activiteit per Temperatuur Bracket:**
-- 5-10°C: 7,181 detecties (gem. 8.0°C)
-- 0-5°C: 3,899 detecties (gem. 2.5°C)
-- 10-15°C: 35 detecties (gem. 10.1°C)
+- 5-10°C: 7,105 detecties (gem. 8.0°C)
+- 0-5°C: 3,872 detecties (gem. 2.5°C)
+- 10-15°C: 34 detecties (gem. 10.1°C)
 
 **Wind:**
 - Gemiddelde snelheid: 4.3 m/s
@@ -247,10 +247,10 @@ Terwijl we december ingaan, mogen we verwachten dat de winterse verhoudingen zic
 - Week 48: 4.7 m/s
 
 **Activiteit per Windsterkte:**
-- Lichte wind: 10,929 detecties
-- Windstil: 8,642 detecties
-- Matige wind: 8,510 detecties
-- Harde wind: 5,386 detecties
+- Lichte wind: 10,826 detecties
+- Windstil: 8,571 detecties
+- Matige wind: 8,421 detecties
+- Harde wind: 5,314 detecties
 
 **Regenval:**
 - Percentage met regen: 6.7%
@@ -265,8 +265,8 @@ Terwijl we december ingaan, mogen we verwachten dat de winterse verhoudingen zic
 - Range luchtdruk: 993.5 - 1027.6 hPa
 
 **Activiteit per Luchtdruk:**
-- Bij lage druk: 5,302 detecties
-- Bij hoge druk: 6,516 detecties
+- Bij lage druk: 5,251 detecties
+- Bij hoge druk: 6,453 detecties
 
 ---
 
