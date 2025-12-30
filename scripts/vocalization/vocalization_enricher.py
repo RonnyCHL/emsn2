@@ -63,6 +63,7 @@ class VocalizationEnricher:
         """Connect to PostgreSQL database."""
         try:
             self.pg_conn = psycopg2.connect(**PG_CONFIG)
+            self.pg_conn.autocommit = True  # Voorkom idle in transaction
             self.log('INFO', 'Connected to PostgreSQL')
             return True
         except Exception as e:
@@ -82,22 +83,21 @@ class VocalizationEnricher:
     def get_pending_detections(self, limit=BATCH_SIZE):
         """Get detections that need vocalization classification."""
         try:
-            cursor = self.pg_conn.cursor()
+            with self.pg_conn.cursor() as cursor:
+                # Get all detections without vocalization type
+                # Both stations now have audio access (berging via SSHFS)
+                # No date limit - process entire history
+                query = """
+                    SELECT id, station, common_name, date, time, file_name
+                    FROM bird_detections
+                    WHERE vocalization_type IS NULL
+                      AND station IN ('zolder', 'berging')
+                    ORDER BY detection_timestamp DESC
+                    LIMIT %s
+                """
 
-            # Get all detections without vocalization type
-            # Both stations now have audio access (berging via SSHFS)
-            # No date limit - process entire history
-            query = """
-                SELECT id, station, common_name, date, time, file_name
-                FROM bird_detections
-                WHERE vocalization_type IS NULL
-                  AND station IN ('zolder', 'berging')
-                ORDER BY detection_timestamp DESC
-                LIMIT %s
-            """
-
-            cursor.execute(query, (limit,))
-            rows = cursor.fetchall()
+                cursor.execute(query, (limit,))
+                rows = cursor.fetchall()
 
             detections = []
             for row in rows:
@@ -243,21 +243,19 @@ class VocalizationEnricher:
     def update_detection(self, detection_id, voc_type, confidence):
         """Update a detection with vocalization info."""
         try:
-            cursor = self.pg_conn.cursor()
+            with self.pg_conn.cursor() as cursor:
+                query = """
+                    UPDATE bird_detections
+                    SET vocalization_type = %s,
+                        vocalization_confidence = %s
+                    WHERE id = %s
+                """
 
-            query = """
-                UPDATE bird_detections
-                SET vocalization_type = %s,
-                    vocalization_confidence = %s
-                WHERE id = %s
-            """
-
-            cursor.execute(query, (voc_type, confidence, detection_id))
-            self.pg_conn.commit()
+                cursor.execute(query, (voc_type, confidence, detection_id))
+            # autocommit=True, geen expliciete commit nodig
             return True
 
         except Exception as e:
-            self.pg_conn.rollback()
             self.log('ERROR', f'Error updating detection {detection_id}: {e}')
             return False
 

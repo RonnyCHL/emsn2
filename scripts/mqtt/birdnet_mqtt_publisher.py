@@ -66,7 +66,7 @@ CHECK_INTERVAL = 30  # seconds
 
 # Catchup protection settings
 MAX_CATCHUP_DETECTIONS = 50  # Skip to current if backlog exceeds this
-MAX_DETECTION_AGE_SECONDS = 3600  # 1 hour - older detections are skipped for MQTT
+MAX_DETECTION_AGE_SECONDS = 900  # 15 minuten - oudere detecties niet naar Ulanzi
 
 # Logging
 LOG_DIR = Path("/mnt/usb/logs")

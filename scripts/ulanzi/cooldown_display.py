@@ -57,6 +57,7 @@ class CooldownPublisher:
                 except:
                     pass
             self.pg_conn = psycopg2.connect(**PG_CONFIG)
+            self.pg_conn.autocommit = True  # Voorkom idle in transaction
             self.logger.success("Connected to database")
             return True
         except Exception as e:
@@ -80,15 +81,15 @@ class CooldownPublisher:
     def get_rarity_tier(self, species_nl):
         """Get rarity tier for a species based on detection count in last 30 days"""
         try:
-            cursor = self.pg_conn.cursor()
-            cursor.execute("""
-                SELECT COUNT(*) as detection_count
-                FROM bird_detections
-                WHERE common_name = %s
-                AND detection_timestamp >= NOW() - INTERVAL '30 days'
-            """, (species_nl,))
+            with self.pg_conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT COUNT(*) as detection_count
+                    FROM bird_detections
+                    WHERE common_name = %s
+                    AND detection_timestamp >= NOW() - INTERVAL '30 days'
+                """, (species_nl,))
 
-            count = cursor.fetchone()[0]
+                count = cursor.fetchone()[0]
 
             # Determine tier
             for tier_name, tier_config in RARITY_TIERS.items():
@@ -104,31 +105,32 @@ class CooldownPublisher:
     def get_active_cooldowns(self):
         """Get active cooldowns from notification log"""
         try:
-            cursor = self.pg_conn.cursor()
+            with self.pg_conn.cursor() as cursor:
+                # Get last notification per species (only recent ones within 2 hours)
+                # Calculate elapsed time in the database to avoid timezone issues
+                cursor.execute("""
+                    WITH ranked_notifications AS (
+                        SELECT
+                            species_nl,
+                            timestamp,
+                            rarity_tier,
+                            EXTRACT(EPOCH FROM (NOW() - timestamp))::integer as elapsed_seconds,
+                            ROW_NUMBER() OVER (PARTITION BY species_nl ORDER BY timestamp DESC) as rn
+                        FROM ulanzi_notification_log
+                        WHERE was_shown = true
+                        AND timestamp >= NOW() - INTERVAL '2 hours'
+                    )
+                    SELECT species_nl, elapsed_seconds, rarity_tier
+                    FROM ranked_notifications
+                    WHERE rn = 1
+                    ORDER BY elapsed_seconds ASC
+                """)
 
-            # Get last notification per species (only recent ones within 2 hours)
-            # Calculate elapsed time in the database to avoid timezone issues
-            cursor.execute("""
-                WITH ranked_notifications AS (
-                    SELECT
-                        species_nl,
-                        timestamp,
-                        rarity_tier,
-                        EXTRACT(EPOCH FROM (NOW() - timestamp))::integer as elapsed_seconds,
-                        ROW_NUMBER() OVER (PARTITION BY species_nl ORDER BY timestamp DESC) as rn
-                    FROM ulanzi_notification_log
-                    WHERE was_shown = true
-                    AND timestamp >= NOW() - INTERVAL '2 hours'
-                )
-                SELECT species_nl, elapsed_seconds, rarity_tier
-                FROM ranked_notifications
-                WHERE rn = 1
-                ORDER BY elapsed_seconds ASC
-            """)
+                rows = cursor.fetchall()
 
             cooldowns = []
 
-            for row in cursor.fetchall():
+            for row in rows:
                 species_nl, elapsed_seconds, db_tier = row
 
                 # Get current tier and cooldown (may have changed since last notification)
