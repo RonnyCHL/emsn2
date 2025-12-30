@@ -84,24 +84,28 @@ def check_integrity(db_path):
 
 
 def sync_database():
-    """Main sync function"""
+    """Main sync function using SQLite backup API for atomic copy.
+
+    Note: BirdNET-Pi writes continuously, so we use sqlite3 backup API
+    to get a consistent snapshot. Record count comparison against live
+    source is unreliable due to race conditions.
+    """
     logger.info("Starting database mirror sync")
 
-    # Get source record count
-    source_count = get_record_count(SOURCE_DB)
-    if source_count is None:
-        logger.error("Cannot read source database")
-        return False
-
-    logger.info(f"Source database has {source_count} records")
-
-    # Copy database (read-only operation using shutil.copy2)
+    # Use SQLite backup API for atomic, consistent copy
     try:
-        logger.info(f"Copying {SOURCE_DB} to {MIRROR_DB}")
-        shutil.copy2(SOURCE_DB, MIRROR_DB)
-        logger.info("Copy completed")
+        logger.info(f"Creating atomic backup of {SOURCE_DB}")
+        source_conn = sqlite3.connect(SOURCE_DB)
+        dest_conn = sqlite3.connect(MIRROR_DB)
+
+        # SQLite backup API: creates consistent snapshot even with concurrent writes
+        source_conn.backup(dest_conn)
+
+        source_conn.close()
+        dest_conn.close()
+        logger.info("Backup completed")
     except Exception as e:
-        logger.error(f"Copy failed: {e}")
+        logger.error(f"Backup failed: {e}")
         return False
 
     # Verify integrity of mirror
@@ -112,18 +116,14 @@ def sync_database():
 
     logger.info("✓ Mirror database passed integrity check")
 
-    # Compare record counts
+    # Get mirror record count (for logging only)
     mirror_count = get_record_count(MIRROR_DB)
     if mirror_count is None:
         logger.error("Cannot read mirror database")
         return False
 
-    if source_count != mirror_count:
-        logger.error(f"Record count mismatch! Source: {source_count}, Mirror: {mirror_count}")
-        return False
-
-    logger.info(f"✓ Record counts match: {source_count} records")
-    logger.info(f"✓ Synced {source_count} records")
+    logger.info(f"✓ Mirror contains {mirror_count} records")
+    logger.info(f"✓ Sync completed successfully")
 
     return True
 

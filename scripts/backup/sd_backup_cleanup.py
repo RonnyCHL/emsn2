@@ -82,6 +82,25 @@ def parse_date_from_name(name: str) -> datetime | None:
     return None
 
 
+def get_dir_size_safe(directory: Path) -> int:
+    """Bereken directory grootte, negeer permission errors.
+
+    Nodig voor daily backups die volledige SD-kaart rsync bevatten
+    met restrictieve permissies (root-owned directories).
+    """
+    total = 0
+    try:
+        for f in directory.rglob('*'):
+            try:
+                if f.is_file():
+                    total += f.stat().st_size
+            except (PermissionError, OSError):
+                continue
+    except (PermissionError, OSError):
+        pass
+    return total
+
+
 def cleanup_images(retention_days: int) -> tuple[int, int]:
     """Verwijder oude image bestanden"""
     deleted_count = 0
@@ -148,8 +167,8 @@ def cleanup_daily_backups(retention_days: int) -> tuple[int, int]:
             reason = f"leeftijd: {get_age_days(backup_dir)} dagen"
 
         if should_delete:
-            # Bereken grootte
-            dir_size = sum(f.stat().st_size for f in backup_dir.rglob('*') if f.is_file())
+            # Bereken grootte (met error handling voor permission denied)
+            dir_size = get_dir_size_safe(backup_dir)
             logger.info(f"Verwijder oude daily backup: {backup_dir.name} ({reason})")
 
             try:
@@ -217,19 +236,28 @@ def get_storage_stats() -> dict:
 
     if IMAGES_DIR.exists():
         for f in IMAGES_DIR.glob('*.img.gz'):
-            stats['images']['count'] += 1
-            stats['images']['size'] += f.stat().st_size
+            try:
+                stats['images']['count'] += 1
+                stats['images']['size'] += f.stat().st_size
+            except (PermissionError, OSError):
+                stats['images']['count'] += 1
 
     if DAILY_DIR.exists():
         for d in DAILY_DIR.iterdir():
-            if d.is_dir():
+            try:
+                if d.is_dir():
+                    stats['daily']['count'] += 1
+                    stats['daily']['size'] += get_dir_size_safe(d)
+            except (PermissionError, OSError):
                 stats['daily']['count'] += 1
-                stats['daily']['size'] += sum(f.stat().st_size for f in d.rglob('*') if f.is_file())
 
     if DATABASE_DIR.exists():
         for f in DATABASE_DIR.glob('*.sql.gz'):
-            stats['database']['count'] += 1
-            stats['database']['size'] += f.stat().st_size
+            try:
+                stats['database']['count'] += 1
+                stats['database']['size'] += f.stat().st_size
+            except (PermissionError, OSError):
+                stats['database']['count'] += 1
 
     return stats
 
