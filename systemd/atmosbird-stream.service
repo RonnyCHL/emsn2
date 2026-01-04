@@ -1,0 +1,39 @@
+[Unit]
+Description=AtmosBird Livestream - Pi Camera NoIR TCP stream
+Documentation=https://github.com/RonnyCHL/emsn2
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ronny
+Group=video
+
+# rpicam-vid TCP server voor go2rtc
+# --listen: wacht op inkomende connectie van go2rtc
+# --inline: SPS/PPS headers voor elke I-frame (nodig voor streaming)
+# -n: geen preview window
+ExecStart=/usr/bin/rpicam-vid -t 0 \
+    --width 1920 \
+    --height 1080 \
+    --framerate 15 \
+    --codec h264 \
+    --profile main \
+    --level 4.1 \
+    --bitrate 2000000 \
+    --inline \
+    --listen \
+    -n \
+    -o tcp://0.0.0.0:8889
+
+# Restart bij crashes
+Restart=always
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=atmosbird-stream
+
+[Install]
+WantedBy=multi-user.target
