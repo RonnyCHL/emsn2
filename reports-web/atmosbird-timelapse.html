@@ -60,6 +60,33 @@
         .status.success { background: #1b4d1b; color: #4caf50; }
         .status.error { background: #4d1b1b; color: #ef5350; }
 
+        .progress-container {
+            margin-top: 10px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ffc107, #ffdb4d);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .progress-text {
+            margin-top: 6px;
+            font-size: 12px;
+            color: #888;
+        }
+
         .video-container { margin: 20px 0; }
         video {
             max-width: 100%;
@@ -74,13 +101,18 @@
         .timelapse-item {
             display: flex;
             align-items: center;
-            gap: 15px;
             padding: 12px 16px;
             background: #2a2a2a;
             border-radius: 6px;
             transition: background 0.2s;
         }
         .timelapse-item:hover { background: #333; }
+        .timelapse-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
         .timelapse-item a {
             color: #5fa8d3;
             text-decoration: none;
@@ -88,7 +120,29 @@
             font-size: 14px;
         }
         .timelapse-item a:hover { text-decoration: underline; }
-        .timelapse-item .meta { color: #888; font-size: 13px; }
+        .timelapse-period {
+            color: #aaa;
+            font-size: 13px;
+        }
+        .timelapse-meta {
+            color: #666;
+            font-size: 12px;
+        }
+        .btn-delete {
+            padding: 6px 12px;
+            background: transparent;
+            color: #888;
+            border: 1px solid #444;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-delete:hover {
+            background: #4d1b1b;
+            border-color: #ef5350;
+            color: #ef5350;
+        }
 
         .empty-state { color: #666; font-style: italic; padding: 20px; text-align: center; }
     </style>
@@ -131,6 +185,33 @@
 <script>
 const API = 'http://192.168.1.178:8081/api/atmosbird/timelapse';
 
+function formatDate(dateStr) {
+    // Convert 20251222 to "22 dec 2025"
+    if (!dateStr || dateStr.length !== 8) return dateStr;
+    const months = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+    const year = dateStr.substring(0, 4);
+    const month = parseInt(dateStr.substring(4, 6)) - 1;
+    const day = dateStr.substring(6, 8);
+    return `${parseInt(day)} ${months[month]} ${year}`;
+}
+
+function parsePeriodFromFilename(filename) {
+    // Parse: atmosbird_20251222-20260105.mp4 or atmosbird_20251222-20260105_night.mp4
+    const match = filename.match(/(\d{8})-(\d{8})/);
+    if (match) {
+        const start = formatDate(match[1]);
+        const end = formatDate(match[2]);
+        return `${start} - ${end}`;
+    }
+    return '';
+}
+
+function getFilterFromFilename(filename) {
+    if (filename.includes('_night')) return ' (nacht)';
+    if (filename.includes('_day')) return ' (dag)';
+    return '';
+}
+
 async function loadTimelapses() {
     try {
         const resp = await fetch(API + '/list');
@@ -138,17 +219,50 @@ async function loadTimelapses() {
         const list = document.getElementById('tl-list');
 
         if (data.timelapses && data.timelapses.length > 0) {
-            list.innerHTML = data.timelapses.map(t => `
+            list.innerHTML = data.timelapses.map(t => {
+                const period = parsePeriodFromFilename(t.filename);
+                const filter = getFilterFromFilename(t.filename);
+                const created = new Date(t.created).toLocaleString('nl-NL');
+                return `
                 <div class="timelapse-item">
-                    <a href="#" onclick="playVideo('${t.path}'); return false;">&#9658; ${t.filename}</a>
-                    <span class="meta">${t.size_mb} MB &bull; ${new Date(t.created).toLocaleString('nl-NL')}</span>
+                    <div class="timelapse-info">
+                        <a href="#" onclick="playVideo('${t.path}'); return false;">&#9658; ${t.filename}</a>
+                        ${period ? `<span class="timelapse-period">${period}${filter}</span>` : ''}
+                        <span class="timelapse-meta">${t.size_mb} MB &bull; Gemaakt: ${created}</span>
+                    </div>
+                    <button class="btn-delete" onclick="deleteTimelapse('${t.path}', '${t.filename}')" title="Verwijderen">Verwijderen</button>
                 </div>
-            `).join('');
+            `}).join('');
         } else {
             list.innerHTML = '<div class="empty-state">Geen timelapses gevonden. Genereer er een!</div>';
         }
     } catch (e) {
         document.getElementById('tl-list').innerHTML = '<div class="empty-state" style="color:#f66">Fout bij laden: ' + e.message + '</div>';
+    }
+}
+
+async function deleteTimelapse(path, filename) {
+    if (!confirm(`Weet je zeker dat je "${filename}" wilt verwijderen?`)) {
+        return;
+    }
+
+    try {
+        const resp = await fetch(API + '/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ filename: path })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            loadTimelapses();
+            // Clear video if it was playing
+            document.getElementById('tl-video-container').innerHTML = '';
+        } else {
+            alert('Fout bij verwijderen: ' + data.error);
+        }
+    } catch (e) {
+        alert('Fout bij verwijderen: ' + e.message);
     }
 }
 
@@ -161,13 +275,52 @@ function playVideo(path) {
 }
 
 let checkInterval = null;
+let progressInterval = null;
+let startTime = null;
+const estimatedDuration = 60; // Geschatte tijd in seconden
+
+function updateProgress() {
+    if (!startTime) return;
+
+    const elapsed = (Date.now() - startTime) / 1000;
+    const progress = Math.min(95, (elapsed / estimatedDuration) * 100);
+
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+
+    if (progressFill) {
+        progressFill.style.width = progress + '%';
+    }
+    if (progressText) {
+        const remaining = Math.max(0, Math.round(estimatedDuration - elapsed));
+        if (remaining > 0) {
+            progressText.textContent = `Ongeveer ${remaining} seconden resterend...`;
+        } else {
+            progressText.textContent = 'Bijna klaar...';
+        }
+    }
+}
 
 async function generateTimelapse() {
     const btn = document.getElementById('tl-generate');
     const status = document.getElementById('tl-status');
 
     btn.disabled = true;
-    status.innerHTML = '<div class="status running">Timelapse wordt gegenereerd...</div>';
+    startTime = Date.now();
+
+    status.innerHTML = `
+        <div class="status running">
+            Timelapse wordt gegenereerd...
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="progress-text" id="progress-text">Screenshots worden verwerkt...</div>
+            </div>
+        </div>
+    `;
+
+    progressInterval = setInterval(updateProgress, 500);
 
     try {
         const resp = await fetch(API + '/generate', {
@@ -184,10 +337,12 @@ async function generateTimelapse() {
         if (data.job_id) {
             checkInterval = setInterval(() => checkStatus(data.job_id), 2000);
         } else {
+            clearInterval(progressInterval);
             status.innerHTML = '<div class="status error">Fout: ' + data.error + '</div>';
             btn.disabled = false;
         }
     } catch (e) {
+        clearInterval(progressInterval);
         status.innerHTML = '<div class="status error">Fout: ' + e.message + '</div>';
         btn.disabled = false;
     }
@@ -202,7 +357,16 @@ async function checkStatus(jobId) {
 
         if (data.status === 'completed') {
             clearInterval(checkInterval);
-            status.innerHTML = '<div class="status success">Timelapse klaar!</div>';
+            clearInterval(progressInterval);
+
+            // Show 100% briefly
+            const progressFill = document.getElementById('progress-fill');
+            if (progressFill) progressFill.style.width = '100%';
+
+            setTimeout(() => {
+                status.innerHTML = '<div class="status success">Timelapse klaar!</div>';
+            }, 500);
+
             btn.disabled = false;
             loadTimelapses();
             if (data.output_file) {
@@ -211,6 +375,7 @@ async function checkStatus(jobId) {
             }
         } else if (data.status === 'failed') {
             clearInterval(checkInterval);
+            clearInterval(progressInterval);
             status.innerHTML = '<div class="status error">Fout: ' + data.error + '</div>';
             btn.disabled = false;
         }

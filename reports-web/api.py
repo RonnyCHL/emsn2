@@ -3299,6 +3299,31 @@ def timelapse_status(job_id):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/nestbox/timelapse/delete', methods=['POST'])
+def delete_nestbox_timelapse():
+    """Delete a nestbox timelapse video"""
+    try:
+        data = request.get_json() or {}
+        filename = data.get('filename')
+
+        if not filename:
+            return jsonify({'error': 'Filename required'}), 400
+
+        file_path = TIMELAPSE_DIR / filename
+        if not file_path.exists():
+            return jsonify({'error': 'File not found'}), 404
+
+        # Security check - ensure path is within timelapse dir
+        if not str(file_path.resolve()).startswith(str(TIMELAPSE_DIR.resolve())):
+            return jsonify({'error': 'Invalid path'}), 400
+
+        file_path.unlink()
+        return jsonify({'success': True, 'message': f'Deleted {filename}'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # === ATMOSBIRD TIMELAPSE API ===
 
 ATMOSBIRD_TIMELAPSE_DIR = Path("/mnt/nas-birdnet-archive/gegenereerde_beelden/atmosbird")
@@ -3465,6 +3490,31 @@ def atmosbird_timelapse_status(job_id):
         if job_id not in atmosbird_timelapse_jobs:
             return jsonify({'error': 'Job not found'}), 404
         return jsonify({'job_id': job_id, **atmosbird_timelapse_jobs[job_id]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/atmosbird/timelapse/delete', methods=['POST'])
+def delete_atmosbird_timelapse():
+    """Delete an AtmosBird timelapse video"""
+    try:
+        data = request.get_json() or {}
+        filename = data.get('filename')
+
+        if not filename:
+            return jsonify({'error': 'Filename required'}), 400
+
+        file_path = ATMOSBIRD_TIMELAPSE_DIR / filename
+        if not file_path.exists():
+            return jsonify({'error': 'File not found'}), 404
+
+        # Security check - ensure path is within timelapse dir
+        if not str(file_path.resolve()).startswith(str(ATMOSBIRD_TIMELAPSE_DIR.resolve())):
+            return jsonify({'error': 'Invalid path'}), 400
+
+        file_path.unlink()
+        return jsonify({'success': True, 'message': f'Deleted {filename}'})
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
