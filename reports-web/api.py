@@ -3299,6 +3299,176 @@ def timelapse_status(job_id):
         return jsonify({'error': str(e)}), 500
 
 
+# === ATMOSBIRD TIMELAPSE API ===
+
+ATMOSBIRD_TIMELAPSE_DIR = Path("/mnt/nas-birdnet-archive/gegenereerde_beelden/atmosbird")
+ATMOSBIRD_TIMELAPSE_SCRIPT = Path("/home/ronny/emsn2/scripts/atmosbird/atmosbird_timelapse_generator.py")
+atmosbird_timelapse_jobs = {}
+
+@app.route('/api/atmosbird/timelapse/list')
+def list_atmosbird_timelapses():
+    """List available AtmosBird timelapses"""
+    try:
+        timelapses = []
+
+        if ATMOSBIRD_TIMELAPSE_DIR.exists():
+            for mp4_file in ATMOSBIRD_TIMELAPSE_DIR.glob('**/*.mp4'):
+                stat = mp4_file.stat()
+                timelapses.append({
+                    'filename': mp4_file.name,
+                    'path': str(mp4_file.relative_to(ATMOSBIRD_TIMELAPSE_DIR)),
+                    'size_mb': round(stat.st_size / 1024 / 1024, 1),
+                    'created': datetime.fromtimestamp(stat.st_mtime).isoformat()
+                })
+
+        # Sort by creation date, newest first
+        timelapses.sort(key=lambda x: x['created'], reverse=True)
+        return jsonify({'timelapses': timelapses})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/atmosbird/timelapse/file/<path:filename>')
+def serve_atmosbird_timelapse(filename):
+    """Serve AtmosBird timelapse video file"""
+    try:
+        file_path = ATMOSBIRD_TIMELAPSE_DIR / filename
+        if not file_path.exists():
+            return jsonify({'error': 'File not found'}), 404
+        return send_file(file_path, mimetype='video/mp4')
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/atmosbird/timelapse/info')
+def atmosbird_timelapse_info():
+    """Get info about available screenshots for AtmosBird timelapse"""
+    try:
+        start_date = request.args.get('start')
+        end_date = request.args.get('end')
+
+        cmd = [VENV_PYTHON, str(ATMOSBIRD_TIMELAPSE_SCRIPT), '--list']
+        if start_date:
+            cmd.extend(['--start', start_date])
+        if end_date:
+            cmd.extend(['--end', end_date])
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        output = result.stdout + result.stderr
+
+        count = 0
+        date_range = {'start': None, 'end': None}
+
+        for line in output.split('\n'):
+            if 'screenshots gevonden' in line.lower():
+                try:
+                    count = int(line.split()[0])
+                except:
+                    pass
+            if 'Beschikbare periode:' in line:
+                try:
+                    parts = line.split(':')[1].strip().split(' tot ')
+                    date_range['start'] = parts[0].strip()
+                    date_range['end'] = parts[1].strip()
+                except:
+                    pass
+
+        return jsonify({
+            'screenshot_count': count,
+            'date_range': date_range
+        })
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Timeout getting info'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/atmosbird/timelapse/generate', methods=['POST'])
+def generate_atmosbird_timelapse():
+    """Generate a new AtmosBird timelapse video"""
+    try:
+        data = request.get_json() or {}
+
+        start_date = data.get('start')
+        end_date = data.get('end')
+        days = data.get('days')
+        duration = data.get('duration', 30)
+        fps = data.get('fps')
+        day_night = data.get('day_night', 'all')
+
+        cmd = [VENV_PYTHON, str(ATMOSBIRD_TIMELAPSE_SCRIPT)]
+
+        if start_date:
+            cmd.extend(['--start', start_date])
+        if end_date:
+            cmd.extend(['--end', end_date])
+        if days:
+            cmd.extend(['-d', str(days)])
+        if duration:
+            cmd.extend(['--duration', str(duration)])
+        if fps:
+            cmd.extend(['--fps', str(fps)])
+        if day_night == 'day':
+            cmd.append('--day-only')
+        elif day_night == 'night':
+            cmd.append('--night-only')
+
+        job_id = f"atmosbird_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        def run_timelapse():
+            try:
+                atmosbird_timelapse_jobs[job_id] = {'status': 'running', 'started': datetime.now().isoformat()}
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+
+                if result.returncode == 0:
+                    output_file = None
+                    for line in result.stdout.split('\n'):
+                        if 'Timelapse opgeslagen:' in line or 'Video:' in line:
+                            output_file = line.split(':')[-1].strip()
+                            break
+
+                    atmosbird_timelapse_jobs[job_id] = {
+                        'status': 'completed',
+                        'output_file': output_file,
+                        'completed': datetime.now().isoformat()
+                    }
+                else:
+                    atmosbird_timelapse_jobs[job_id] = {
+                        'status': 'failed',
+                        'error': result.stderr,
+                        'completed': datetime.now().isoformat()
+                    }
+            except subprocess.TimeoutExpired:
+                atmosbird_timelapse_jobs[job_id] = {'status': 'failed', 'error': 'Timeout after 10 minutes'}
+            except Exception as e:
+                atmosbird_timelapse_jobs[job_id] = {'status': 'failed', 'error': str(e)}
+
+        thread = threading.Thread(target=run_timelapse)
+        thread.start()
+
+        return jsonify({
+            'job_id': job_id,
+            'status': 'started',
+            'message': 'AtmosBird timelapse generation started'
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/atmosbird/timelapse/status/<job_id>')
+def atmosbird_timelapse_status(job_id):
+    """Check status of AtmosBird timelapse generation job"""
+    try:
+        if job_id not in atmosbird_timelapse_jobs:
+            return jsonify({'error': 'Job not found'}), 404
+        return jsonify({'job_id': job_id, **atmosbird_timelapse_jobs[job_id]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Run development server
     app.run(host='0.0.0.0', port=8081, debug=False)

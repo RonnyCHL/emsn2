@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>AtmosBird Timelapse Generator</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+        }
+        h2 { color: #fff; margin-top: 0; }
+        .form-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: end;
+            margin-bottom: 20px;
+        }
+        .form-group { display: flex; flex-direction: column; }
+        label {
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #aaa;
+            font-size: 13px;
+        }
+        select, input {
+            padding: 10px 14px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #2a2a2a;
+            color: #fff;
+            font-size: 14px;
+        }
+        select:focus, input:focus { outline: none; border-color: #1f77b4; }
+        button {
+            padding: 10px 24px;
+            background: #1f77b4;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        button:hover { background: #1a65a0; }
+        button:disabled { background: #555; cursor: not-allowed; }
+
+        .status {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-weight: 500;
+        }
+        .status.running { background: #433d00; color: #ffc107; }
+        .status.success { background: #1b4d1b; color: #4caf50; }
+        .status.error { background: #4d1b1b; color: #ef5350; }
+
+        .video-container { margin: 20px 0; }
+        video {
+            max-width: 100%;
+            max-height: 500px;
+            border-radius: 8px;
+            background: #000;
+        }
+
+        h3 { color: #ccc; margin-top: 30px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+
+        .timelapse-list { display: flex; flex-direction: column; gap: 8px; }
+        .timelapse-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 16px;
+            background: #2a2a2a;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .timelapse-item:hover { background: #333; }
+        .timelapse-item a {
+            color: #5fa8d3;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .timelapse-item a:hover { text-decoration: underline; }
+        .timelapse-item .meta { color: #888; font-size: 13px; }
+
+        .empty-state { color: #666; font-style: italic; padding: 20px; text-align: center; }
+    </style>
+</head>
+<body>
+    <h2>AtmosBird Timelapse Generator</h2>
+    <p style="color: #888; margin-bottom: 20px;">Maak timelapse video's van hemel/wolken foto's</p>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>Laatste dagen</label>
+            <input type="number" id="tl-days" value="7" min="1" max="90" style="width: 80px;">
+        </div>
+        <div class="form-group">
+            <label>Video duur (sec)</label>
+            <input type="number" id="tl-duration" value="30" min="5" max="120" style="width: 80px;">
+        </div>
+        <div class="form-group">
+            <label>Filter</label>
+            <select id="tl-filter">
+                <option value="all">Alle screenshots</option>
+                <option value="day">Alleen dag</option>
+                <option value="night">Alleen nacht</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>&nbsp;</label>
+            <button id="tl-generate" onclick="generateTimelapse()">Genereer Timelapse</button>
+        </div>
+    </div>
+
+    <div id="tl-status"></div>
+    <div id="tl-video-container" class="video-container"></div>
+
+    <h3>Beschikbare Timelapses</h3>
+    <div id="tl-list" class="timelapse-list">
+        <div class="empty-state">Laden...</div>
+    </div>
+
+<script>
+const API = 'http://192.168.1.178:8081/api/atmosbird/timelapse';
+
+async function loadTimelapses() {
+    try {
+        const resp = await fetch(API + '/list');
+        const data = await resp.json();
+        const list = document.getElementById('tl-list');
+
+        if (data.timelapses && data.timelapses.length > 0) {
+            list.innerHTML = data.timelapses.map(t => `
+                <div class="timelapse-item">
+                    <a href="#" onclick="playVideo('${t.path}'); return false;">&#9658; ${t.filename}</a>
+                    <span class="meta">${t.size_mb} MB &bull; ${new Date(t.created).toLocaleString('nl-NL')}</span>
+                </div>
+            `).join('');
+        } else {
+            list.innerHTML = '<div class="empty-state">Geen timelapses gevonden. Genereer er een!</div>';
+        }
+    } catch (e) {
+        document.getElementById('tl-list').innerHTML = '<div class="empty-state" style="color:#f66">Fout bij laden: ' + e.message + '</div>';
+    }
+}
+
+function playVideo(path) {
+    document.getElementById('tl-video-container').innerHTML = `
+        <video controls autoplay>
+            <source src="${API}/file/${path}" type="video/mp4">
+        </video>
+    `;
+}
+
+let checkInterval = null;
+
+async function generateTimelapse() {
+    const btn = document.getElementById('tl-generate');
+    const status = document.getElementById('tl-status');
+
+    btn.disabled = true;
+    status.innerHTML = '<div class="status running">Timelapse wordt gegenereerd...</div>';
+
+    try {
+        const resp = await fetch(API + '/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                days: parseInt(document.getElementById('tl-days').value),
+                duration: parseInt(document.getElementById('tl-duration').value),
+                day_night: document.getElementById('tl-filter').value
+            })
+        });
+        const data = await resp.json();
+
+        if (data.job_id) {
+            checkInterval = setInterval(() => checkStatus(data.job_id), 2000);
+        } else {
+            status.innerHTML = '<div class="status error">Fout: ' + data.error + '</div>';
+            btn.disabled = false;
+        }
+    } catch (e) {
+        status.innerHTML = '<div class="status error">Fout: ' + e.message + '</div>';
+        btn.disabled = false;
+    }
+}
+
+async function checkStatus(jobId) {
+    try {
+        const resp = await fetch(API + '/status/' + jobId);
+        const data = await resp.json();
+        const status = document.getElementById('tl-status');
+        const btn = document.getElementById('tl-generate');
+
+        if (data.status === 'completed') {
+            clearInterval(checkInterval);
+            status.innerHTML = '<div class="status success">Timelapse klaar!</div>';
+            btn.disabled = false;
+            loadTimelapses();
+            if (data.output_file) {
+                const filename = data.output_file.split('/').pop();
+                playVideo(filename);
+            }
+        } else if (data.status === 'failed') {
+            clearInterval(checkInterval);
+            status.innerHTML = '<div class="status error">Fout: ' + data.error + '</div>';
+            btn.disabled = false;
+        }
+    } catch (e) {
+        console.error('Status check failed:', e);
+    }
+}
+
+// Load on start
+loadTimelapses();
+</script>
+</body>
+</html>
