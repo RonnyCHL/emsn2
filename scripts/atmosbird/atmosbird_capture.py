@@ -107,6 +107,7 @@ class SkyCapture:
                 "-o", self.temp_image_path,
                 "--width", str(CAMERA_WIDTH),
                 "--height", str(CAMERA_HEIGHT),
+                "--rotation", "180",
                 "--timeout", "2000",
                 "--quality", "95",
                 "--encoding", "jpg",
