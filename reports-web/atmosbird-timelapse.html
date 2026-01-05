@@ -277,7 +277,7 @@ function playVideo(path) {
 let checkInterval = null;
 let progressInterval = null;
 let startTime = null;
-const estimatedDuration = 60; // Geschatte tijd in seconden
+let estimatedDuration = 60; // Geschatte tijd in seconden, wordt aangepast op basis van dagen
 
 function updateProgress() {
     if (!startTime) return;
@@ -304,13 +304,19 @@ function updateProgress() {
 async function generateTimelapse() {
     const btn = document.getElementById('tl-generate');
     const status = document.getElementById('tl-status');
+    const days = parseInt(document.getElementById('tl-days').value);
 
     btn.disabled = true;
     startTime = Date.now();
 
+    // AtmosBird heeft ~144 screenshots per dag (elke 10 min)
+    // Geschatte tijd: ~8 sec per 100 screenshots + 10 sec overhead
+    const estimatedScreenshots = days * 144;
+    estimatedDuration = Math.max(30, Math.round(estimatedScreenshots / 100 * 8) + 10);
+
     status.innerHTML = `
         <div class="status running">
-            Timelapse wordt gegenereerd...
+            Timelapse wordt gegenereerd (~${days} dagen, ~${estimatedScreenshots} screenshots)...
             <div class="progress-container">
                 <div class="progress-bar">
                     <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
