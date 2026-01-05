@@ -2,7 +2,7 @@
   "reports": [
     {
       "type": "species",
-      "year": 2025,
+      "year": 2026,
       "species": "Staartmees",
       "title": "Staartmees",
       "filename": "Soort-Staartmees.md",
@@ -13,7 +13,7 @@
     },
     {
       "type": "species",
-      "year": 2025,
+      "year": 2026,
       "species": "Roodborst",
       "title": "Roodborst",
       "filename": "Soort-Roodborst.md",
@@ -24,7 +24,7 @@
     },
     {
       "type": "species",
-      "year": 2025,
+      "year": 2026,
       "species": "Roerdomp",
       "title": "Roerdomp",
       "filename": "Soort-Roerdomp.md",
@@ -35,7 +35,7 @@
     },
     {
       "type": "species",
-      "year": 2025,
+      "year": 2026,
       "species": "Merel",
       "title": "Merel",
       "filename": "Soort-Merel.md",
@@ -46,7 +46,7 @@
     },
     {
       "type": "species",
-      "year": 2025,
+      "year": 2026,
       "species": "Kolgans",
       "title": "Kolgans",
       "filename": "Soort-Kolgans.md",
@@ -57,7 +57,7 @@
     },
     {
       "type": "species",
-      "year": 2025,
+      "year": 2026,
       "species": "Ekster",
       "title": "Ekster",
       "filename": "Soort-Ekster.md",
@@ -111,12 +111,12 @@
       "week": 1,
       "title": "Week 1",
       "filename": "2025-W01-Weekrapport.md",
-      "filesize": 8832,
-      "modified": "2025-12-30T22:16:14.883907",
+      "filesize": 9173,
+      "modified": "2026-01-05T07:03:43.051876",
       "period": "2025-12-29 tot 2026-01-04",
-      "total_detections": 7011,
-      "unique_species": 46,
-      "generated": "2025-12-30 22:16:14"
+      "total_detections": 16287,
+      "unique_species": 57,
+      "generated": "2026-01-05 07:03:42"
     },
     {
       "type": "year",
@@ -142,6 +142,6 @@
       "generated": "2025-12-13 18:55:55"
     }
   ],
-  "generated": "2025-12-30T22:17:09.396521",
+  "generated": "2026-01-05T07:03:43.194802",
   "total_reports": 12
 }

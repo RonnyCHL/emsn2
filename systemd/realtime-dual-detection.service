@@ -1,0 +1,25 @@
+[Unit]
+Description=EMSN Realtime Dual Detection Service
+Documentation=https://github.com/RonnyCHL/emsn2
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/sync/realtime_dual_detection.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment=PYTHONUNBUFFERED=1
+
+# Watchdog
+WatchdogSec=300
+
+[Install]
+WantedBy=multi-user.target

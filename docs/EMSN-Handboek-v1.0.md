@@ -3,7 +3,7 @@
 **Ecologisch Monitoring Systeem Nijverdal - Biodiversity Monitoring**
 
 **Versie:** 1.0
-**Datum:** 28 december 2025
+**Datum:** 04 januari 2026
 **Auteur:** Ronny Hullegie / Claude Code
 
 ---
@@ -41,20 +41,20 @@ EMSN 2.0 is een biodiversiteitsmonitoringssysteem dat vogelgeluiden detecteert e
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| Zolder Pi | ✅ Online | 32 dagen uptime, primaire node |
+| Zolder Pi | ✅ Online | 4 dagen uptime, primaire node |
 | Berging Pi | ✅ Online | N/A dagen uptime, secundaire node |
-| NAS Database | ❌ Offline | N/A, N/A detecties |
+| NAS Database | ✅ Online | 427 MB, 111,100 detecties |
 | MQTT Broker | ✅ Active | Bidirectionele bridge actief |
 | Rapporten | ⚠️ Gefixd | Monthly report SQL bug verholpen |
 | Ulanzi Display | ✅ Active | LED matrix notificaties |
 
 ### 1.3 Statistieken
 
-- **Totaal vogeldetecties:** 64,758
-- **Unieke soorten:** 127 (in referentietabel)
-- **Dual detections:** 10,402 (beide stations)
-- **Weerdata metingen:** 36,283
-- **System health records:** 56,981
+- **Totaal vogeldetecties:** 111,100
+- **Unieke soorten:** 126 (in referentietabel)
+- **Dual detections:** 23,348 (beide stations)
+- **Weerdata metingen:** 56,059
+- **System health records:** 115,517
 
 ---
 
