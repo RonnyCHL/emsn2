@@ -3105,7 +3105,7 @@ def video_recording_status():
 
 # === TIMELAPSE API ===
 
-TIMELAPSE_DIR = Path("/mnt/nas-birdnet-archive/nestbox/timelapses")
+TIMELAPSE_DIR = Path("/mnt/nas-birdnet-archive/gegenereerde_beelden/nestkasten")
 TIMELAPSE_SCRIPT = Path("/home/ronny/emsn2/scripts/nestbox/nestbox_timelapse.py")
 timelapse_jobs = {}  # Track running timelapse jobs
 

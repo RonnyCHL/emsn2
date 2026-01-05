@@ -30,8 +30,13 @@ import sys
 
 # Configuratie
 SCREENSHOTS_BASE = Path("/mnt/nas-birdnet-archive/nestbox")
-OUTPUT_DIR = Path("/mnt/nas-birdnet-archive/nestbox/timelapses")
+OUTPUT_BASE = Path("/mnt/nas-birdnet-archive/gegenereerde_beelden/nestkasten")
 NESTBOXES = ['voor', 'midden', 'achter']
+
+
+def get_output_dir(nestbox_id: str) -> Path:
+    """Geeft output directory voor een specifieke nestkast."""
+    return OUTPUT_BASE / nestbox_id
 
 
 def get_screenshots(nestbox_id: str, start_date: datetime, end_date: datetime,
@@ -298,14 +303,15 @@ def interactive_mode():
     print(f"  Video duur:  {actual_duration:.1f} seconden")
 
     # Output bestandsnaam
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    output_dir = get_output_dir(nestbox)
+    output_dir.mkdir(parents=True, exist_ok=True)
     suffix = ""
     if night_only:
         suffix = "_night"
     elif day_only:
         suffix = "_day"
     filename = f"{nestbox}_{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}{suffix}.mp4"
-    output_path = OUTPUT_DIR / filename
+    output_path = output_dir / filename
     print(f"  Output:      {output_path}")
 
     confirm = input("\nDoorgaan? [J/n]: ").strip().lower()
@@ -431,7 +437,8 @@ def main():
     if args.output:
         output_path = Path(args.output)
     else:
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        output_dir = get_output_dir(args.nestbox)
+        output_dir.mkdir(parents=True, exist_ok=True)
         suffix = ""
         if args.night_only:
             suffix = "_night"
@@ -439,7 +446,7 @@ def main():
             suffix = "_day"
 
         filename = f"{args.nestbox}_{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}{suffix}.mp4"
-        output_path = OUTPUT_DIR / filename
+        output_path = output_dir / filename
 
     # Bereken video duur
     duration_sec = len(screenshots) / fps
