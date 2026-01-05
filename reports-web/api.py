@@ -3103,6 +3103,202 @@ def video_recording_status():
         return jsonify({'error': str(e)}), 500
 
 
+# === TIMELAPSE API ===
+
+TIMELAPSE_DIR = Path("/mnt/nas-birdnet-archive/nestbox/timelapses")
+TIMELAPSE_SCRIPT = Path("/home/ronny/emsn2/scripts/nestbox/nestbox_timelapse.py")
+timelapse_jobs = {}  # Track running timelapse jobs
+
+@app.route('/api/nestbox/timelapse/list')
+def list_timelapses():
+    """List available timelapses for a nestbox"""
+    try:
+        nestbox_id = request.args.get('nestbox_id')
+
+        timelapses = []
+        search_dir = TIMELAPSE_DIR / nestbox_id if nestbox_id else TIMELAPSE_DIR
+
+        if search_dir.exists():
+            for mp4_file in search_dir.glob('**/*.mp4'):
+                stat = mp4_file.stat()
+                # Parse filename: midden_20251223-20260105_30fps.mp4
+                name = mp4_file.stem
+                parts = name.split('_')
+                nestbox = parts[0] if parts else 'unknown'
+
+                timelapses.append({
+                    'filename': mp4_file.name,
+                    'nestbox_id': nestbox,
+                    'path': str(mp4_file.relative_to(TIMELAPSE_DIR)),
+                    'size_mb': round(stat.st_size / 1024 / 1024, 1),
+                    'created': datetime.fromtimestamp(stat.st_mtime).isoformat()
+                })
+
+        # Sort by creation date, newest first
+        timelapses.sort(key=lambda x: x['created'], reverse=True)
+
+        return jsonify({'timelapses': timelapses})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nestbox/timelapse/file/<path:filename>')
+def serve_timelapse(filename):
+    """Serve timelapse video file"""
+    try:
+        file_path = TIMELAPSE_DIR / filename
+        if not file_path.exists():
+            return jsonify({'error': 'File not found'}), 404
+
+        return send_file(file_path, mimetype='video/mp4')
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nestbox/timelapse/info')
+def timelapse_info():
+    """Get info about available screenshots for timelapse generation"""
+    try:
+        nestbox_id = request.args.get('nestbox_id', 'midden')
+        start_date = request.args.get('start')
+        end_date = request.args.get('end')
+
+        # Run script with --list to get screenshot count
+        cmd = [VENV_PYTHON, str(TIMELAPSE_SCRIPT), '-n', nestbox_id, '--list']
+
+        if start_date:
+            cmd.extend(['--start', start_date])
+        if end_date:
+            cmd.extend(['--end', end_date])
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+        # Parse output for screenshot count
+        output = result.stdout + result.stderr
+        count = 0
+        date_range = {'start': None, 'end': None}
+
+        for line in output.split('\n'):
+            if 'screenshots gevonden' in line.lower():
+                try:
+                    count = int(line.split()[0])
+                except:
+                    pass
+            if 'Beschikbare periode:' in line:
+                # Parse: "Beschikbare periode: 2025-12-23 tot 2026-01-05"
+                try:
+                    parts = line.split(':')[1].strip().split(' tot ')
+                    date_range['start'] = parts[0].strip()
+                    date_range['end'] = parts[1].strip()
+                except:
+                    pass
+
+        return jsonify({
+            'nestbox_id': nestbox_id,
+            'screenshot_count': count,
+            'date_range': date_range
+        })
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Timeout getting info'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nestbox/timelapse/generate', methods=['POST'])
+def generate_timelapse():
+    """Generate a new timelapse video"""
+    try:
+        data = request.get_json() or {}
+
+        nestbox_id = data.get('nestbox_id', 'midden')
+        start_date = data.get('start')
+        end_date = data.get('end')
+        days = data.get('days')
+        duration = data.get('duration', 30)  # Target video duration in seconds
+        fps = data.get('fps')
+        day_night = data.get('day_night', 'all')  # all, day, night
+
+        if nestbox_id not in ['voor', 'midden', 'achter']:
+            return jsonify({'error': 'Invalid nestbox_id'}), 400
+
+        # Build command
+        cmd = [VENV_PYTHON, str(TIMELAPSE_SCRIPT), '-n', nestbox_id]
+
+        if start_date:
+            cmd.extend(['--start', start_date])
+        if end_date:
+            cmd.extend(['--end', end_date])
+        if days:
+            cmd.extend(['-d', str(days)])
+        if duration:
+            cmd.extend(['--duration', str(duration)])
+        if fps:
+            cmd.extend(['--fps', str(fps)])
+        if day_night and day_night != 'all':
+            cmd.extend(['--filter', day_night])
+
+        # Generate unique job ID
+        job_id = f"{nestbox_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        # Run in background thread
+        def run_timelapse():
+            try:
+                timelapse_jobs[job_id] = {'status': 'running', 'started': datetime.now().isoformat()}
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+
+                if result.returncode == 0:
+                    # Find output file path in output
+                    output_file = None
+                    for line in result.stdout.split('\n'):
+                        if 'Timelapse opgeslagen:' in line or 'Saved:' in line:
+                            output_file = line.split(':')[-1].strip()
+                            break
+
+                    timelapse_jobs[job_id] = {
+                        'status': 'completed',
+                        'output_file': output_file,
+                        'completed': datetime.now().isoformat()
+                    }
+                else:
+                    timelapse_jobs[job_id] = {
+                        'status': 'failed',
+                        'error': result.stderr,
+                        'completed': datetime.now().isoformat()
+                    }
+            except subprocess.TimeoutExpired:
+                timelapse_jobs[job_id] = {'status': 'failed', 'error': 'Timeout after 10 minutes'}
+            except Exception as e:
+                timelapse_jobs[job_id] = {'status': 'failed', 'error': str(e)}
+
+        thread = threading.Thread(target=run_timelapse)
+        thread.start()
+
+        return jsonify({
+            'job_id': job_id,
+            'status': 'started',
+            'message': f'Timelapse generation started for {nestbox_id}'
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nestbox/timelapse/status/<job_id>')
+def timelapse_status(job_id):
+    """Check status of timelapse generation job"""
+    try:
+        if job_id not in timelapse_jobs:
+            return jsonify({'error': 'Job not found'}), 404
+
+        return jsonify({'job_id': job_id, **timelapse_jobs[job_id]})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Run development server
     app.run(host='0.0.0.0', port=8081, debug=False)
