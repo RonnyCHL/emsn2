@@ -44,33 +44,38 @@ capture_screenshot() {
 }
 
 run_occupancy_detection() {
-    # Draai bij elke screenshot
-    log "Running occupancy detection..."
-    if true; then
+    # Draai realtime detectie na screenshots - detecteert EN registreert statuswijzigingen
+    log "Running realtime occupancy detection..."
 
-        # Activeer venv en draai detector
-        SCRIPT_DIR="$(dirname "$0")"
-        if [ -f "/home/ronny/emsn2/venv/bin/python3" ]; then
-            result=$(/home/ronny/emsn2/venv/bin/python3 "$SCRIPT_DIR/nestbox_occupancy_detector.py" --all --json --save-db --capture-type "$CAPTURE_TYPE" 2>/dev/null)
+    SCRIPT_DIR="$(dirname "$0")"
+    PYTHON="/home/ronny/emsn2/venv/bin/python3"
+    DETECTOR="$SCRIPT_DIR/nestbox_realtime_detector.py"
 
-            if [ -n "$result" ]; then
-                log "Occupancy detection result: $result"
+    if [ -f "$PYTHON" ] && [ -f "$DETECTOR" ]; then
+        result=$($PYTHON "$DETECTOR" --all --json 2>&1)
 
-                # Parse resultaten en log per nestkast
-                for nestbox in voor midden achter; do
-                    is_occupied=$(echo "$result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('$nestbox',{}).get('is_occupied',''))" 2>/dev/null)
-                    confidence=$(echo "$result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(f\"{d.get('$nestbox',{}).get('confidence',0)*100:.0f}\")" 2>/dev/null)
+        if [ -n "$result" ]; then
+            # Check voor statuswijzigingen
+            changes=$(echo "$result" | python3 -c "import json,sys; data=json.load(sys.stdin); changes=[r for r in data if r.get('status_changed')]; print(len(changes))" 2>/dev/null)
 
-                    if [ "$is_occupied" = "True" ]; then
-                        log "BEZET: $nestbox (${confidence}% confidence) - slapende vogel gedetecteerd!"
-                    fi
-                done
+            if [ "$changes" != "0" ] && [ -n "$changes" ]; then
+                log "STATUSWIJZIGING: $changes nestkast(en) gewijzigd"
+                # Log details
+                echo "$result" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for r in data:
+    if r.get('status_changed'):
+        print(f\"  -> {r['nestbox_id']}: {r['new_status']} ({r.get('species', '-')}) [{r['confidence']*100:.0f}%]\")
+" 2>/dev/null | while read line; do log "$line"; done
             else
-                log "WARN: Occupancy detection returned no results"
+                log "Geen statuswijzigingen gedetecteerd"
             fi
         else
-            log "WARN: Python venv niet gevonden, skip occupancy detection"
+            log "WARN: Realtime detection returned no results"
         fi
+    else
+        log "WARN: Realtime detector niet gevonden, skip detection"
     fi
 }
 
