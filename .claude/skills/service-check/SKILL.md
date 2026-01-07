@@ -22,7 +22,7 @@ Gebruik deze skill wanneer Ronny vraagt om:
 python3 /home/ronny/emsn2/scripts/monitoring/deep_health_check.py
 ```
 
-## Wat Het Controleert (16 Categorieën)
+## Wat Het Controleert (19 Categorieën)
 
 ### 1. Netwerk Bereikbaarheid
 - Ping naar alle 6 apparaten (Zolder, Berging, Meteo, NAS, Ulanzi, Router)
@@ -114,6 +114,24 @@ python3 /home/ronny/emsn2/scripts/monitoring/deep_health_check.py
 - Top 3 soorten vandaag met aantallen
 - Gemiddelde confidence per station (microfoon kwaliteit indicator)
 
+### 17. Hardware Diepte Checks
+- SD-kaart gezondheid (wear errors, filesystem errors, read-only remounts)
+- Kernel/dmesg errors (OOM kills, USB errors, temperature warnings)
+- USB device aanwezigheid en mount status
+
+### 18. BirdNET Specifieke Checks
+- BirdNET analyzer service status
+- Extraction service status
+- Aantal analyses laatste uur
+- BirdNET model versie en aantal ondersteunde soorten
+
+### 19. Externe Services & Database
+- Tuya Cloud API bereikbaarheid (voor nestkast cameras)
+- GitHub repo sync status (up-to-date, ahead, behind)
+- Orphaned records (detecties zonder filename)
+- Duplicate records check
+- PostgreSQL table sizes en totale database grootte
+
 ## Output Interpretatie
 
 | Symbool | Betekenis |
@@ -139,6 +157,9 @@ python3 /home/ronny/emsn2/scripts/monitoring/deep_health_check.py
 | WiFi signaal | -70dBm | -80dBm |
 | Species diversity | <30% gem | - |
 | Confidence daling | >20% lager | - |
+| SD-kaart errors | >10 errors | read-only remount |
+| Kernel errors | >50 errors | OOM kill |
+| Duplicates | >10 | - |
 
 ## Snelle Check (Alternatief)
 

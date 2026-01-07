@@ -5,7 +5,7 @@ EMSN2 Deep Health Check - Ultieme Systeemdiagnose
 Dit script voert een diepgaande gezondheidscontrole uit op ALLE aspecten
 van het EMSN2 ecosysteem. Het is het meest complete diagnostic tool.
 
-16 CATEGORIEËN:
+19 CATEGORIEËN:
 
 1. NETWERK & BEREIKBAARHEID:
    - Ping alle apparaten (Zolder, Berging, Meteo, NAS, Ulanzi, Router)
@@ -93,8 +93,24 @@ van het EMSN2 ecosysteem. Het is het meest complete diagnostic tool.
     - Top soorten vandaag
     - Confidence distributie (microfoon kwaliteit indicator)
 
+17. HARDWARE DIEPTE CHECKS:
+    - SD-kaart gezondheid (wear errors, filesystem errors)
+    - Kernel/dmesg errors (OOM kills, USB errors)
+    - USB device aanwezigheid en mount status
+
+18. BIRDNET SPECIFIEKE CHECKS:
+    - BirdNET analyzer service status
+    - Extraction service status
+    - BirdNET model versie en aantal soorten
+
+19. EXTERNE SERVICES & DATABASE:
+    - Tuya Cloud API bereikbaarheid
+    - GitHub repo sync status
+    - Orphaned/duplicate records in database
+    - PostgreSQL table sizes
+
 Auteur: Claude Code (IT Specialist EMSN2)
-Versie: 3.1.0
+Versie: 3.2.0
 """
 
 import os
@@ -2600,6 +2616,673 @@ def check_confidence_distribution() -> CheckResult:
 
 
 # ═══════════════════════════════════════════════════════════════
+# 17. HARDWARE DIEPTE CHECKS
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_sd_card_health(host: str, ip: str) -> CheckResult:
+    """Check SD-kaart gezondheid via wear indicators"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             '''
+             # Check voor SD card wear via kernel messages
+             WEAR_ERRORS=$(dmesg 2>/dev/null | grep -ci "mmc0.*error\|mmcblk0.*error" || echo 0)
+
+             # Check filesystem errors
+             FS_ERRORS=$(dmesg 2>/dev/null | grep -ci "ext4.*error\|EXT4-fs error" || echo 0)
+
+             # Check read-only remounts (teken van probleem)
+             RO_MOUNTS=$(dmesg 2>/dev/null | grep -ci "remount.*read-only" || echo 0)
+
+             # Disk I/O stats
+             if [ -f /sys/block/mmcblk0/stat ]; then
+                 READ_IOS=$(awk '{print $1}' /sys/block/mmcblk0/stat)
+                 WRITE_IOS=$(awk '{print $5}' /sys/block/mmcblk0/stat)
+             else
+                 READ_IOS=0
+                 WRITE_IOS=0
+             fi
+
+             echo "WEAR_ERRORS:$WEAR_ERRORS"
+             echo "FS_ERRORS:$FS_ERRORS"
+             echo "RO_MOUNTS:$RO_MOUNTS"
+             echo "READ_IOS:$READ_IOS"
+             echo "WRITE_IOS:$WRITE_IOS"
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            wear_errors = int(metrics.get('WEAR_ERRORS', 0))
+            fs_errors = int(metrics.get('FS_ERRORS', 0))
+            ro_mounts = int(metrics.get('RO_MOUNTS', 0))
+
+            total_errors = wear_errors + fs_errors + ro_mounts
+
+            if ro_mounts > 0:
+                return CheckResult(
+                    name=f"{host} SD-kaart",
+                    status=Status.CRITICAL,
+                    message=f"Read-only remount gedetecteerd! ({ro_mounts}x)",
+                    details=metrics
+                )
+            elif total_errors > 10:
+                return CheckResult(
+                    name=f"{host} SD-kaart",
+                    status=Status.WARNING,
+                    message=f"{total_errors} disk errors in dmesg",
+                    details=metrics
+                )
+            else:
+                return CheckResult(
+                    name=f"{host} SD-kaart",
+                    status=Status.OK,
+                    message="Geen problemen gedetecteerd",
+                    details=metrics
+                )
+
+        return CheckResult(
+            name=f"{host} SD-kaart",
+            status=Status.UNKNOWN,
+            message="Kan SD-kaart niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name=f"{host} SD-kaart",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_kernel_errors(host: str, ip: str) -> CheckResult:
+    """Check kernel/dmesg voor hardware errors"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             '''
+             # Tel verschillende error types in dmesg
+             TOTAL_ERRORS=$(dmesg --level=err,crit,alert,emerg 2>/dev/null | wc -l || echo 0)
+             USB_ERRORS=$(dmesg 2>/dev/null | grep -ci "usb.*error\|usb.*fail" || echo 0)
+             TEMP_WARNINGS=$(dmesg 2>/dev/null | grep -ci "temperature\|thermal\|throttl" || echo 0)
+             OOM_KILLS=$(dmesg 2>/dev/null | grep -ci "out of memory\|oom-killer" || echo 0)
+
+             # Laatste kritieke error
+             LAST_ERROR=$(dmesg --level=err,crit 2>/dev/null | tail -1 | cut -c1-80)
+
+             echo "TOTAL_ERRORS:$TOTAL_ERRORS"
+             echo "USB_ERRORS:$USB_ERRORS"
+             echo "TEMP_WARNINGS:$TEMP_WARNINGS"
+             echo "OOM_KILLS:$OOM_KILLS"
+             echo "LAST_ERROR:$LAST_ERROR"
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            total_errors = int(metrics.get('TOTAL_ERRORS', 0))
+            oom_kills = int(metrics.get('OOM_KILLS', 0))
+            last_error = metrics.get('LAST_ERROR', '')
+
+            if oom_kills > 0:
+                return CheckResult(
+                    name=f"{host} Kernel",
+                    status=Status.CRITICAL,
+                    message=f"OOM killer actief geweest! ({oom_kills}x)",
+                    details=metrics
+                )
+            elif total_errors > 50:
+                return CheckResult(
+                    name=f"{host} Kernel",
+                    status=Status.WARNING,
+                    message=f"{total_errors} kernel errors",
+                    details=metrics
+                )
+            else:
+                return CheckResult(
+                    name=f"{host} Kernel",
+                    status=Status.OK,
+                    message=f"{total_errors} errors in dmesg",
+                    details=metrics
+                )
+
+        return CheckResult(
+            name=f"{host} Kernel",
+            status=Status.UNKNOWN,
+            message="Kan kernel logs niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name=f"{host} Kernel",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_usb_devices(host: str, ip: str) -> CheckResult:
+    """Check of verwachte USB devices aanwezig zijn"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             '''
+             # Tel USB devices
+             USB_COUNT=$(lsusb 2>/dev/null | wc -l || echo 0)
+
+             # Check voor USB storage (voor audio opslag)
+             USB_STORAGE=$(lsusb 2>/dev/null | grep -ci "mass storage\|flash\|disk" || echo 0)
+
+             # Check voor audio devices (microfoon)
+             USB_AUDIO=$(lsusb 2>/dev/null | grep -ci "audio\|sound\|mic" || echo 0)
+
+             # Check mount status van USB disk
+             USB_MOUNTED=$(mount | grep -c "/mnt/usb" || echo 0)
+
+             # Lijst van USB devices
+             USB_LIST=$(lsusb 2>/dev/null | grep -v "hub" | head -5)
+
+             echo "USB_COUNT:$USB_COUNT"
+             echo "USB_STORAGE:$USB_STORAGE"
+             echo "USB_AUDIO:$USB_AUDIO"
+             echo "USB_MOUNTED:$USB_MOUNTED"
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            usb_count = int(metrics.get('USB_COUNT', 0))
+            usb_mounted = int(metrics.get('USB_MOUNTED', 0))
+            usb_audio = int(metrics.get('USB_AUDIO', 0))
+
+            issues = []
+            status = Status.OK
+
+            # Voor zolder/berging verwachten we USB storage
+            if host in ['zolder', 'berging'] and usb_mounted == 0:
+                issues.append("USB niet gemount")
+                status = Status.WARNING
+
+            if usb_count < 2:  # Minimaal hub + iets
+                issues.append(f"Weinig USB devices ({usb_count})")
+                status = Status.WARNING
+
+            if issues:
+                return CheckResult(
+                    name=f"{host} USB",
+                    status=status,
+                    message=", ".join(issues),
+                    details=metrics
+                )
+            else:
+                return CheckResult(
+                    name=f"{host} USB",
+                    status=Status.OK,
+                    message=f"{usb_count} devices, storage gemount" if usb_mounted else f"{usb_count} devices",
+                    details=metrics
+                )
+
+        return CheckResult(
+            name=f"{host} USB",
+            status=Status.UNKNOWN,
+            message="Kan USB niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name=f"{host} USB",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 18. BIRDNET SPECIFIEKE CHECKS
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_birdnet_analyzer(host: str, ip: str) -> CheckResult:
+    """Check BirdNET analyzer service status"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             '''
+             # Check birdnet_analysis service
+             ANALYZER_STATUS=$(systemctl is-active birdnet_analysis.service 2>/dev/null || echo "not-found")
+
+             # Check extraction service
+             EXTRACTION_STATUS=$(systemctl is-active extraction.service 2>/dev/null || echo "not-found")
+
+             # Check of BirdNET process draait
+             BIRDNET_PROCS=$(pgrep -c -f "birdnet\|analyze" 2>/dev/null || echo 0)
+
+             # Laatste analyse tijd (uit log)
+             LAST_ANALYSIS=$(journalctl -u birdnet_analysis --since "1 hour ago" --no-pager 2>/dev/null | grep -c "Analyzed" || echo 0)
+
+             echo "ANALYZER:$ANALYZER_STATUS"
+             echo "EXTRACTION:$EXTRACTION_STATUS"
+             echo "PROCS:$BIRDNET_PROCS"
+             echo "RECENT_ANALYSES:$LAST_ANALYSIS"
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            analyzer = metrics.get('ANALYZER', 'unknown')
+            extraction = metrics.get('EXTRACTION', 'unknown')
+            recent = int(metrics.get('RECENT_ANALYSES', 0))
+
+            if analyzer != 'active':
+                return CheckResult(
+                    name=f"{host} BirdNET Analyzer",
+                    status=Status.CRITICAL,
+                    message=f"Analyzer niet actief! ({analyzer})",
+                    details=metrics
+                )
+            elif extraction != 'active':
+                return CheckResult(
+                    name=f"{host} BirdNET Analyzer",
+                    status=Status.WARNING,
+                    message=f"Extraction service: {extraction}",
+                    details=metrics
+                )
+            else:
+                return CheckResult(
+                    name=f"{host} BirdNET Analyzer",
+                    status=Status.OK,
+                    message=f"Actief ({recent} analyses laatste uur)",
+                    details=metrics
+                )
+
+        return CheckResult(
+            name=f"{host} BirdNET",
+            status=Status.UNKNOWN,
+            message="Kan BirdNET niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name=f"{host} BirdNET",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_birdnet_model_version(host: str, ip: str) -> CheckResult:
+    """Check BirdNET model versie"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             '''
+             # Check model file
+             MODEL_FILE=$(ls -la /home/ronny/BirdNET-Pi/model/*.tflite 2>/dev/null | head -1 | awk '{print $NF}')
+             MODEL_SIZE=$(ls -la /home/ronny/BirdNET-Pi/model/*.tflite 2>/dev/null | head -1 | awk '{print $5}')
+
+             # Check labels file voor versie hint
+             LABEL_COUNT=$(wc -l < /home/ronny/BirdNET-Pi/model/labels.txt 2>/dev/null || echo 0)
+
+             # BirdNET-Pi versie uit git
+             cd /home/ronny/BirdNET-Pi && BIRDNET_VERSION=$(git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+             echo "MODEL:$(basename "$MODEL_FILE" 2>/dev/null || echo unknown)"
+             echo "SIZE:$MODEL_SIZE"
+             echo "LABELS:$LABEL_COUNT"
+             echo "VERSION:$BIRDNET_VERSION"
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            model = metrics.get('MODEL', 'unknown')
+            version = metrics.get('VERSION', 'unknown')
+            labels = metrics.get('LABELS', '0')
+
+            return CheckResult(
+                name=f"{host} BirdNET Model",
+                status=Status.OK,
+                message=f"{model} ({labels} soorten), v{version}",
+                details=metrics
+            )
+
+        return CheckResult(
+            name=f"{host} BirdNET Model",
+            status=Status.UNKNOWN,
+            message="Kan model niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name=f"{host} BirdNET Model",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 19. EXTERNE SERVICES & DATABASE CHECKS
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_tuya_cameras() -> CheckResult:
+    """Check Tuya camera API beschikbaarheid"""
+    try:
+        # Test of we de Tuya API kunnen bereiken
+        import urllib.request
+
+        # Tuya EU endpoint
+        req = urllib.request.Request(
+            'https://openapi.tuyaeu.com/',
+            method='HEAD'
+        )
+        req.add_header('User-Agent', 'EMSN-Health-Check/1.0')
+
+        start = time.time()
+        with urllib.request.urlopen(req, timeout=10) as response:
+            elapsed = (time.time() - start) * 1000
+            return CheckResult(
+                name="Tuya Cloud API",
+                status=Status.OK,
+                message=f"Bereikbaar ({elapsed:.0f}ms)",
+                details={'response_time_ms': elapsed}
+            )
+
+    except urllib.error.HTTPError as e:
+        # 401/403 is OK - API is bereikbaar maar auth nodig
+        if e.code in [401, 403, 405]:
+            return CheckResult(
+                name="Tuya Cloud API",
+                status=Status.OK,
+                message=f"Bereikbaar (HTTP {e.code})"
+            )
+        return CheckResult(
+            name="Tuya Cloud API",
+            status=Status.WARNING,
+            message=f"HTTP {e.code}"
+        )
+    except Exception as e:
+        return CheckResult(
+            name="Tuya Cloud API",
+            status=Status.WARNING,
+            message=f"Niet bereikbaar: {str(e)[:30]}"
+        )
+
+
+@timed_check
+def check_github_sync() -> CheckResult:
+    """Check of lokale repo up-to-date is met GitHub"""
+    try:
+        # Fetch latest zonder te pullen
+        result = subprocess.run(
+            ['git', '-C', '/home/ronny/emsn2', 'fetch', '--dry-run'],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        # Check status
+        result = subprocess.run(
+            ['git', '-C', '/home/ronny/emsn2', 'status', '-uno'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        output = result.stdout
+
+        if 'Your branch is up to date' in output:
+            return CheckResult(
+                name="GitHub Sync",
+                status=Status.OK,
+                message="Up-to-date met origin/main"
+            )
+        elif 'Your branch is ahead' in output:
+            # Tel commits ahead
+            commits = output.split('ahead')[1].split('commit')[0].strip().strip("by '")
+            return CheckResult(
+                name="GitHub Sync",
+                status=Status.OK,
+                message=f"Lokaal {commits} commits vooruit"
+            )
+        elif 'Your branch is behind' in output:
+            return CheckResult(
+                name="GitHub Sync",
+                status=Status.WARNING,
+                message="Lokaal achter op remote!"
+            )
+        elif 'diverged' in output:
+            return CheckResult(
+                name="GitHub Sync",
+                status=Status.WARNING,
+                message="Branch is diverged van remote"
+            )
+        else:
+            return CheckResult(
+                name="GitHub Sync",
+                status=Status.OK,
+                message="Sync OK"
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="GitHub Sync",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_orphaned_records() -> CheckResult:
+    """Check voor orphaned records in database"""
+    try:
+        secrets_file = Path("/home/ronny/emsn2/.secrets")
+        pg_pass = None
+        with open(secrets_file) as f:
+            for line in f:
+                if line.startswith('PG_PASSWORD='):
+                    pg_pass = line.split('=', 1)[1].strip()
+                    break
+
+        if not pg_pass:
+            return CheckResult(
+                name="Orphaned Records",
+                status=Status.UNKNOWN,
+                message="Credentials niet beschikbaar"
+            )
+
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host='192.168.1.25',
+            port=5433,
+            database='emsn',
+            user='emsn',
+            password=pg_pass,
+            connect_timeout=5
+        )
+        cursor = conn.cursor()
+
+        # Check voor detecties zonder geldige audio (file_name check)
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM lifetime_detections
+            WHERE deleted = false
+              AND (file_name IS NULL OR file_name = '')
+        """)
+        no_filename = cursor.fetchone()[0]
+
+        # Check voor duplicate detecties (zelfde timestamp + station + soort)
+        cursor.execute("""
+            SELECT COUNT(*) FROM (
+                SELECT station, detected_at, common_name, COUNT(*) as cnt
+                FROM lifetime_detections
+                WHERE deleted = false
+                  AND detected_at >= NOW() - INTERVAL '7 days'
+                GROUP BY station, detected_at, common_name
+                HAVING COUNT(*) > 1
+            ) dupes
+        """)
+        duplicates = cursor.fetchone()[0]
+
+        conn.close()
+
+        issues = []
+        status = Status.OK
+
+        if no_filename > 0:
+            issues.append(f"{no_filename} zonder filename")
+            status = Status.WARNING
+
+        if duplicates > 10:
+            issues.append(f"{duplicates} duplicaten")
+            status = Status.WARNING
+
+        if issues:
+            return CheckResult(
+                name="Data Integriteit",
+                status=status,
+                message=", ".join(issues),
+                details={'no_filename': no_filename, 'duplicates': duplicates}
+            )
+        else:
+            return CheckResult(
+                name="Data Integriteit",
+                status=Status.OK,
+                message="Geen orphans of duplicaten",
+                details={'no_filename': no_filename, 'duplicates': duplicates}
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="Data Integriteit",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_table_sizes() -> CheckResult:
+    """Check PostgreSQL table sizes"""
+    try:
+        secrets_file = Path("/home/ronny/emsn2/.secrets")
+        pg_pass = None
+        with open(secrets_file) as f:
+            for line in f:
+                if line.startswith('PG_PASSWORD='):
+                    pg_pass = line.split('=', 1)[1].strip()
+                    break
+
+        if not pg_pass:
+            return CheckResult(
+                name="Table Sizes",
+                status=Status.UNKNOWN,
+                message="Credentials niet beschikbaar"
+            )
+
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host='192.168.1.25',
+            port=5433,
+            database='emsn',
+            user='emsn',
+            password=pg_pass,
+            connect_timeout=5
+        )
+        cursor = conn.cursor()
+
+        # Top 5 grootste tabellen
+        cursor.execute("""
+            SELECT
+                tablename,
+                pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) as size,
+                pg_total_relation_size(schemaname || '.' || tablename) as bytes
+            FROM pg_tables
+            WHERE schemaname = 'public'
+            ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC
+            LIMIT 5
+        """)
+        tables = cursor.fetchall()
+
+        # Totale database grootte
+        cursor.execute("""
+            SELECT pg_size_pretty(pg_database_size('emsn'))
+        """)
+        total_size = cursor.fetchone()[0]
+
+        conn.close()
+
+        if tables:
+            top_tables = ", ".join([f"{t[0]}({t[1]})" for t in tables[:3]])
+            return CheckResult(
+                name="Database Size",
+                status=Status.OK,
+                message=f"Totaal: {total_size} | Top: {top_tables}",
+                details={'total': total_size, 'tables': [{'name': t[0], 'size': t[1]} for t in tables]}
+            )
+        else:
+            return CheckResult(
+                name="Database Size",
+                status=Status.OK,
+                message=f"Totaal: {total_size}"
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="Table Sizes",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
 # MAIN DIAGNOSE FUNCTIE
 # ═══════════════════════════════════════════════════════════════
 
@@ -2934,6 +3617,72 @@ def run_deep_health_check() -> Dict[str, CategoryResult]:
     print_check(result)
 
     categories['extra'] = cat
+
+    # ─── 17. HARDWARE DIEPTE ─────────────────────────────────────
+    print_header("17. HARDWARE DIEPTE CHECKS")
+    cat = CategoryResult(name="Hardware Diepte")
+
+    for host in ['zolder', 'berging', 'meteo']:
+        if ssh_available.get(host, False):
+            print_subheader(f"{host.title()}")
+            ip = HOSTS[host]['ip']
+
+            result = check_sd_card_health(host, ip)
+            cat.checks.append(result)
+            print_check(result)
+
+            result = check_kernel_errors(host, ip)
+            cat.checks.append(result)
+            print_check(result)
+
+            result = check_usb_devices(host, ip)
+            cat.checks.append(result)
+            print_check(result)
+
+    categories['hardware_deep'] = cat
+
+    # ─── 18. BIRDNET SPECIFIEK ───────────────────────────────────
+    print_header("18. BIRDNET SPECIFIEKE CHECKS")
+    cat = CategoryResult(name="BirdNET")
+
+    for host in ['zolder', 'berging']:
+        if ssh_available.get(host, False):
+            print_subheader(f"{host.title()}")
+            ip = HOSTS[host]['ip']
+
+            result = check_birdnet_analyzer(host, ip)
+            cat.checks.append(result)
+            print_check(result)
+
+            result = check_birdnet_model_version(host, ip)
+            cat.checks.append(result)
+            print_check(result)
+
+    categories['birdnet'] = cat
+
+    # ─── 19. EXTERNE SERVICES & DATABASE ─────────────────────────
+    print_header("19. EXTERNE SERVICES & DATABASE")
+    cat = CategoryResult(name="Extern/DB")
+
+    print_subheader("Externe Services")
+    result = check_tuya_cameras()
+    cat.checks.append(result)
+    print_check(result)
+
+    result = check_github_sync()
+    cat.checks.append(result)
+    print_check(result)
+
+    print_subheader("Database Analyse")
+    result = check_orphaned_records()
+    cat.checks.append(result)
+    print_check(result)
+
+    result = check_table_sizes()
+    cat.checks.append(result)
+    print_check(result)
+
+    categories['extern_db'] = cat
 
     # ─── SAMENVATTING ─────────────────────────────────────────────
     elapsed = time.time() - start_time
