@@ -36,7 +36,7 @@ import psycopg2
 MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_species_model.pt"
 FALLBACK_MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_occupancy_model.pt"
 INPUT_SIZE = 224
-CONFIDENCE_THRESHOLD = 0.75  # Minimale confidence voor statuswijziging
+CONFIDENCE_THRESHOLD = 0.50  # Minimale confidence voor statuswijziging (verlaagd voor daglicht detectie)
 
 # Minimale tijd tussen status events (voorkom ruis)
 MIN_EVENT_INTERVAL_MINUTES = 30
