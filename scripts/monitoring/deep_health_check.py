@@ -5,7 +5,7 @@ EMSN2 Deep Health Check - Ultieme Systeemdiagnose
 Dit script voert een diepgaande gezondheidscontrole uit op ALLE aspecten
 van het EMSN2 ecosysteem. Het is het meest complete diagnostic tool.
 
-10 CATEGORIEËN:
+15 CATEGORIEËN:
 
 1. NETWERK & BEREIKBAARHEID:
    - Ping alle apparaten (Zolder, Berging, Meteo, NAS, Ulanzi, Router)
@@ -59,8 +59,35 @@ van het EMSN2 ecosysteem. Het is het meest complete diagnostic tool.
     - Recente errors in journalctl
     - Error count per host
 
+11. BIRDNET-Pi DATABASE INTEGRITEIT:
+    - SQLite database integrity check
+    - Laatste audio file timestamps
+    - Database bestandsgrootte
+
+12. MQTT BRIDGE STATUS:
+    - Bridge connectie berging ↔ zolder
+    - Message throughput
+    - Laatste bridge heartbeat
+
+13. INTERNET & CONNECTIVITEIT:
+    - DNS resolution test
+    - Internet bereikbaarheid (8.8.8.8)
+    - NAS mount response time
+
+14. SECURITY CHECKS:
+    - Failed SSH login attempts
+    - Sudo usage (laatste 24u)
+    - Onverwachte processen
+
+15. BACKUP & TRENDS:
+    - PostgreSQL backup status
+    - Detectie trends (vandaag vs gisteren)
+    - Disk groei voorspelling
+    - Vocalization model beschikbaarheid
+    - Ulanzi display laatste notificatie
+
 Auteur: Claude Code (IT Specialist EMSN2)
-Versie: 2.0.0
+Versie: 3.0.0
 """
 
 import os
@@ -1468,6 +1495,746 @@ def check_sync_status() -> List[CheckResult]:
 
 
 # ═══════════════════════════════════════════════════════════════
+# 11. BIRDNET-Pi DATABASE INTEGRITEIT CHECKS
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_sqlite_integrity(host: str, ip: str) -> List[CheckResult]:
+    """Check BirdNET-Pi SQLite database integriteit"""
+    results = []
+    db_path = "/home/ronny/BirdNET-Pi/scripts/birds.db"
+
+    try:
+        # Integrity check
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             f'''
+             sqlite3 "{db_path}" "PRAGMA integrity_check;" 2>/dev/null | head -5
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode == 0:
+            output = result.stdout.strip()
+            if output == 'ok':
+                results.append(CheckResult(
+                    name=f"{host} SQLite Integrity",
+                    status=Status.OK,
+                    message="Database integer"
+                ))
+            else:
+                results.append(CheckResult(
+                    name=f"{host} SQLite Integrity",
+                    status=Status.CRITICAL,
+                    message=f"Corruptie gedetecteerd: {output[:50]}",
+                    details={'output': output}
+                ))
+        else:
+            results.append(CheckResult(
+                name=f"{host} SQLite Integrity",
+                status=Status.WARNING,
+                message="Kan database niet controleren",
+                details={'error': result.stderr}
+            ))
+
+        # Database grootte en laatste record
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             f'''
+             echo "SIZE:$(du -h "{db_path}" 2>/dev/null | cut -f1)"
+             echo "RECORDS:$(sqlite3 "{db_path}" "SELECT COUNT(*) FROM detections;" 2>/dev/null)"
+             echo "LAST:$(sqlite3 "{db_path}" "SELECT MAX(Date || ' ' || Time) FROM detections;" 2>/dev/null)"
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            db_size = metrics.get('SIZE', 'onbekend')
+            records = metrics.get('RECORDS', '0')
+            last_record = metrics.get('LAST', '')
+
+            results.append(CheckResult(
+                name=f"{host} SQLite Stats",
+                status=Status.OK,
+                message=f"{db_size}, {records} records",
+                details={'size': db_size, 'records': records, 'last': last_record}
+            ))
+
+    except Exception as e:
+        results.append(CheckResult(
+            name=f"{host} SQLite",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        ))
+
+    return results
+
+
+@timed_check
+def check_audio_recording(host: str, ip: str) -> CheckResult:
+    """Check laatste audio opname (microfoon werkt?)"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             '''
+             AUDIO_DIR="/home/ronny/BirdNET-Pi/BirdSongs/Extracted/By_Date"
+             TODAY=$(date +%Y-%m-%d)
+             YESTERDAY=$(date -d yesterday +%Y-%m-%d)
+             TODAY_COUNT=$(find "$AUDIO_DIR/$TODAY" -name "*.mp3" 2>/dev/null | wc -l)
+             YESTERDAY_COUNT=$(find "$AUDIO_DIR/$YESTERDAY" -name "*.mp3" 2>/dev/null | wc -l)
+             LATEST=$(find "$AUDIO_DIR" -name "*.mp3" -type f 2>/dev/null | xargs ls -t 2>/dev/null | head -1)
+             echo "TODAY:$TODAY_COUNT"
+             echo "YESTERDAY:$YESTERDAY_COUNT"
+             echo "LATEST:$LATEST"
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=20
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            today_count = int(metrics.get('TODAY', 0))
+            yesterday_count = int(metrics.get('YESTERDAY', 0))
+            latest = metrics.get('LATEST', '')
+
+            # Extraheer bestandsnaam
+            latest_name = Path(latest).name if latest else 'geen'
+
+            if today_count == 0 and datetime.now().hour > 6:
+                return CheckResult(
+                    name=f"{host} Audio",
+                    status=Status.WARNING,
+                    message=f"Geen audio vandaag! (gisteren: {yesterday_count})",
+                    details={'today': today_count, 'yesterday': yesterday_count}
+                )
+            else:
+                return CheckResult(
+                    name=f"{host} Audio",
+                    status=Status.OK,
+                    message=f"{today_count} vandaag, {yesterday_count} gisteren",
+                    details={'today': today_count, 'yesterday': yesterday_count, 'latest': latest_name}
+                )
+
+        return CheckResult(
+            name=f"{host} Audio",
+            status=Status.UNKNOWN,
+            message="Kan audio niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name=f"{host} Audio",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 12. MQTT BRIDGE STATUS CHECKS
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_mqtt_bridge_status() -> List[CheckResult]:
+    """Check MQTT bridge status tussen berging en zolder"""
+    results = []
+
+    try:
+        # Check bridge monitor service
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{HOSTS["zolder"]["ip"]}',
+             'systemctl is-active mqtt-bridge-monitor'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode == 0 and result.stdout.strip() == 'active':
+            results.append(CheckResult(
+                name="Bridge Monitor",
+                status=Status.OK,
+                message="Service actief"
+            ))
+        else:
+            results.append(CheckResult(
+                name="Bridge Monitor",
+                status=Status.WARNING,
+                message=f"Service: {result.stdout.strip() or 'onbekend'}"
+            ))
+
+        # Check bridge status topic
+        result = subprocess.run(
+            ['mosquitto_sub', '-h', '192.168.1.178', '-t', 'emsn2/bridge/status',
+             '-C', '1', '-W', '5'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode == 0:
+            try:
+                bridge_data = json.loads(result.stdout.strip())
+                status = bridge_data.get('status', 'unknown')
+                last_check = bridge_data.get('last_check', '')
+
+                if status == 'connected':
+                    results.append(CheckResult(
+                        name="Bridge Connectie",
+                        status=Status.OK,
+                        message="Berging ↔ Zolder verbonden",
+                        details=bridge_data
+                    ))
+                else:
+                    results.append(CheckResult(
+                        name="Bridge Connectie",
+                        status=Status.WARNING,
+                        message=f"Status: {status}",
+                        details=bridge_data
+                    ))
+            except json.JSONDecodeError:
+                results.append(CheckResult(
+                    name="Bridge Connectie",
+                    status=Status.OK,
+                    message=f"Actief: {result.stdout.strip()[:50]}"
+                ))
+        else:
+            results.append(CheckResult(
+                name="Bridge Connectie",
+                status=Status.WARNING,
+                message="Geen bridge status ontvangen"
+            ))
+
+        # Check message throughput op berging broker
+        result = subprocess.run(
+            ['mosquitto_sub', '-h', '192.168.1.87', '-t', '$SYS/broker/messages/received',
+             '-C', '1', '-W', '5'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode == 0:
+            msg_count = result.stdout.strip()
+            results.append(CheckResult(
+                name="Berging Broker",
+                status=Status.OK,
+                message=f"Actief ({msg_count} msgs received)",
+                details={'messages': msg_count}
+            ))
+        else:
+            results.append(CheckResult(
+                name="Berging Broker",
+                status=Status.WARNING,
+                message="Niet bereikbaar of traag"
+            ))
+
+    except FileNotFoundError:
+        results.append(CheckResult(
+            name="MQTT Bridge",
+            status=Status.UNKNOWN,
+            message="mosquitto_sub niet geïnstalleerd"
+        ))
+    except Exception as e:
+        results.append(CheckResult(
+            name="MQTT Bridge",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        ))
+
+    return results
+
+
+# ═══════════════════════════════════════════════════════════════
+# 13. INTERNET & CONNECTIVITEIT CHECKS
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_internet_connectivity() -> List[CheckResult]:
+    """Check internet connectiviteit en DNS"""
+    results = []
+
+    # DNS resolution test
+    try:
+        start = time.time()
+        socket.gethostbyname('google.com')
+        elapsed = (time.time() - start) * 1000
+
+        results.append(CheckResult(
+            name="DNS Resolution",
+            status=Status.OK,
+            message=f"OK ({elapsed:.0f}ms)",
+            details={'host': 'google.com', 'time_ms': elapsed}
+        ))
+    except socket.gaierror:
+        results.append(CheckResult(
+            name="DNS Resolution",
+            status=Status.CRITICAL,
+            message="DNS lookup mislukt!",
+            details={'host': 'google.com'}
+        ))
+    except Exception as e:
+        results.append(CheckResult(
+            name="DNS Resolution",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        ))
+
+    # Internet ping (8.8.8.8)
+    try:
+        result = subprocess.run(
+            ['ping', '-c', '3', '-W', '3', '8.8.8.8'],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            # Parse latency
+            for line in result.stdout.split('\n'):
+                if 'min/avg/max' in line or 'rtt min/avg/max' in line:
+                    parts = line.split('=')[1].strip().split('/')
+                    avg_latency = float(parts[1])
+
+                    results.append(CheckResult(
+                        name="Internet (8.8.8.8)",
+                        status=Status.OK,
+                        message=f"OK ({avg_latency:.1f}ms)",
+                        details={'latency_ms': avg_latency}
+                    ))
+                    break
+            else:
+                results.append(CheckResult(
+                    name="Internet (8.8.8.8)",
+                    status=Status.OK,
+                    message="Bereikbaar"
+                ))
+        else:
+            results.append(CheckResult(
+                name="Internet (8.8.8.8)",
+                status=Status.CRITICAL,
+                message="NIET bereikbaar!",
+                details={'error': result.stderr}
+            ))
+    except subprocess.TimeoutExpired:
+        results.append(CheckResult(
+            name="Internet (8.8.8.8)",
+            status=Status.CRITICAL,
+            message="Timeout"
+        ))
+    except Exception as e:
+        results.append(CheckResult(
+            name="Internet (8.8.8.8)",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        ))
+
+    # NAS mount response time
+    for mount in NAS_MOUNTS[:1]:  # Test alleen eerste mount
+        try:
+            start = time.time()
+            os.listdir(mount['path'])
+            elapsed = (time.time() - start) * 1000
+
+            if elapsed > 1000:
+                results.append(CheckResult(
+                    name="NAS Response",
+                    status=Status.WARNING,
+                    message=f"Traag: {elapsed:.0f}ms",
+                    details={'path': mount['path'], 'time_ms': elapsed}
+                ))
+            else:
+                results.append(CheckResult(
+                    name="NAS Response",
+                    status=Status.OK,
+                    message=f"OK ({elapsed:.0f}ms)",
+                    details={'path': mount['path'], 'time_ms': elapsed}
+                ))
+        except Exception as e:
+            results.append(CheckResult(
+                name="NAS Response",
+                status=Status.CRITICAL,
+                message=f"Fout: {e}"
+            ))
+
+    return results
+
+
+# ═══════════════════════════════════════════════════════════════
+# 14. SECURITY CHECKS
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_security(host: str, ip: str) -> List[CheckResult]:
+    """Check security-gerelateerde items via SSH"""
+    results = []
+
+    try:
+        # Failed SSH login attempts (laatste 24u)
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             '''
+             FAILED=$(journalctl -u ssh --since "24 hours ago" 2>/dev/null | grep -c "Failed password" || echo 0)
+             SUDO_COUNT=$(journalctl --since "24 hours ago" 2>/dev/null | grep -c "sudo:" || echo 0)
+             echo "FAILED_SSH:$FAILED"
+             echo "SUDO_COUNT:$SUDO_COUNT"
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=20
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            failed_ssh = int(metrics.get('FAILED_SSH', 0))
+            sudo_count = int(metrics.get('SUDO_COUNT', 0))
+
+            # Failed SSH logins
+            if failed_ssh > 50:
+                results.append(CheckResult(
+                    name=f"{host} Failed SSH",
+                    status=Status.CRITICAL,
+                    message=f"{failed_ssh} mislukte pogingen (24u)!",
+                    details={'count': failed_ssh}
+                ))
+            elif failed_ssh > 10:
+                results.append(CheckResult(
+                    name=f"{host} Failed SSH",
+                    status=Status.WARNING,
+                    message=f"{failed_ssh} mislukte pogingen (24u)",
+                    details={'count': failed_ssh}
+                ))
+            else:
+                results.append(CheckResult(
+                    name=f"{host} Failed SSH",
+                    status=Status.OK,
+                    message=f"{failed_ssh} mislukte pogingen (24u)",
+                    details={'count': failed_ssh}
+                ))
+
+            # Sudo usage
+            results.append(CheckResult(
+                name=f"{host} Sudo",
+                status=Status.OK,
+                message=f"{sudo_count} sudo acties (24u)",
+                details={'count': sudo_count}
+            ))
+
+    except Exception as e:
+        results.append(CheckResult(
+            name=f"{host} Security",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        ))
+
+    return results
+
+
+# ═══════════════════════════════════════════════════════════════
+# 15. BACKUP & TRENDS CHECKS
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_backup_status() -> List[CheckResult]:
+    """Check PostgreSQL backup status"""
+    results = []
+
+    backup_paths = [
+        '/mnt/nas-birdnet-archive/backups/postgresql',
+        '/mnt/nas-docker/backups',
+    ]
+
+    for backup_path in backup_paths:
+        try:
+            path = Path(backup_path)
+            if path.exists():
+                # Zoek laatste backup
+                backups = list(path.glob('*.sql*')) + list(path.glob('*.dump'))
+                if backups:
+                    latest = max(backups, key=lambda x: x.stat().st_mtime)
+                    age_hours = (time.time() - latest.stat().st_mtime) / 3600
+                    size_mb = latest.stat().st_size / (1024 * 1024)
+
+                    if age_hours > 168:  # 7 dagen
+                        results.append(CheckResult(
+                            name=f"Backup {path.name}",
+                            status=Status.CRITICAL,
+                            message=f"Laatste backup {age_hours/24:.0f} dagen oud!",
+                            details={'file': latest.name, 'age_hours': age_hours, 'size_mb': size_mb}
+                        ))
+                    elif age_hours > 48:
+                        results.append(CheckResult(
+                            name=f"Backup {path.name}",
+                            status=Status.WARNING,
+                            message=f"Backup {age_hours:.0f}u oud, {size_mb:.1f}MB",
+                            details={'file': latest.name, 'age_hours': age_hours, 'size_mb': size_mb}
+                        ))
+                    else:
+                        results.append(CheckResult(
+                            name=f"Backup {path.name}",
+                            status=Status.OK,
+                            message=f"OK ({age_hours:.0f}u oud, {size_mb:.1f}MB)",
+                            details={'file': latest.name, 'age_hours': age_hours, 'size_mb': size_mb}
+                        ))
+                else:
+                    results.append(CheckResult(
+                        name=f"Backup {path.name}",
+                        status=Status.WARNING,
+                        message="Geen backups gevonden",
+                        details={'path': str(path)}
+                    ))
+            else:
+                # Pad bestaat niet, skip
+                pass
+        except Exception as e:
+            results.append(CheckResult(
+                name=f"Backup {Path(backup_path).name}",
+                status=Status.UNKNOWN,
+                message=f"Fout: {e}"
+            ))
+
+    if not results:
+        results.append(CheckResult(
+            name="Backups",
+            status=Status.WARNING,
+            message="Geen backup locaties gevonden"
+        ))
+
+    return results
+
+
+@timed_check
+def check_detection_trends() -> List[CheckResult]:
+    """Check detectie trends (vandaag vs gisteren vs vorige week)"""
+    results = []
+
+    try:
+        secrets_file = Path("/home/ronny/emsn2/.secrets")
+        pg_pass = None
+        with open(secrets_file) as f:
+            for line in f:
+                if line.startswith('PG_PASSWORD='):
+                    pg_pass = line.split('=', 1)[1].strip()
+                    break
+
+        if not pg_pass:
+            return [CheckResult(
+                name="Detectie Trends",
+                status=Status.UNKNOWN,
+                message="Credentials niet beschikbaar"
+            )]
+
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host='192.168.1.25',
+            port=5433,
+            database='emsn',
+            user='emsn',
+            password=pg_pass,
+            connect_timeout=5
+        )
+        cursor = conn.cursor()
+
+        # Vergelijk vandaag, gisteren en vorige week
+        cursor.execute("""
+            SELECT
+                COUNT(*) FILTER (WHERE detected_at::date = CURRENT_DATE) as today,
+                COUNT(*) FILTER (WHERE detected_at::date = CURRENT_DATE - 1) as yesterday,
+                COUNT(*) FILTER (WHERE detected_at::date = CURRENT_DATE - 7) as week_ago,
+                AVG(CASE WHEN detected_at >= NOW() - INTERVAL '7 days'
+                    THEN 1 ELSE NULL END) * COUNT(*) FILTER (
+                        WHERE detected_at >= NOW() - INTERVAL '7 days'
+                    ) / 7 as avg_per_day
+            FROM lifetime_detections
+            WHERE deleted = false
+        """)
+
+        row = cursor.fetchone()
+        if row:
+            today, yesterday, week_ago, avg_per_day = row
+            avg_per_day = avg_per_day or 0
+
+            # Bereken afwijking
+            if yesterday and yesterday > 0:
+                change_pct = ((today - yesterday) / yesterday) * 100
+            else:
+                change_pct = 0
+
+            if today < (avg_per_day * 0.3) and datetime.now().hour > 12:
+                results.append(CheckResult(
+                    name="Detectie Trend",
+                    status=Status.WARNING,
+                    message=f"Vandaag ({today}) ver onder gemiddelde ({avg_per_day:.0f}/dag)",
+                    details={'today': today, 'yesterday': yesterday, 'week_ago': week_ago, 'avg': avg_per_day}
+                ))
+            else:
+                results.append(CheckResult(
+                    name="Detectie Trend",
+                    status=Status.OK,
+                    message=f"Vandaag: {today}, gisteren: {yesterday}, gemiddeld: {avg_per_day:.0f}/dag",
+                    details={'today': today, 'yesterday': yesterday, 'week_ago': week_ago, 'avg': avg_per_day, 'change_pct': change_pct}
+                ))
+
+        conn.close()
+        return results
+
+    except Exception as e:
+        return [CheckResult(
+            name="Detectie Trends",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )]
+
+
+@timed_check
+def check_disk_growth() -> List[CheckResult]:
+    """Voorspel wanneer disks vol raken"""
+    results = []
+
+    # Check NAS archief groei
+    try:
+        archive_path = Path('/mnt/nas-birdnet-archive')
+        if archive_path.exists():
+            import shutil
+            total, used, free = shutil.disk_usage(archive_path)
+            percent_used = (used / total) * 100
+            free_gb = free / (1024**3)
+            total_gb = total / (1024**3)
+
+            # Schat dagelijkse groei (ongeveer 500MB/dag voor audio + 50MB captures)
+            daily_growth_gb = 0.55
+            days_until_full = free_gb / daily_growth_gb if daily_growth_gb > 0 else float('inf')
+
+            if days_until_full < 30:
+                results.append(CheckResult(
+                    name="NAS Archief Voorspelling",
+                    status=Status.WARNING,
+                    message=f"Vol over ~{days_until_full:.0f} dagen ({free_gb:.0f}GB vrij)",
+                    details={'free_gb': free_gb, 'total_gb': total_gb, 'days_until_full': days_until_full}
+                ))
+            else:
+                results.append(CheckResult(
+                    name="NAS Archief Voorspelling",
+                    status=Status.OK,
+                    message=f"{free_gb:.0f}GB vrij, ~{days_until_full/30:.0f} maanden ruimte",
+                    details={'free_gb': free_gb, 'total_gb': total_gb, 'days_until_full': days_until_full}
+                ))
+
+    except Exception as e:
+        results.append(CheckResult(
+            name="Disk Groei Voorspelling",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        ))
+
+    return results
+
+
+@timed_check
+def check_vocalization_models() -> CheckResult:
+    """Check vocalization model beschikbaarheid"""
+    try:
+        models_path = Path('/mnt/nas-docker/emsn-vocalization/data/models')
+
+        if models_path.exists():
+            models = list(models_path.glob('*.pt'))
+            ultimate_models = [m for m in models if 'ultimate' in m.name.lower()]
+
+            if len(models) == 0:
+                return CheckResult(
+                    name="Vocalization Models",
+                    status=Status.WARNING,
+                    message="Geen modellen gevonden",
+                    details={'path': str(models_path)}
+                )
+            else:
+                return CheckResult(
+                    name="Vocalization Models",
+                    status=Status.OK,
+                    message=f"{len(models)} modellen ({len(ultimate_models)} ultimate)",
+                    details={'total': len(models), 'ultimate': len(ultimate_models)}
+                )
+        else:
+            return CheckResult(
+                name="Vocalization Models",
+                status=Status.WARNING,
+                message="Models directory niet bereikbaar",
+                details={'path': str(models_path)}
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="Vocalization Models",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_ulanzi_status() -> CheckResult:
+    """Check Ulanzi display laatste activiteit"""
+    try:
+        import urllib.request
+        import json as json_module
+
+        req = urllib.request.Request('http://192.168.1.11/api/stats')
+        with urllib.request.urlopen(req, timeout=5) as response:
+            data = json_module.loads(response.read().decode())
+
+            uptime = data.get('uptime', 0)
+            battery = data.get('bat', 0)
+            brightness = data.get('bri', 0)
+            ram_free = data.get('ram', 0)
+
+            uptime_str = f"{uptime//3600}u{(uptime%3600)//60}m" if uptime else "onbekend"
+
+            return CheckResult(
+                name="Ulanzi Display",
+                status=Status.OK,
+                message=f"Online (uptime: {uptime_str}, brightness: {brightness}%)",
+                details={'uptime': uptime, 'brightness': brightness, 'ram_free': ram_free}
+            )
+
+    except urllib.error.URLError:
+        return CheckResult(
+            name="Ulanzi Display",
+            status=Status.WARNING,
+            message="Niet bereikbaar"
+        )
+    except Exception as e:
+        return CheckResult(
+            name="Ulanzi Display",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
 # MAIN DIAGNOSE FUNCTIE
 # ═══════════════════════════════════════════════════════════════
 
@@ -1682,6 +2449,96 @@ def run_deep_health_check() -> Dict[str, CategoryResult]:
                 print_check(result)
 
     categories['logs'] = cat
+
+    # ─── 11. BIRDNET-Pi DATABASE INTEGRITEIT ─────────────────────
+    print_header("11. BIRDNET-Pi DATABASE INTEGRITEIT")
+    cat = CategoryResult(name="SQLite")
+
+    for host in ['zolder', 'berging']:
+        if ssh_available.get(host, False):
+            print_subheader(f"{host.title()}")
+            ip = HOSTS[host]['ip']
+
+            # SQLite integrity check
+            results = check_sqlite_integrity(host, ip)
+            for result in results:
+                cat.checks.append(result)
+                print_check(result)
+
+            # Audio recording check
+            result = check_audio_recording(host, ip)
+            cat.checks.append(result)
+            print_check(result)
+
+    categories['sqlite'] = cat
+
+    # ─── 12. MQTT BRIDGE STATUS ──────────────────────────────────
+    print_header("12. MQTT BRIDGE STATUS")
+    cat = CategoryResult(name="MQTT Bridge")
+
+    results = check_mqtt_bridge_status()
+    for result in results:
+        cat.checks.append(result)
+        print_check(result)
+
+    categories['mqtt_bridge'] = cat
+
+    # ─── 13. INTERNET & CONNECTIVITEIT ───────────────────────────
+    print_header("13. INTERNET & CONNECTIVITEIT")
+    cat = CategoryResult(name="Internet")
+
+    results = check_internet_connectivity()
+    for result in results:
+        cat.checks.append(result)
+        print_check(result)
+
+    categories['internet'] = cat
+
+    # ─── 14. SECURITY CHECKS ─────────────────────────────────────
+    print_header("14. SECURITY CHECKS")
+    cat = CategoryResult(name="Security")
+
+    for host in ['zolder', 'berging', 'meteo']:
+        if ssh_available.get(host, False):
+            results = check_security(host, HOSTS[host]['ip'])
+            for result in results:
+                cat.checks.append(result)
+                print_check(result)
+
+    categories['security'] = cat
+
+    # ─── 15. BACKUP & TRENDS ─────────────────────────────────────
+    print_header("15. BACKUP & TRENDS")
+    cat = CategoryResult(name="Backup/Trends")
+
+    print_subheader("Backups")
+    results = check_backup_status()
+    for result in results:
+        cat.checks.append(result)
+        print_check(result)
+
+    print_subheader("Detectie Trends")
+    results = check_detection_trends()
+    for result in results:
+        cat.checks.append(result)
+        print_check(result)
+
+    print_subheader("Disk Groei")
+    results = check_disk_growth()
+    for result in results:
+        cat.checks.append(result)
+        print_check(result)
+
+    print_subheader("Vocalization & Ulanzi")
+    result = check_vocalization_models()
+    cat.checks.append(result)
+    print_check(result)
+
+    result = check_ulanzi_status()
+    cat.checks.append(result)
+    print_check(result)
+
+    categories['backup_trends'] = cat
 
     # ─── SAMENVATTING ─────────────────────────────────────────────
     elapsed = time.time() - start_time

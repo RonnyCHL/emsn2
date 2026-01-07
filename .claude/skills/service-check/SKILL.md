@@ -22,7 +22,7 @@ Gebruik deze skill wanneer Ronny vraagt om:
 python3 /home/ronny/emsn2/scripts/monitoring/deep_health_check.py
 ```
 
-## Wat Het Controleert (10 Categorieën)
+## Wat Het Controleert (15 Categorieën)
 
 ### 1. Netwerk Bereikbaarheid
 - Ping naar alle 6 apparaten (Zolder, Berging, Meteo, NAS, Ulanzi, Router)
@@ -79,6 +79,34 @@ python3 /home/ronny/emsn2/scripts/monitoring/deep_health_check.py
 - Recente errors in journalctl (laatste uur)
 - Error count per host
 
+### 11. BirdNET-Pi Database Integriteit
+- SQLite database PRAGMA integrity_check
+- Database grootte en record count
+- Audio file count vandaag vs gisteren
+- Microfoon functioneert check
+
+### 12. MQTT Bridge Status
+- Bridge monitor service status
+- Berging ↔ Zolder connectie status
+- Message throughput op beide brokers
+
+### 13. Internet & Connectiviteit
+- DNS resolution test (google.com)
+- Internet bereikbaarheid (ping 8.8.8.8)
+- NAS mount response tijd
+
+### 14. Security Checks
+- Failed SSH login attempts (laatste 24u)
+- Sudo usage logging
+- Per host security audit
+
+### 15. Backup & Trends
+- PostgreSQL backup status en leeftijd
+- Detectie trends (vandaag vs gisteren vs gemiddelde)
+- Disk groei voorspelling (dagen tot vol)
+- Vocalization model beschikbaarheid
+- Ulanzi display status
+
 ## Output Interpretatie
 
 | Symbool | Betekenis |
@@ -98,6 +126,9 @@ python3 /home/ronny/emsn2/scripts/monitoring/deep_health_check.py
 | Detection gap | 2 uur | 6 uur |
 | Sync lag | 1 uur | 3 uur |
 | AtmosBird captures | <50/dag | 0/dag |
+| Backup leeftijd | 48 uur | 7 dagen |
+| Failed SSH logins | 10 | 50 |
+| NAS response | 1000ms | - |
 
 ## Snelle Check (Alternatief)
 
