@@ -196,12 +196,28 @@ def save_occupancy_detection(conn, nestbox_id, result, image_path=None, capture_
     cur.close()
 
 
+def is_breeding_season():
+    """Check of het broedseizoen is (maart t/m september)"""
+    month = datetime.now().month
+    return 3 <= month <= 9
+
+
 def register_status_change(conn, nestbox_id, new_status, species=None, image_path=None, notes=None):
     """Registreer statusverandering in nestbox_events"""
     cur = conn.cursor()
 
     # Bepaal event_type
-    event_type = 'bezet' if new_status else 'leeg'
+    if new_status:
+        # Bezet: onderscheid tussen broedseizoen en slaapplaats
+        if is_breeding_season():
+            event_type = 'bezet'
+            default_notes = "Automatisch gedetecteerd door AI"
+        else:
+            event_type = 'slaapplaats'
+            default_notes = "Nachtelijke slaapplaats buiten broedseizoen"
+    else:
+        event_type = 'leeg'
+        default_notes = "Automatisch gedetecteerd door AI"
 
     cur.execute("""
         INSERT INTO nestbox_events
@@ -213,7 +229,7 @@ def register_status_change(conn, nestbox_id, new_status, species=None, image_pat
         event_type,
         species if new_status else None,
         image_path,
-        notes or f"Automatisch gedetecteerd door AI",
+        notes or default_notes,
         'AI-detector'
     ))
 
