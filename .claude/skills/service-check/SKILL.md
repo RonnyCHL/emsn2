@@ -22,7 +22,7 @@ Gebruik deze skill wanneer Ronny vraagt om:
 python3 /home/ronny/emsn2/scripts/monitoring/deep_health_check.py
 ```
 
-## Wat Het Controleert (28 Categorieën)
+## Wat Het Controleert (29 Categorieën)
 
 ### 1. Netwerk Bereikbaarheid
 - Ping naar alle 6 apparaten (Zolder, Berging, Meteo, NAS, Ulanzi, Router)
@@ -177,6 +177,23 @@ python3 /home/ronny/emsn2/scripts/monitoring/deep_health_check.py
 - Realtime dual detection service status
 - Detection rate per station (detecties/uur)
 - Ulanzi notificatie frequentie (verzonden/gefilterd vandaag)
+
+### 29. Auto-Discovery & Nieuwe Features
+- Automatische detectie van nieuwe EMSN services (via patroon matching)
+- Vergelijking met bekende services lijst
+- Nieuwe database tabellen detectie (niet in monitoring)
+- Nieuwe systemd files in repo die niet geïnstalleerd zijn
+- Gefaalde EMSN services detectie
+- **Reminder systeem:** Geeft WARNING als nieuwe features worden toegevoegd
+
+**Patronen:** `emsn-*`, `birdnet-*`, `atmosbird-*`, `mqtt-*`, `vocalization-*`, `flysafe-*`, `nestkast-*`, `vleermuizen-*`, `bat-*`, `insecten-*`, `moth-*`
+
+**Hoe het werkt:**
+1. Scant alle actieve systemd services/timers
+2. Matcht tegen EMSN patronen (fnmatch)
+3. Vergelijkt met KNOWN_SERVICES configuratie
+4. Rapporteert nieuwe/onbekende services als WARNING
+5. Zo worden nieuwe features automatisch gedetecteerd!
 
 ## Output Interpretatie
 

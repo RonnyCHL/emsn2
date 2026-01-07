@@ -5,7 +5,7 @@ EMSN2 Deep Health Check - Ultieme Systeemdiagnose
 Dit script voert een diepgaande gezondheidscontrole uit op ALLE aspecten
 van het EMSN2 ecosysteem. Het is het meest complete diagnostic tool.
 
-28 CATEGORIEËN:
+29 CATEGORIEËN:
 
 1. NETWERK & BEREIKBAARHEID:
    - Ping alle apparaten (Zolder, Berging, Meteo, NAS, Ulanzi, Router)
@@ -298,6 +298,148 @@ THRESHOLDS = {
     'sync_lag_warning': 1,  # hours
     'sync_lag_critical': 3,  # hours
 }
+
+# ═══════════════════════════════════════════════════════════════
+# AUTO-DISCOVERY CONFIGURATIE
+# ═══════════════════════════════════════════════════════════════
+
+# Patronen voor EMSN-gerelateerde services en timers
+# Als een nieuwe service/timer matcht maar NIET in KNOWN_SERVICES staat,
+# krijg je een waarschuwing dat er een nieuwe feature is zonder specifieke checks
+EMSN_SERVICE_PATTERNS = [
+    'emsn-*',
+    'birdnet-*',
+    'atmosbird-*',
+    'lifetime-sync*',
+    'mqtt-*',
+    'mosquitto*',
+    'vocalization-*',
+    'flysafe-*',
+    'nestbox-*',
+    'weather-*',
+    'ulanzi-*',
+    'reports-api*',
+    'anomaly-*',
+    'dual-detection*',
+    'realtime-*',
+    'sd-backup-*',
+    'database-*',
+    'homer-*',
+    'rarity-*',
+    'screenshot-*',
+    'system-inventory*',
+    'timer-timeline*',
+    'weekly-system-report*',
+    'log-cleanup*',
+    'health-check*',
+    'hardware-*',
+    'network-*',
+    'reboot-alert*',
+    'go2rtc-*',
+    # Toekomstige systemen - voeg hier patronen toe
+    'vleermuizen-*',
+    'bat-*',
+    'insecten-*',
+    'moth-*',
+]
+
+# Alle BEKENDE services die we specifiek checken in categorieën 1-28
+# Services hier worden NIET gemeld als "nieuw ontdekt"
+KNOWN_SERVICES = {
+    'zolder': [
+        # Services
+        'birdnet-mqtt-publisher.service',
+        'mqtt-bridge-monitor.service',
+        'mosquitto.service',
+        'reports-api.service',
+        'ulanzi-bridge.service',
+        'vocalization-enricher.service',
+        'realtime-dual-detection.service',
+        'emsn-cooldown-display.service',
+        'reboot-alert.service',
+        # Timers
+        'lifetime-sync.timer',
+        'lifetime-sync-zolder.timer',
+        'nestbox-screenshot.timer',
+        'emsn-weekly-report.timer',
+        'emsn-monthly-report.timer',
+        'emsn-yearly-report.timer',
+        'emsn-seasonal-report-spring.timer',
+        'emsn-seasonal-report-summer.timer',
+        'emsn-seasonal-report-autumn.timer',
+        'emsn-seasonal-report-winter.timer',
+        'anomaly-hardware-check.timer',
+        'anomaly-datagap-check.timer',
+        'anomaly-baseline-learn.timer',
+        'flysafe-radar-day.timer',
+        'flysafe-radar-night.timer',
+        'dual-detection.timer',
+        'mqtt-failover.timer',
+        'rarity-cache.timer',
+        'screenshot-cleanup.timer',
+        'system-inventory.timer',
+        'timer-timeline.timer',
+        'homer-stats.timer',
+        'database-backup.timer',
+        'database-cleanup.timer',
+        'log-cleanup.timer',
+        'weekly-system-report.timer',
+        'health-check.timer',
+        'network-monitor.timer',
+        'birdnet-archive-sync.timer',
+        'backup-cleanup.timer',
+        'emsn-dbmirror-zolder.timer',
+        'nas-metrics-collector.timer',
+        'sd-backup-daily.timer',
+        'sd-backup-weekly.timer',
+    ],
+    'berging': [
+        # Services
+        'birdnet-mqtt-publisher.service',
+        'mosquitto.service',
+        'atmosbird-stream.service',
+        'atmosbird-climate.service',
+        'reboot-alert.service',
+        # Timers
+        'lifetime-sync.timer',
+        'lifetime-sync-berging.timer',
+        'atmosbird-capture.timer',
+        'atmosbird-analysis.timer',
+        'atmosbird-timelapse.timer',
+        'atmosbird-archive-sync.timer',
+        'sd-backup-daily.timer',
+    ],
+    'meteo': [
+        # Services
+        'reboot-alert.service',
+        # Timers
+        'weather-publisher.timer',
+        'hardware-monitor.timer',
+    ],
+}
+
+# Database tabellen die we kennen en monitoren
+KNOWN_DATABASE_TABLES = [
+    'bird_detections',
+    'weather_data',
+    'sky_observations',
+    'iss_passes',
+    'moon_observations',
+    'meteor_detections',
+    'star_brightness',
+    'nestbox_events',
+    'nestbox_media',
+    'anomalies',
+    'anomaly_check_log',
+    'vocalization_training',
+    'vocalization_model_versions',
+    'radar_observations',
+    'dual_detections',
+    'species_baselines',
+    # Toekomstige tabellen
+    'bat_detections',
+    'insect_detections',
+]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -4813,6 +4955,298 @@ def check_ulanzi_notifications() -> CheckResult:
 
 
 # ═══════════════════════════════════════════════════════════════
+# 29. AUTO-DISCOVERY & NIEUWE FEATURES
+# ═══════════════════════════════════════════════════════════════
+
+def matches_emsn_pattern(service_name: str) -> bool:
+    """Check of een service naam matcht met EMSN patronen"""
+    import fnmatch
+    for pattern in EMSN_SERVICE_PATTERNS:
+        if fnmatch.fnmatch(service_name, pattern):
+            return True
+    return False
+
+
+@timed_check
+def discover_services(host: str, ip: str) -> Tuple[List[str], List[str], List[str]]:
+    """
+    Ontdek alle EMSN-gerelateerde services op een host.
+    Retourneert: (alle_services, bekende_services, nieuwe_services)
+    """
+    try:
+        # Haal alle services en timers op
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             '''
+             # Lijst alle services en timers
+             systemctl list-units --type=service --all --plain --no-legend 2>/dev/null | awk '{print $1}'
+             systemctl list-units --type=timer --all --plain --no-legend 2>/dev/null | awk '{print $1}'
+             systemctl list-unit-files --type=service --plain --no-legend 2>/dev/null | awk '{print $1}'
+             systemctl list-unit-files --type=timer --plain --no-legend 2>/dev/null | awk '{print $1}'
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=20
+        )
+
+        if result.returncode != 0:
+            return [], [], []
+
+        # Parse alle units
+        all_units = set()
+        for line in result.stdout.strip().split('\n'):
+            unit = line.strip()
+            if unit and (unit.endswith('.service') or unit.endswith('.timer')):
+                all_units.add(unit)
+
+        # Filter op EMSN patronen
+        emsn_services = [s for s in all_units if matches_emsn_pattern(s)]
+
+        # Vergelijk met bekende services
+        known = set(KNOWN_SERVICES.get(host, []))
+        nieuwe = [s for s in emsn_services if s not in known]
+        bekende = [s for s in emsn_services if s in known]
+
+        return sorted(emsn_services), sorted(bekende), sorted(nieuwe)
+
+    except Exception as e:
+        return [], [], []
+
+
+@timed_check
+def check_new_services(host: str, ip: str) -> CheckResult:
+    """Check voor nieuwe/onbekende EMSN services"""
+    try:
+        alle, bekende, nieuwe = discover_services(host, ip)
+
+        if nieuwe:
+            return CheckResult(
+                name=f"{host} Nieuwe Services",
+                status=Status.WARNING,
+                message=f"{len(nieuwe)} nieuwe: {', '.join(nieuwe[:3])}{'...' if len(nieuwe) > 3 else ''}",
+                details={
+                    'nieuwe_services': nieuwe,
+                    'totaal_emsn': len(alle),
+                    'bekende': len(bekende),
+                    'actie': 'Voeg toe aan KNOWN_SERVICES en maak specifieke checks'
+                }
+            )
+        elif alle:
+            return CheckResult(
+                name=f"{host} Service Discovery",
+                status=Status.OK,
+                message=f"Alle {len(alle)} EMSN services bekend",
+                details={'services': bekende}
+            )
+        else:
+            return CheckResult(
+                name=f"{host} Service Discovery",
+                status=Status.UNKNOWN,
+                message="Geen EMSN services gevonden"
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name=f"{host} Service Discovery",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_new_database_tables() -> CheckResult:
+    """Check voor nieuwe database tabellen die niet gemonitord worden"""
+    try:
+        secrets_file = Path("/home/ronny/emsn2/.secrets")
+        pg_pass = None
+        with open(secrets_file) as f:
+            for line in f:
+                if line.startswith('PG_PASSWORD='):
+                    pg_pass = line.split('=', 1)[1].strip()
+                    break
+
+        if not pg_pass:
+            return CheckResult(
+                name="Database Tables Discovery",
+                status=Status.UNKNOWN,
+                message="Credentials niet beschikbaar"
+            )
+
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host='192.168.1.25',
+            port=5433,
+            database='emsn',
+            user='emsn',
+            password=pg_pass,
+            connect_timeout=5
+        )
+        cursor = conn.cursor()
+
+        # Haal alle tabellen op
+        cursor.execute("""
+            SELECT tablename
+            FROM pg_tables
+            WHERE schemaname = 'public'
+            ORDER BY tablename
+        """)
+        all_tables = [row[0] for row in cursor.fetchall()]
+        conn.close()
+
+        # Vergelijk met bekende tabellen
+        known = set(KNOWN_DATABASE_TABLES)
+        nieuwe = [t for t in all_tables if t not in known]
+
+        # Filter system tabellen
+        system_prefixes = ['pg_', 'sql_', 'information_']
+        nieuwe = [t for t in nieuwe if not any(t.startswith(p) for p in system_prefixes)]
+
+        if nieuwe:
+            return CheckResult(
+                name="Nieuwe DB Tabellen",
+                status=Status.WARNING,
+                message=f"{len(nieuwe)} onbekend: {', '.join(nieuwe[:3])}{'...' if len(nieuwe) > 3 else ''}",
+                details={
+                    'nieuwe_tabellen': nieuwe,
+                    'totaal': len(all_tables),
+                    'actie': 'Voeg toe aan KNOWN_DATABASE_TABLES en overweeg monitoring'
+                }
+            )
+        else:
+            return CheckResult(
+                name="Database Tables",
+                status=Status.OK,
+                message=f"Alle {len(all_tables)} tabellen bekend"
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="Database Discovery",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_new_systemd_files() -> CheckResult:
+    """Check voor nieuwe systemd files in emsn2/systemd/ die niet geïnstalleerd zijn"""
+    try:
+        systemd_dir = Path("/home/ronny/emsn2/systemd")
+        if not systemd_dir.exists():
+            return CheckResult(
+                name="Systemd Files",
+                status=Status.UNKNOWN,
+                message="Systemd directory niet gevonden"
+            )
+
+        # Vind alle .service en .timer files in repo
+        repo_files = set()
+        for ext in ['*.service', '*.timer']:
+            for f in systemd_dir.glob(ext):
+                repo_files.add(f.name)
+            # Ook in subdirs
+            for f in systemd_dir.glob(f'**/{ext}'):
+                repo_files.add(f.name)
+
+        # Check welke geïnstalleerd zijn op zolder
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{HOSTS["zolder"]["ip"]}',
+             'ls /etc/systemd/system/*.service /etc/systemd/system/*.timer 2>/dev/null | xargs -n1 basename'],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        installed = set()
+        if result.returncode == 0:
+            for line in result.stdout.strip().split('\n'):
+                if line.strip():
+                    installed.add(line.strip())
+
+        # Vind files in repo die niet geïnstalleerd zijn
+        niet_geinstalleerd = repo_files - installed
+
+        if niet_geinstalleerd:
+            return CheckResult(
+                name="Systemd Files Sync",
+                status=Status.WARNING,
+                message=f"{len(niet_geinstalleerd)} niet geïnstalleerd: {', '.join(list(niet_geinstalleerd)[:3])}...",
+                details={
+                    'niet_geinstalleerd': list(niet_geinstalleerd),
+                    'repo_files': len(repo_files),
+                    'installed': len(installed)
+                }
+            )
+        else:
+            return CheckResult(
+                name="Systemd Files Sync",
+                status=Status.OK,
+                message=f"Alle {len(repo_files)} repo files geïnstalleerd"
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="Systemd Files",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_failed_services_discovery(host: str, ip: str) -> CheckResult:
+    """Check voor gefaalde EMSN services die mogelijk nieuw zijn"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             '''
+             # Vind gefaalde services
+             systemctl --failed --plain --no-legend 2>/dev/null | awk '{print $1}'
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            failed = []
+            for line in result.stdout.strip().split('\n'):
+                service = line.strip()
+                if service and matches_emsn_pattern(service):
+                    failed.append(service)
+
+            if failed:
+                return CheckResult(
+                    name=f"{host} Failed Services",
+                    status=Status.CRITICAL,
+                    message=f"{len(failed)} gefaald: {', '.join(failed[:3])}",
+                    details={'failed_services': failed}
+                )
+            else:
+                return CheckResult(
+                    name=f"{host} Failed Services",
+                    status=Status.OK,
+                    message="Geen gefaalde EMSN services"
+                )
+
+        return CheckResult(
+            name=f"{host} Failed Services",
+            status=Status.UNKNOWN,
+            message="Kan niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name=f"{host} Failed",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
 # MAIN DIAGNOSE FUNCTIE
 # ═══════════════════════════════════════════════════════════════
 
@@ -5378,6 +5812,32 @@ def run_deep_health_check() -> Dict[str, CategoryResult]:
     print_check(result)
 
     categories['realtime'] = cat
+
+    # ─── 29. AUTO-DISCOVERY & NIEUWE FEATURES ─────────────────────
+    print_header("29. AUTO-DISCOVERY & NIEUWE FEATURES")
+    cat = CategoryResult(name="Discovery")
+
+    print_subheader("Service Discovery")
+    for host in ['zolder', 'berging', 'meteo']:
+        if ssh_available.get(host, False):
+            result = check_new_services(host, HOSTS[host]['ip'])
+            cat.checks.append(result)
+            print_check(result)
+
+            result = check_failed_services_discovery(host, HOSTS[host]['ip'])
+            cat.checks.append(result)
+            print_check(result)
+
+    print_subheader("Database & Systemd Discovery")
+    result = check_new_database_tables()
+    cat.checks.append(result)
+    print_check(result)
+
+    result = check_new_systemd_files()
+    cat.checks.append(result)
+    print_check(result)
+
+    categories['discovery'] = cat
 
     # ─── SAMENVATTING ─────────────────────────────────────────────
     elapsed = time.time() - start_time
