@@ -5,7 +5,7 @@ EMSN2 Deep Health Check - Ultieme Systeemdiagnose
 Dit script voert een diepgaande gezondheidscontrole uit op ALLE aspecten
 van het EMSN2 ecosysteem. Het is het meest complete diagnostic tool.
 
-15 CATEGORIEËN:
+16 CATEGORIEËN:
 
 1. NETWERK & BEREIKBAARHEID:
    - Ping alle apparaten (Zolder, Berging, Meteo, NAS, Ulanzi, Router)
@@ -86,8 +86,15 @@ van het EMSN2 ecosysteem. Het is het meest complete diagnostic tool.
     - Vocalization model beschikbaarheid
     - Ulanzi display laatste notificatie
 
+16. EXTRA MONITORING:
+    - WiFi signaalsterkte (alleen Meteo Pi)
+    - NTP synchronisatie status per host
+    - Soorten diversiteit (unieke soorten vandaag vs gemiddeld)
+    - Top soorten vandaag
+    - Confidence distributie (microfoon kwaliteit indicator)
+
 Auteur: Claude Code (IT Specialist EMSN2)
-Versie: 3.0.0
+Versie: 3.1.0
 """
 
 import os
@@ -2235,6 +2242,364 @@ def check_ulanzi_status() -> CheckResult:
 
 
 # ═══════════════════════════════════════════════════════════════
+# 16. EXTRA MONITORING CHECKS
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_wifi_signal(host: str, ip: str) -> CheckResult:
+    """Check WiFi signaalsterkte (alleen voor Meteo Pi)"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             '''
+             if iwconfig wlan0 2>/dev/null | grep -q "Signal level"; then
+                 SIGNAL=$(iwconfig wlan0 2>/dev/null | grep "Signal level" | awk -F'=' '{print $3}' | awk '{print $1}')
+                 QUALITY=$(iwconfig wlan0 2>/dev/null | grep "Link Quality" | awk -F'=' '{print $2}' | awk '{print $1}')
+                 echo "SIGNAL:$SIGNAL"
+                 echo "QUALITY:$QUALITY"
+             else
+                 echo "NO_WIFI"
+             fi
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode == 0:
+            output = result.stdout.strip()
+            if 'NO_WIFI' in output:
+                return CheckResult(
+                    name=f"{host} WiFi",
+                    status=Status.OK,
+                    message="Geen WiFi (UTP verbinding)",
+                )
+
+            metrics = {}
+            for line in output.split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            signal = metrics.get('SIGNAL', '')
+            quality = metrics.get('QUALITY', '')
+
+            # Parse signal level (dBm)
+            try:
+                signal_dbm = int(signal.replace('dBm', '').strip())
+                if signal_dbm < -80:
+                    return CheckResult(
+                        name=f"{host} WiFi",
+                        status=Status.CRITICAL,
+                        message=f"Zwak signaal: {signal_dbm}dBm (quality: {quality})",
+                        details={'signal_dbm': signal_dbm, 'quality': quality}
+                    )
+                elif signal_dbm < -70:
+                    return CheckResult(
+                        name=f"{host} WiFi",
+                        status=Status.WARNING,
+                        message=f"Matig signaal: {signal_dbm}dBm (quality: {quality})",
+                        details={'signal_dbm': signal_dbm, 'quality': quality}
+                    )
+                else:
+                    return CheckResult(
+                        name=f"{host} WiFi",
+                        status=Status.OK,
+                        message=f"Goed signaal: {signal_dbm}dBm (quality: {quality})",
+                        details={'signal_dbm': signal_dbm, 'quality': quality}
+                    )
+            except ValueError:
+                return CheckResult(
+                    name=f"{host} WiFi",
+                    status=Status.OK,
+                    message=f"Signal: {signal}, Quality: {quality}",
+                    details={'signal': signal, 'quality': quality}
+                )
+
+        return CheckResult(
+            name=f"{host} WiFi",
+            status=Status.UNKNOWN,
+            message="Kan WiFi niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name=f"{host} WiFi",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_ntp_sync(host: str, ip: str) -> CheckResult:
+    """Check NTP synchronisatie status"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             '''
+             if command -v timedatectl &> /dev/null; then
+                 SYNCED=$(timedatectl show --property=NTPSynchronized --value)
+                 OFFSET=$(timedatectl timesync-status 2>/dev/null | grep "Offset" | awk '{print $2}')
+                 echo "SYNCED:$SYNCED"
+                 echo "OFFSET:$OFFSET"
+             else
+                 echo "NO_TIMEDATECTL"
+             fi
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode == 0:
+            output = result.stdout.strip()
+            if 'NO_TIMEDATECTL' in output:
+                return CheckResult(
+                    name=f"{host} NTP",
+                    status=Status.UNKNOWN,
+                    message="timedatectl niet beschikbaar"
+                )
+
+            metrics = {}
+            for line in output.split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            synced = metrics.get('SYNCED', 'no')
+            offset = metrics.get('OFFSET', '')
+
+            if synced.lower() == 'yes':
+                return CheckResult(
+                    name=f"{host} NTP",
+                    status=Status.OK,
+                    message=f"Gesynchroniseerd (offset: {offset})" if offset else "Gesynchroniseerd",
+                    details={'synced': True, 'offset': offset}
+                )
+            else:
+                return CheckResult(
+                    name=f"{host} NTP",
+                    status=Status.WARNING,
+                    message="NIET gesynchroniseerd!",
+                    details={'synced': False}
+                )
+
+        return CheckResult(
+            name=f"{host} NTP",
+            status=Status.UNKNOWN,
+            message="Kan NTP niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name=f"{host} NTP",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_species_diversity() -> List[CheckResult]:
+    """Check soorten diversiteit en top detecties"""
+    results = []
+
+    try:
+        secrets_file = Path("/home/ronny/emsn2/.secrets")
+        pg_pass = None
+        with open(secrets_file) as f:
+            for line in f:
+                if line.startswith('PG_PASSWORD='):
+                    pg_pass = line.split('=', 1)[1].strip()
+                    break
+
+        if not pg_pass:
+            return [CheckResult(
+                name="Species Diversity",
+                status=Status.UNKNOWN,
+                message="Credentials niet beschikbaar"
+            )]
+
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host='192.168.1.25',
+            port=5433,
+            database='emsn',
+            user='emsn',
+            password=pg_pass,
+            connect_timeout=5
+        )
+        cursor = conn.cursor()
+
+        # Soorten diversiteit vandaag vs gemiddeld
+        cursor.execute("""
+            WITH daily_species AS (
+                SELECT
+                    detected_at::date as day,
+                    COUNT(DISTINCT common_name) as unique_species
+                FROM lifetime_detections
+                WHERE deleted = false
+                  AND detected_at >= NOW() - INTERVAL '30 days'
+                GROUP BY detected_at::date
+            )
+            SELECT
+                (SELECT unique_species FROM daily_species WHERE day = CURRENT_DATE) as today,
+                (SELECT unique_species FROM daily_species WHERE day = CURRENT_DATE - 1) as yesterday,
+                AVG(unique_species) as avg_30d
+            FROM daily_species
+        """)
+        row = cursor.fetchone()
+
+        if row:
+            today_species, yesterday_species, avg_species = row
+            today_species = today_species or 0
+            yesterday_species = yesterday_species or 0
+            avg_species = avg_species or 0
+
+            if today_species < (avg_species * 0.3) and datetime.now().hour > 10:
+                results.append(CheckResult(
+                    name="Soorten Diversiteit",
+                    status=Status.WARNING,
+                    message=f"Weinig soorten vandaag: {today_species} (gem: {avg_species:.0f})",
+                    details={'today': today_species, 'yesterday': yesterday_species, 'avg_30d': avg_species}
+                ))
+            else:
+                results.append(CheckResult(
+                    name="Soorten Diversiteit",
+                    status=Status.OK,
+                    message=f"{today_species} soorten vandaag (gisteren: {yesterday_species}, gem: {avg_species:.0f})",
+                    details={'today': today_species, 'yesterday': yesterday_species, 'avg_30d': avg_species}
+                ))
+
+        # Top 5 soorten vandaag
+        cursor.execute("""
+            SELECT
+                common_name,
+                COUNT(*) as count
+            FROM lifetime_detections
+            WHERE deleted = false
+              AND detected_at::date = CURRENT_DATE
+            GROUP BY common_name
+            ORDER BY count DESC
+            LIMIT 5
+        """)
+        top_species = cursor.fetchall()
+
+        if top_species:
+            top_list = ", ".join([f"{s[0]}({s[1]})" for s in top_species[:3]])
+            results.append(CheckResult(
+                name="Top Soorten Vandaag",
+                status=Status.OK,
+                message=top_list,
+                details={'top_5': [{'species': s[0], 'count': s[1]} for s in top_species]}
+            ))
+
+        conn.close()
+        return results
+
+    except Exception as e:
+        return [CheckResult(
+            name="Species Diversity",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )]
+
+
+@timed_check
+def check_confidence_distribution() -> CheckResult:
+    """Check confidence distributie als indicator voor microfoon kwaliteit"""
+    try:
+        secrets_file = Path("/home/ronny/emsn2/.secrets")
+        pg_pass = None
+        with open(secrets_file) as f:
+            for line in f:
+                if line.startswith('PG_PASSWORD='):
+                    pg_pass = line.split('=', 1)[1].strip()
+                    break
+
+        if not pg_pass:
+            return CheckResult(
+                name="Confidence Check",
+                status=Status.UNKNOWN,
+                message="Credentials niet beschikbaar"
+            )
+
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host='192.168.1.25',
+            port=5433,
+            database='emsn',
+            user='emsn',
+            password=pg_pass,
+            connect_timeout=5
+        )
+        cursor = conn.cursor()
+
+        # Gemiddelde confidence per station vandaag vs gisteren
+        cursor.execute("""
+            SELECT
+                station,
+                AVG(confidence) FILTER (WHERE detected_at::date = CURRENT_DATE) as avg_today,
+                AVG(confidence) FILTER (WHERE detected_at::date = CURRENT_DATE - 1) as avg_yesterday,
+                AVG(confidence) FILTER (WHERE detected_at >= NOW() - INTERVAL '7 days') as avg_week
+            FROM lifetime_detections
+            WHERE deleted = false
+              AND detected_at >= NOW() - INTERVAL '7 days'
+            GROUP BY station
+        """)
+
+        results_text = []
+        worst_status = Status.OK
+        details = {}
+
+        for row in cursor.fetchall():
+            station, avg_today, avg_yesterday, avg_week = row
+            avg_today = (avg_today or 0) * 100
+            avg_yesterday = (avg_yesterday or 0) * 100
+            avg_week = (avg_week or 0) * 100
+
+            details[station] = {
+                'today': avg_today,
+                'yesterday': avg_yesterday,
+                'week': avg_week
+            }
+
+            # Check voor significante daling
+            if avg_today > 0 and avg_week > 0:
+                if avg_today < (avg_week * 0.8):  # >20% lager dan weekgemiddelde
+                    worst_status = Status.WARNING
+                    results_text.append(f"{station}: {avg_today:.0f}% (↓)")
+                else:
+                    results_text.append(f"{station}: {avg_today:.0f}%")
+
+        conn.close()
+
+        if results_text:
+            return CheckResult(
+                name="Avg Confidence",
+                status=worst_status,
+                message=", ".join(results_text),
+                details=details
+            )
+        else:
+            return CheckResult(
+                name="Avg Confidence",
+                status=Status.OK,
+                message="Geen data vandaag"
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="Confidence Check",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
 # MAIN DIAGNOSE FUNCTIE
 # ═══════════════════════════════════════════════════════════════
 
@@ -2539,6 +2904,36 @@ def run_deep_health_check() -> Dict[str, CategoryResult]:
     print_check(result)
 
     categories['backup_trends'] = cat
+
+    # ─── 16. EXTRA MONITORING ────────────────────────────────────
+    print_header("16. EXTRA MONITORING")
+    cat = CategoryResult(name="Extra")
+
+    print_subheader("WiFi & NTP")
+    # WiFi alleen voor meteo (andere Pi's zijn UTP)
+    if ssh_available.get('meteo', False):
+        result = check_wifi_signal('meteo', HOSTS['meteo']['ip'])
+        cat.checks.append(result)
+        print_check(result)
+
+    # NTP sync voor alle hosts
+    for host in ['zolder', 'berging', 'meteo']:
+        if ssh_available.get(host, False):
+            result = check_ntp_sync(host, HOSTS[host]['ip'])
+            cat.checks.append(result)
+            print_check(result)
+
+    print_subheader("BirdNET Analyse")
+    results = check_species_diversity()
+    for result in results:
+        cat.checks.append(result)
+        print_check(result)
+
+    result = check_confidence_distribution()
+    cat.checks.append(result)
+    print_check(result)
+
+    categories['extra'] = cat
 
     # ─── SAMENVATTING ─────────────────────────────────────────────
     elapsed = time.time() - start_time

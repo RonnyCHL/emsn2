@@ -22,7 +22,7 @@ Gebruik deze skill wanneer Ronny vraagt om:
 python3 /home/ronny/emsn2/scripts/monitoring/deep_health_check.py
 ```
 
-## Wat Het Controleert (15 Categorieën)
+## Wat Het Controleert (16 Categorieën)
 
 ### 1. Netwerk Bereikbaarheid
 - Ping naar alle 6 apparaten (Zolder, Berging, Meteo, NAS, Ulanzi, Router)
@@ -107,6 +107,13 @@ python3 /home/ronny/emsn2/scripts/monitoring/deep_health_check.py
 - Vocalization model beschikbaarheid
 - Ulanzi display status
 
+### 16. Extra Monitoring
+- WiFi signaalsterkte (alleen Meteo Pi - andere zijn UTP)
+- NTP synchronisatie status per host
+- Soorten diversiteit (unieke soorten vandaag vs 30-dagen gemiddelde)
+- Top 3 soorten vandaag met aantallen
+- Gemiddelde confidence per station (microfoon kwaliteit indicator)
+
 ## Output Interpretatie
 
 | Symbool | Betekenis |
@@ -129,6 +136,9 @@ python3 /home/ronny/emsn2/scripts/monitoring/deep_health_check.py
 | Backup leeftijd | 48 uur | 7 dagen |
 | Failed SSH logins | 10 | 50 |
 | NAS response | 1000ms | - |
+| WiFi signaal | -70dBm | -80dBm |
+| Species diversity | <30% gem | - |
+| Confidence daling | >20% lager | - |
 
 ## Snelle Check (Alternatief)
 
