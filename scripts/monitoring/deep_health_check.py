@@ -5,7 +5,7 @@ EMSN2 Deep Health Check - Ultieme Systeemdiagnose
 Dit script voert een diepgaande gezondheidscontrole uit op ALLE aspecten
 van het EMSN2 ecosysteem. Het is het meest complete diagnostic tool.
 
-19 CATEGORIEËN:
+28 CATEGORIEËN:
 
 1. NETWERK & BEREIKBAARHEID:
    - Ping alle apparaten (Zolder, Berging, Meteo, NAS, Ulanzi, Router)
@@ -109,8 +109,49 @@ van het EMSN2 ecosysteem. Het is het meest complete diagnostic tool.
     - Orphaned/duplicate records in database
     - PostgreSQL table sizes
 
+20. VOCALIZATION SYSTEEM:
+    - Vocalization enricher service status
+    - Docker container status (NAS)
+    - Verrijkingspercentage detecties
+
+21. FLYSAFE RADAR & MIGRATIE:
+    - FlySafe scraper timer status
+    - Radar data recentheid
+
+22. NESTKAST AI DETECTIE:
+    - AI model beschikbaarheid (occupancy, species)
+    - Events per nestkast
+    - Screenshots vandaag
+
+23. RAPPORT GENERATIE:
+    - Weekly/Monthly/Yearly report timers
+    - Reports directory status
+
+24. ANOMALY DETECTION SYSTEEM:
+    - Hardware/DataGap/Baseline checkers
+    - Actieve anomalieën status
+
+25. AUDIO & MICROFOON KWALITEIT:
+    - ALSA audio devices
+    - Dag/nacht detectie ratio
+
+26. BACKUP & ARCHIVERING:
+    - SD backup timers
+    - Archive sync status
+    - Archive ruimte beschikbaarheid
+
+27. NETWERK DIEPTE:
+    - Packet loss per host
+    - DNS resolution performance
+    - Gateway bereikbaarheid
+
+28. REALTIME SERVICES:
+    - Realtime dual detection service
+    - Detection rate per station
+    - Ulanzi notificatie frequentie
+
 Auteur: Claude Code (IT Specialist EMSN2)
-Versie: 3.2.0
+Versie: 4.0.0
 """
 
 import os
@@ -3283,6 +3324,1495 @@ def check_table_sizes() -> CheckResult:
 
 
 # ═══════════════════════════════════════════════════════════════
+# 20. VOCALIZATION SYSTEEM
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_vocalization_service() -> CheckResult:
+    """Check vocalization enricher service status"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{HOSTS["zolder"]["ip"]}',
+             '''
+             # Check vocalization enricher service
+             SERVICE_STATUS=$(systemctl is-active vocalization-enricher.service 2>/dev/null || echo "not-found")
+
+             # Laatste run uit logs
+             LAST_RUN=$(journalctl -u vocalization-enricher --since "4 hours ago" --no-pager 2>/dev/null | grep -c "completed" || echo 0)
+
+             # Check of service recent draaide
+             LAST_TIME=$(systemctl show vocalization-enricher.service --property=ExecMainExitTimestamp 2>/dev/null | cut -d= -f2)
+
+             echo "STATUS:$SERVICE_STATUS"
+             echo "RECENT_RUNS:$LAST_RUN"
+             echo "LAST_TIME:$LAST_TIME"
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            status_val = metrics.get('STATUS', 'unknown')
+            recent_runs = int(metrics.get('RECENT_RUNS', 0))
+
+            # Oneshot service, dus inactive is OK als recent gedraaid
+            if status_val == 'inactive' and recent_runs > 0:
+                return CheckResult(
+                    name="Vocalization Service",
+                    status=Status.OK,
+                    message=f"Oneshot OK ({recent_runs} runs laatste 4u)",
+                    details=metrics
+                )
+            elif status_val == 'active':
+                return CheckResult(
+                    name="Vocalization Service",
+                    status=Status.OK,
+                    message="Actief bezig",
+                    details=metrics
+                )
+            elif status_val == 'failed':
+                return CheckResult(
+                    name="Vocalization Service",
+                    status=Status.WARNING,
+                    message="Service gefaald",
+                    details=metrics
+                )
+            else:
+                return CheckResult(
+                    name="Vocalization Service",
+                    status=Status.OK,
+                    message=f"Status: {status_val}",
+                    details=metrics
+                )
+
+        return CheckResult(
+            name="Vocalization Service",
+            status=Status.UNKNOWN,
+            message="Kan service niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name="Vocalization Service",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_vocalization_docker() -> CheckResult:
+    """Check vocalization Docker container op NAS"""
+    try:
+        # Check of container draait via SSH naar NAS
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             'ronny@192.168.1.25',
+             'sudo docker ps --filter "name=emsn-vocalization" --format "{{.Status}}" 2>/dev/null || echo "not-found"'],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            status_output = result.stdout.strip()
+            if 'Up' in status_output:
+                return CheckResult(
+                    name="Vocalization Docker",
+                    status=Status.OK,
+                    message=f"Container: {status_output[:30]}"
+                )
+            elif 'not-found' in status_output or not status_output:
+                return CheckResult(
+                    name="Vocalization Docker",
+                    status=Status.WARNING,
+                    message="Container niet gevonden"
+                )
+            else:
+                return CheckResult(
+                    name="Vocalization Docker",
+                    status=Status.WARNING,
+                    message=f"Container status: {status_output[:30]}"
+                )
+
+        return CheckResult(
+            name="Vocalization Docker",
+            status=Status.UNKNOWN,
+            message="Kan Docker niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name="Vocalization Docker",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_vocalization_enrichment_rate() -> CheckResult:
+    """Check hoeveel detecties vocalization type hebben"""
+    try:
+        secrets_file = Path("/home/ronny/emsn2/.secrets")
+        pg_pass = None
+        with open(secrets_file) as f:
+            for line in f:
+                if line.startswith('PG_PASSWORD='):
+                    pg_pass = line.split('=', 1)[1].strip()
+                    break
+
+        if not pg_pass:
+            return CheckResult(
+                name="Vocalization Rate",
+                status=Status.UNKNOWN,
+                message="Credentials niet beschikbaar"
+            )
+
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host='192.168.1.25',
+            port=5433,
+            database='emsn',
+            user='emsn',
+            password=pg_pass,
+            connect_timeout=5
+        )
+        cursor = conn.cursor()
+
+        # Check enrichment rate laatste 7 dagen
+        cursor.execute("""
+            SELECT
+                COUNT(*) as total,
+                COUNT(vocalization_type) as enriched,
+                ROUND(COUNT(vocalization_type)::numeric / NULLIF(COUNT(*), 0) * 100, 1) as pct
+            FROM bird_detections
+            WHERE detection_timestamp >= NOW() - INTERVAL '7 days'
+        """)
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            total, enriched, pct = row
+            pct = float(pct or 0)
+
+            if pct >= 80:
+                return CheckResult(
+                    name="Vocalization Rate",
+                    status=Status.OK,
+                    message=f"{pct}% verrijkt ({enriched}/{total} laatste 7d)",
+                    details={'total': total, 'enriched': enriched, 'percentage': pct}
+                )
+            elif pct >= 50:
+                return CheckResult(
+                    name="Vocalization Rate",
+                    status=Status.OK,
+                    message=f"{pct}% verrijkt (werk in gang)",
+                    details={'total': total, 'enriched': enriched, 'percentage': pct}
+                )
+            else:
+                return CheckResult(
+                    name="Vocalization Rate",
+                    status=Status.WARNING,
+                    message=f"Slechts {pct}% verrijkt",
+                    details={'total': total, 'enriched': enriched, 'percentage': pct}
+                )
+
+        return CheckResult(
+            name="Vocalization Rate",
+            status=Status.UNKNOWN,
+            message="Geen data"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name="Vocalization Rate",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 21. FLYSAFE RADAR & MIGRATIE
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_flysafe_scraper() -> CheckResult:
+    """Check FlySafe radar scraper service"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{HOSTS["zolder"]["ip"]}',
+             '''
+             # Check FlySafe timer status
+             TIMER_STATUS=$(systemctl is-active flysafe-radar-day.timer 2>/dev/null || echo "not-found")
+
+             # Check laatste run
+             LAST_RUN=$(systemctl show flysafe-radar.service --property=ExecMainExitTimestamp 2>/dev/null | cut -d= -f2)
+
+             echo "TIMER:$TIMER_STATUS"
+             echo "LAST_RUN:$LAST_RUN"
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            timer_status = metrics.get('TIMER', 'unknown')
+
+            if timer_status == 'active':
+                return CheckResult(
+                    name="FlySafe Scraper",
+                    status=Status.OK,
+                    message="Timer actief",
+                    details=metrics
+                )
+            else:
+                return CheckResult(
+                    name="FlySafe Scraper",
+                    status=Status.WARNING,
+                    message=f"Timer: {timer_status}",
+                    details=metrics
+                )
+
+        return CheckResult(
+            name="FlySafe Scraper",
+            status=Status.UNKNOWN,
+            message="Kan niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name="FlySafe Scraper",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_migration_data() -> CheckResult:
+    """Check laatste radar/migratie data"""
+    try:
+        secrets_file = Path("/home/ronny/emsn2/.secrets")
+        pg_pass = None
+        with open(secrets_file) as f:
+            for line in f:
+                if line.startswith('PG_PASSWORD='):
+                    pg_pass = line.split('=', 1)[1].strip()
+                    break
+
+        if not pg_pass:
+            return CheckResult(
+                name="Migration Data",
+                status=Status.UNKNOWN,
+                message="Credentials niet beschikbaar"
+            )
+
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host='192.168.1.25',
+            port=5433,
+            database='emsn',
+            user='emsn',
+            password=pg_pass,
+            connect_timeout=5
+        )
+        cursor = conn.cursor()
+
+        # Check of radar_observations tabel bestaat en data heeft
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'radar_observations'
+            )
+        """)
+        table_exists = cursor.fetchone()[0]
+
+        if table_exists:
+            cursor.execute("""
+                SELECT
+                    MAX(observation_time) as last_obs,
+                    COUNT(*) as total,
+                    EXTRACT(EPOCH FROM (NOW() - MAX(observation_time)))/3600 as hours_ago
+                FROM radar_observations
+            """)
+            row = cursor.fetchone()
+
+            if row and row[0]:
+                hours_ago = float(row[2] or 999)
+                total = row[1]
+
+                if hours_ago < 24:
+                    return CheckResult(
+                        name="Radar Data",
+                        status=Status.OK,
+                        message=f"Laatste: {hours_ago:.1f}u geleden ({total} totaal)"
+                    )
+                else:
+                    return CheckResult(
+                        name="Radar Data",
+                        status=Status.WARNING,
+                        message=f"Laatste: {hours_ago:.1f}u geleden"
+                    )
+            else:
+                return CheckResult(
+                    name="Radar Data",
+                    status=Status.OK,
+                    message="Tabel leeg (nieuw systeem)"
+                )
+        else:
+            return CheckResult(
+                name="Radar Data",
+                status=Status.OK,
+                message="Tabel niet aangemaakt"
+            )
+
+        conn.close()
+
+    except Exception as e:
+        return CheckResult(
+            name="Radar Data",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 22. NESTKAST AI DETECTIE
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_nestbox_models() -> CheckResult:
+    """Check nestkast AI model beschikbaarheid"""
+    try:
+        models_path = Path("/mnt/nas-birdnet-archive/nestbox/models")
+        occupancy_model = models_path / "nestbox_occupancy_model.pt"
+        species_model = models_path / "nestbox_species_model.pt"
+
+        issues = []
+        if not models_path.exists():
+            return CheckResult(
+                name="Nestkast Models",
+                status=Status.WARNING,
+                message="Models directory niet gevonden"
+            )
+
+        if not occupancy_model.exists():
+            issues.append("occupancy model ontbreekt")
+        if not species_model.exists():
+            issues.append("species model ontbreekt")
+
+        if issues:
+            return CheckResult(
+                name="Nestkast Models",
+                status=Status.WARNING,
+                message=", ".join(issues)
+            )
+        else:
+            # Get model sizes
+            occ_size = occupancy_model.stat().st_size / 1024 / 1024
+            spec_size = species_model.stat().st_size / 1024 / 1024
+            return CheckResult(
+                name="Nestkast Models",
+                status=Status.OK,
+                message=f"Occupancy ({occ_size:.1f}MB), Species ({spec_size:.1f}MB)"
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="Nestkast Models",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_nestbox_events() -> CheckResult:
+    """Check nestkast events activiteit"""
+    try:
+        secrets_file = Path("/home/ronny/emsn2/.secrets")
+        pg_pass = None
+        with open(secrets_file) as f:
+            for line in f:
+                if line.startswith('PG_PASSWORD='):
+                    pg_pass = line.split('=', 1)[1].strip()
+                    break
+
+        if not pg_pass:
+            return CheckResult(
+                name="Nestkast Events",
+                status=Status.UNKNOWN,
+                message="Credentials niet beschikbaar"
+            )
+
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host='192.168.1.25',
+            port=5433,
+            database='emsn',
+            user='emsn',
+            password=pg_pass,
+            connect_timeout=5
+        )
+        cursor = conn.cursor()
+
+        # Check events per nestkast
+        cursor.execute("""
+            SELECT
+                nestbox_id,
+                COUNT(*) as events,
+                MAX(event_timestamp) as last_event
+            FROM nestbox_events
+            GROUP BY nestbox_id
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+
+        if rows:
+            summary = []
+            for nestbox_id, count, last_event in rows:
+                summary.append(f"{nestbox_id}:{count}")
+
+            return CheckResult(
+                name="Nestkast Events",
+                status=Status.OK,
+                message=f"Events: {', '.join(summary)}",
+                details={'per_nestbox': {r[0]: r[1] for r in rows}}
+            )
+        else:
+            return CheckResult(
+                name="Nestkast Events",
+                status=Status.OK,
+                message="Geen events (nieuw seizoen)"
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="Nestkast Events",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_nestbox_screenshots_today() -> CheckResult:
+    """Check nestkast screenshots vandaag"""
+    try:
+        base_path = Path("/mnt/nas-birdnet-archive/nestbox")
+        today = datetime.now().strftime('%Y-%m-%d')
+
+        total_today = 0
+        per_box = {}
+
+        for nestbox in ['voor', 'midden', 'achter']:
+            screenshots_dir = base_path / nestbox / 'screenshots'
+            if screenshots_dir.exists():
+                # Tel screenshots van vandaag
+                count = len(list(screenshots_dir.glob(f'*{today}*.jpg')))
+                per_box[nestbox] = count
+                total_today += count
+
+        if total_today > 0:
+            summary = ", ".join([f"{k}:{v}" for k, v in per_box.items() if v > 0])
+            return CheckResult(
+                name="Screenshots Vandaag",
+                status=Status.OK,
+                message=f"{total_today} totaal ({summary})",
+                details=per_box
+            )
+        else:
+            return CheckResult(
+                name="Screenshots Vandaag",
+                status=Status.WARNING,
+                message="Geen screenshots vandaag",
+                details=per_box
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="Screenshots Vandaag",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 23. RAPPORT GENERATIE
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_report_timers() -> List[CheckResult]:
+    """Check rapport timer status"""
+    results = []
+    report_timers = [
+        ('emsn-weekly-report.timer', 'Weekly Report'),
+        ('emsn-monthly-report.timer', 'Monthly Report'),
+        ('emsn-yearly-report.timer', 'Yearly Report'),
+    ]
+
+    try:
+        for timer, name in report_timers:
+            result = subprocess.run(
+                ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+                 f'ronny@{HOSTS["zolder"]["ip"]}',
+                 f'systemctl is-active {timer} 2>/dev/null || echo "not-found"'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            status_val = result.stdout.strip()
+            if status_val == 'active':
+                results.append(CheckResult(
+                    name=f"{name} Timer",
+                    status=Status.OK,
+                    message="Actief"
+                ))
+            else:
+                results.append(CheckResult(
+                    name=f"{name} Timer",
+                    status=Status.WARNING,
+                    message=f"Status: {status_val}"
+                ))
+
+    except Exception as e:
+        results.append(CheckResult(
+            name="Report Timers",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        ))
+
+    return results
+
+
+@timed_check
+def check_reports_directory() -> CheckResult:
+    """Check rapport output directory"""
+    try:
+        reports_dir = Path("/mnt/nas-reports")
+
+        if not reports_dir.exists():
+            return CheckResult(
+                name="Reports Directory",
+                status=Status.CRITICAL,
+                message="NAS reports niet gemount"
+            )
+
+        # Tel rapporten
+        pdf_count = len(list(reports_dir.glob('**/*.pdf')))
+        html_count = len(list(reports_dir.glob('**/*.html')))
+
+        # Check vrije ruimte
+        import shutil
+        total, used, free = shutil.disk_usage(reports_dir)
+        free_gb = free / (1024**3)
+
+        return CheckResult(
+            name="Reports Directory",
+            status=Status.OK,
+            message=f"{pdf_count} PDFs, {html_count} HTML ({free_gb:.1f}GB vrij)",
+            details={'pdfs': pdf_count, 'htmls': html_count, 'free_gb': free_gb}
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name="Reports Directory",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 24. ANOMALY DETECTION SYSTEEM
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_anomaly_services() -> List[CheckResult]:
+    """Check anomaly detection services"""
+    results = []
+    anomaly_timers = [
+        ('anomaly-hardware-check.timer', 'Hardware Checker'),
+        ('anomaly-datagap-check.timer', 'Data Gap Checker'),
+        ('anomaly-baseline-learn.timer', 'Baseline Learner'),
+    ]
+
+    try:
+        for timer, name in anomaly_timers:
+            result = subprocess.run(
+                ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+                 f'ronny@{HOSTS["zolder"]["ip"]}',
+                 f'systemctl is-active {timer} 2>/dev/null || echo "not-found"'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            status_val = result.stdout.strip()
+            if status_val == 'active':
+                results.append(CheckResult(
+                    name=f"{name}",
+                    status=Status.OK,
+                    message="Timer actief"
+                ))
+            else:
+                results.append(CheckResult(
+                    name=f"{name}",
+                    status=Status.WARNING,
+                    message=f"Timer: {status_val}"
+                ))
+
+    except Exception as e:
+        results.append(CheckResult(
+            name="Anomaly Services",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        ))
+
+    return results
+
+
+@timed_check
+def check_active_anomalies() -> CheckResult:
+    """Check actieve anomalieën in database"""
+    try:
+        secrets_file = Path("/home/ronny/emsn2/.secrets")
+        pg_pass = None
+        with open(secrets_file) as f:
+            for line in f:
+                if line.startswith('PG_PASSWORD='):
+                    pg_pass = line.split('=', 1)[1].strip()
+                    break
+
+        if not pg_pass:
+            return CheckResult(
+                name="Active Anomalies",
+                status=Status.UNKNOWN,
+                message="Credentials niet beschikbaar"
+            )
+
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host='192.168.1.25',
+            port=5433,
+            database='emsn',
+            user='emsn',
+            password=pg_pass,
+            connect_timeout=5
+        )
+        cursor = conn.cursor()
+
+        # Check of anomalies tabel bestaat
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'anomalies'
+            )
+        """)
+        table_exists = cursor.fetchone()[0]
+
+        if not table_exists:
+            conn.close()
+            return CheckResult(
+                name="Anomaly Status",
+                status=Status.OK,
+                message="Anomaly tabel nog niet aangemaakt"
+            )
+
+        # Tel actieve anomalies per severity
+        cursor.execute("""
+            SELECT
+                severity,
+                COUNT(*)
+            FROM anomalies
+            WHERE resolved_at IS NULL
+            GROUP BY severity
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+
+        if rows:
+            severity_counts = {r[0]: r[1] for r in rows}
+            critical = severity_counts.get('critical', 0)
+            warning = severity_counts.get('warning', 0)
+
+            if critical > 0:
+                return CheckResult(
+                    name="Anomaly Status",
+                    status=Status.CRITICAL,
+                    message=f"{critical} kritiek, {warning} waarschuwingen",
+                    details=severity_counts
+                )
+            elif warning > 0:
+                return CheckResult(
+                    name="Anomaly Status",
+                    status=Status.WARNING,
+                    message=f"{warning} actieve waarschuwingen",
+                    details=severity_counts
+                )
+            else:
+                return CheckResult(
+                    name="Anomaly Status",
+                    status=Status.OK,
+                    message="Geen actieve anomalieën"
+                )
+        else:
+            return CheckResult(
+                name="Anomaly Status",
+                status=Status.OK,
+                message="Geen actieve anomalieën"
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="Anomaly Status",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 25. AUDIO & MICROFOON KWALITEIT
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_audio_device(host: str, ip: str) -> CheckResult:
+    """Check ALSA audio device status"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{ip}',
+             '''
+             # Check ALSA capture devices
+             CAPTURE_DEVICES=$(arecord -l 2>/dev/null | grep -c "card" || echo 0)
+
+             # Check of USB audio device aanwezig is
+             USB_AUDIO=$(lsusb 2>/dev/null | grep -ci "audio\|sound\|microphone" || echo 0)
+
+             # Check ALSA volume levels
+             AMIXER_OUTPUT=$(amixer -c 0 sget Capture 2>/dev/null | grep -o "[0-9]*%" | head -1 || echo "unknown")
+
+             echo "CAPTURE_DEVICES:$CAPTURE_DEVICES"
+             echo "USB_AUDIO:$USB_AUDIO"
+             echo "VOLUME:$AMIXER_OUTPUT"
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            capture_devices = int(metrics.get('CAPTURE_DEVICES', 0))
+            usb_audio = int(metrics.get('USB_AUDIO', 0))
+            volume = metrics.get('VOLUME', 'unknown')
+
+            if capture_devices == 0:
+                return CheckResult(
+                    name=f"{host} Audio",
+                    status=Status.CRITICAL,
+                    message="Geen capture devices gevonden!",
+                    details=metrics
+                )
+            elif usb_audio == 0 and host in ['zolder', 'berging']:
+                return CheckResult(
+                    name=f"{host} Audio",
+                    status=Status.WARNING,
+                    message="USB audio device niet gevonden",
+                    details=metrics
+                )
+            else:
+                return CheckResult(
+                    name=f"{host} Audio",
+                    status=Status.OK,
+                    message=f"{capture_devices} device(s), volume: {volume}",
+                    details=metrics
+                )
+
+        return CheckResult(
+            name=f"{host} Audio",
+            status=Status.UNKNOWN,
+            message="Kan audio niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name=f"{host} Audio",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_day_night_ratio() -> CheckResult:
+    """Check dag/nacht detectie ratio (indicator voor microfoon gezondheid)"""
+    try:
+        secrets_file = Path("/home/ronny/emsn2/.secrets")
+        pg_pass = None
+        with open(secrets_file) as f:
+            for line in f:
+                if line.startswith('PG_PASSWORD='):
+                    pg_pass = line.split('=', 1)[1].strip()
+                    break
+
+        if not pg_pass:
+            return CheckResult(
+                name="Dag/Nacht Ratio",
+                status=Status.UNKNOWN,
+                message="Credentials niet beschikbaar"
+            )
+
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host='192.168.1.25',
+            port=5433,
+            database='emsn',
+            user='emsn',
+            password=pg_pass,
+            connect_timeout=5
+        )
+        cursor = conn.cursor()
+
+        # Tel dag (6-22) vs nacht (22-6) detecties laatste 7 dagen
+        cursor.execute("""
+            SELECT
+                CASE
+                    WHEN EXTRACT(HOUR FROM detection_timestamp) BETWEEN 6 AND 21 THEN 'dag'
+                    ELSE 'nacht'
+                END as period,
+                COUNT(*)
+            FROM bird_detections
+            WHERE detection_timestamp >= NOW() - INTERVAL '7 days'
+            GROUP BY period
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+
+        if rows:
+            periods = {r[0]: r[1] for r in rows}
+            day_count = periods.get('dag', 0)
+            night_count = periods.get('nacht', 0)
+            total = day_count + night_count
+
+            if total > 0:
+                day_pct = (day_count / total) * 100
+
+                # Normale ratio is 80-95% overdag
+                if 75 <= day_pct <= 98:
+                    return CheckResult(
+                        name="Dag/Nacht Ratio",
+                        status=Status.OK,
+                        message=f"{day_pct:.1f}% dag / {100-day_pct:.1f}% nacht",
+                        details={'dag': day_count, 'nacht': night_count}
+                    )
+                elif day_pct < 75:
+                    return CheckResult(
+                        name="Dag/Nacht Ratio",
+                        status=Status.WARNING,
+                        message=f"Veel nachtdetecties ({100-day_pct:.1f}%) - check ruis",
+                        details={'dag': day_count, 'nacht': night_count}
+                    )
+                else:
+                    return CheckResult(
+                        name="Dag/Nacht Ratio",
+                        status=Status.OK,
+                        message=f"{day_pct:.1f}% dag (winter patroon?)",
+                        details={'dag': day_count, 'nacht': night_count}
+                    )
+
+        return CheckResult(
+            name="Dag/Nacht Ratio",
+            status=Status.OK,
+            message="Onvoldoende data"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name="Dag/Nacht Ratio",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 26. BACKUP & ARCHIVERING
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_sd_backup_timers() -> List[CheckResult]:
+    """Check SD backup timer status"""
+    results = []
+    backup_timers = [
+        ('sd-backup-daily.timer', 'Daily Backup', 'zolder'),
+        ('sd-backup-daily.timer', 'Daily Backup', 'berging'),
+        ('sd-backup-weekly.timer', 'Weekly Backup', 'zolder'),
+    ]
+
+    for timer, name, host in backup_timers:
+        try:
+            result = subprocess.run(
+                ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+                 f'ronny@{HOSTS[host]["ip"]}',
+                 f'systemctl is-active {timer} 2>/dev/null || echo "not-found"'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            status_val = result.stdout.strip()
+            if status_val == 'active':
+                results.append(CheckResult(
+                    name=f"{host} {name}",
+                    status=Status.OK,
+                    message="Timer actief"
+                ))
+            elif status_val == 'not-found':
+                results.append(CheckResult(
+                    name=f"{host} {name}",
+                    status=Status.OK,
+                    message="Timer niet geconfigureerd"
+                ))
+            else:
+                results.append(CheckResult(
+                    name=f"{host} {name}",
+                    status=Status.WARNING,
+                    message=f"Timer: {status_val}"
+                ))
+
+        except Exception as e:
+            results.append(CheckResult(
+                name=f"{host} {name}",
+                status=Status.UNKNOWN,
+                message=f"Fout: {e}"
+            ))
+
+    return results
+
+
+@timed_check
+def check_archive_sync() -> CheckResult:
+    """Check BirdNET archive sync status"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{HOSTS["zolder"]["ip"]}',
+             '''
+             # Check birdnet-archive-sync timer
+             TIMER_STATUS=$(systemctl is-active birdnet-archive-sync.timer 2>/dev/null || echo "not-found")
+
+             # Laatste sync tijd
+             LAST_SYNC=$(systemctl show birdnet-archive-sync.service --property=ExecMainExitTimestamp 2>/dev/null | cut -d= -f2)
+
+             echo "TIMER:$TIMER_STATUS"
+             echo "LAST_SYNC:$LAST_SYNC"
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            timer_status = metrics.get('TIMER', 'unknown')
+
+            if timer_status == 'active':
+                return CheckResult(
+                    name="Archive Sync",
+                    status=Status.OK,
+                    message="Timer actief",
+                    details=metrics
+                )
+            else:
+                return CheckResult(
+                    name="Archive Sync",
+                    status=Status.WARNING,
+                    message=f"Timer: {timer_status}",
+                    details=metrics
+                )
+
+        return CheckResult(
+            name="Archive Sync",
+            status=Status.UNKNOWN,
+            message="Kan niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name="Archive Sync",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_archive_space() -> CheckResult:
+    """Check beschikbare ruimte op archive"""
+    try:
+        archive_path = Path("/mnt/nas-birdnet-archive")
+
+        if not archive_path.exists():
+            return CheckResult(
+                name="Archive Space",
+                status=Status.CRITICAL,
+                message="Archive niet gemount"
+            )
+
+        import shutil
+        total, used, free = shutil.disk_usage(archive_path)
+        total_tb = total / (1024**4)
+        free_tb = free / (1024**4)
+        used_pct = (used / total) * 100
+
+        if used_pct > 90:
+            return CheckResult(
+                name="Archive Space",
+                status=Status.CRITICAL,
+                message=f"{used_pct:.1f}% vol ({free_tb:.2f}TB vrij van {total_tb:.2f}TB)"
+            )
+        elif used_pct > 80:
+            return CheckResult(
+                name="Archive Space",
+                status=Status.WARNING,
+                message=f"{used_pct:.1f}% vol ({free_tb:.2f}TB vrij)"
+            )
+        else:
+            return CheckResult(
+                name="Archive Space",
+                status=Status.OK,
+                message=f"{free_tb:.2f}TB vrij ({100-used_pct:.1f}%)"
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="Archive Space",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 27. NETWERK DIEPTE
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_packet_loss(host: str, ip: str) -> CheckResult:
+    """Check packet loss naar host"""
+    try:
+        result = subprocess.run(
+            ['ping', '-c', '10', '-W', '1', ip],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        output = result.stdout
+
+        # Parse packet loss percentage
+        if 'packet loss' in output:
+            loss_match = output.split('packet loss')[0].split()[-1]
+            loss_pct = float(loss_match.replace('%', '').replace(',', ''))
+
+            if loss_pct == 0:
+                return CheckResult(
+                    name=f"{host} Packet Loss",
+                    status=Status.OK,
+                    message="0% verlies (10 pings)"
+                )
+            elif loss_pct < 10:
+                return CheckResult(
+                    name=f"{host} Packet Loss",
+                    status=Status.WARNING,
+                    message=f"{loss_pct}% verlies"
+                )
+            else:
+                return CheckResult(
+                    name=f"{host} Packet Loss",
+                    status=Status.CRITICAL,
+                    message=f"{loss_pct}% verlies!"
+                )
+
+        return CheckResult(
+            name=f"{host} Packet Loss",
+            status=Status.UNKNOWN,
+            message="Kon packet loss niet bepalen"
+        )
+
+    except subprocess.TimeoutExpired:
+        return CheckResult(
+            name=f"{host} Packet Loss",
+            status=Status.CRITICAL,
+            message="Ping timeout"
+        )
+    except Exception as e:
+        return CheckResult(
+            name=f"{host} Packet Loss",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_dns_resolution() -> CheckResult:
+    """Check DNS resolution performance"""
+    try:
+        import time
+
+        domains = ['google.com', 'github.com', 'anthropic.com']
+        times = []
+
+        for domain in domains:
+            start = time.time()
+            try:
+                socket.gethostbyname(domain)
+                elapsed = (time.time() - start) * 1000
+                times.append(elapsed)
+            except socket.gaierror:
+                pass
+
+        if times:
+            avg_time = sum(times) / len(times)
+            if avg_time < 50:
+                return CheckResult(
+                    name="DNS Resolution",
+                    status=Status.OK,
+                    message=f"Gemiddeld {avg_time:.1f}ms ({len(times)}/{len(domains)} succesvol)"
+                )
+            elif avg_time < 200:
+                return CheckResult(
+                    name="DNS Resolution",
+                    status=Status.WARNING,
+                    message=f"Traag: {avg_time:.1f}ms gemiddeld"
+                )
+            else:
+                return CheckResult(
+                    name="DNS Resolution",
+                    status=Status.CRITICAL,
+                    message=f"Zeer traag: {avg_time:.1f}ms"
+                )
+        else:
+            return CheckResult(
+                name="DNS Resolution",
+                status=Status.CRITICAL,
+                message="Alle DNS lookups gefaald"
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="DNS Resolution",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_gateway() -> CheckResult:
+    """Check default gateway bereikbaarheid"""
+    try:
+        # Get default gateway
+        result = subprocess.run(
+            ['ip', 'route', 'show', 'default'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        if result.returncode == 0 and 'via' in result.stdout:
+            gateway = result.stdout.split('via')[1].split()[0]
+
+            # Ping gateway
+            ping_result = subprocess.run(
+                ['ping', '-c', '3', '-W', '1', gateway],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if ping_result.returncode == 0:
+                # Parse latency
+                if 'avg' in ping_result.stdout:
+                    avg_match = ping_result.stdout.split('/')[-3]
+                    avg_latency = float(avg_match)
+                    return CheckResult(
+                        name="Gateway",
+                        status=Status.OK,
+                        message=f"{gateway} bereikbaar ({avg_latency:.1f}ms)"
+                    )
+                return CheckResult(
+                    name="Gateway",
+                    status=Status.OK,
+                    message=f"{gateway} bereikbaar"
+                )
+            else:
+                return CheckResult(
+                    name="Gateway",
+                    status=Status.CRITICAL,
+                    message=f"Gateway {gateway} niet bereikbaar!"
+                )
+
+        return CheckResult(
+            name="Gateway",
+            status=Status.WARNING,
+            message="Geen default gateway gevonden"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name="Gateway",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 28. REALTIME SERVICES
+# ═══════════════════════════════════════════════════════════════
+
+@timed_check
+def check_realtime_dual_detection() -> CheckResult:
+    """Check realtime dual detection service"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{HOSTS["zolder"]["ip"]}',
+             '''
+             # Check realtime dual detection service
+             SERVICE_STATUS=$(systemctl is-active realtime-dual-detection.service 2>/dev/null || echo "not-found")
+
+             # Check of proces draait
+             PROC_COUNT=$(pgrep -c -f "realtime_dual_detection" 2>/dev/null || echo 0)
+
+             # Laatste logs
+             LAST_DUAL=$(journalctl -u realtime-dual-detection --since "1 hour ago" --no-pager 2>/dev/null | grep -c "DUAL" || echo 0)
+
+             echo "STATUS:$SERVICE_STATUS"
+             echo "PROCS:$PROC_COUNT"
+             echo "RECENT_DUALS:$LAST_DUAL"
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            status_val = metrics.get('STATUS', 'unknown')
+            procs = int(metrics.get('PROCS', 0))
+            recent_duals = int(metrics.get('RECENT_DUALS', 0))
+
+            if status_val == 'active' and procs > 0:
+                return CheckResult(
+                    name="Realtime Dual Detection",
+                    status=Status.OK,
+                    message=f"Actief ({recent_duals} duals laatste uur)",
+                    details=metrics
+                )
+            elif status_val == 'active':
+                return CheckResult(
+                    name="Realtime Dual Detection",
+                    status=Status.WARNING,
+                    message="Service actief maar geen proces",
+                    details=metrics
+                )
+            elif status_val == 'not-found':
+                return CheckResult(
+                    name="Realtime Dual Detection",
+                    status=Status.OK,
+                    message="Service niet geconfigureerd",
+                    details=metrics
+                )
+            else:
+                return CheckResult(
+                    name="Realtime Dual Detection",
+                    status=Status.WARNING,
+                    message=f"Status: {status_val}",
+                    details=metrics
+                )
+
+        return CheckResult(
+            name="Realtime Dual Detection",
+            status=Status.UNKNOWN,
+            message="Kan niet controleren"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name="Realtime Dual Detection",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_mqtt_message_rate() -> CheckResult:
+    """Check MQTT message rate"""
+    try:
+        secrets_file = Path("/home/ronny/emsn2/.secrets")
+        pg_pass = None
+        with open(secrets_file) as f:
+            for line in f:
+                if line.startswith('PG_PASSWORD='):
+                    pg_pass = line.split('=', 1)[1].strip()
+                    break
+
+        if not pg_pass:
+            return CheckResult(
+                name="MQTT Rate",
+                status=Status.UNKNOWN,
+                message="Credentials niet beschikbaar"
+            )
+
+        import psycopg2
+
+        conn = psycopg2.connect(
+            host='192.168.1.25',
+            port=5433,
+            database='emsn',
+            user='emsn',
+            password=pg_pass,
+            connect_timeout=5
+        )
+        cursor = conn.cursor()
+
+        # Tel detecties per uur laatste 6 uur
+        cursor.execute("""
+            SELECT
+                DATE_TRUNC('hour', detection_timestamp) as hour,
+                station,
+                COUNT(*)
+            FROM bird_detections
+            WHERE detection_timestamp >= NOW() - INTERVAL '6 hours'
+            GROUP BY hour, station
+            ORDER BY hour DESC
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+
+        if rows:
+            # Bereken gemiddelde per station
+            per_station = {}
+            for hour, station, count in rows:
+                if station not in per_station:
+                    per_station[station] = []
+                per_station[station].append(count)
+
+            summary = []
+            for station, counts in per_station.items():
+                avg = sum(counts) / len(counts) if counts else 0
+                summary.append(f"{station}:{avg:.0f}/u")
+
+            return CheckResult(
+                name="Detection Rate",
+                status=Status.OK,
+                message=f"Gemiddeld: {', '.join(summary)}",
+                details=per_station
+            )
+
+        return CheckResult(
+            name="Detection Rate",
+            status=Status.WARNING,
+            message="Geen recente detecties"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name="Detection Rate",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+@timed_check
+def check_ulanzi_notifications() -> CheckResult:
+    """Check Ulanzi notificatie frequentie"""
+    try:
+        # Check logs van ulanzi-bridge
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
+             f'ronny@{HOSTS["zolder"]["ip"]}',
+             '''
+             # Tel notificaties vandaag
+             TODAY=$(date +%Y%m%d)
+             LOG_FILE="/mnt/usb/logs/ulanzi_bridge_${TODAY}.log"
+
+             if [ -f "$LOG_FILE" ]; then
+                 NOTIF_COUNT=$(grep -c "Sending notification" "$LOG_FILE" 2>/dev/null || echo 0)
+                 FILTERED_COUNT=$(grep -c "Filtered" "$LOG_FILE" 2>/dev/null || echo 0)
+                 echo "NOTIFICATIONS:$NOTIF_COUNT"
+                 echo "FILTERED:$FILTERED_COUNT"
+             else
+                 echo "NOTIFICATIONS:0"
+                 echo "FILTERED:0"
+             fi
+             '''],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if result.returncode == 0:
+            metrics = {}
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    metrics[key] = value.strip()
+
+            notifications = int(metrics.get('NOTIFICATIONS', 0))
+            filtered = int(metrics.get('FILTERED', 0))
+
+            return CheckResult(
+                name="Ulanzi Notificaties",
+                status=Status.OK,
+                message=f"{notifications} verzonden, {filtered} gefilterd vandaag",
+                details=metrics
+            )
+
+        return CheckResult(
+            name="Ulanzi Notificaties",
+            status=Status.UNKNOWN,
+            message="Kan logs niet lezen"
+        )
+
+    except Exception as e:
+        return CheckResult(
+            name="Ulanzi Notificaties",
+            status=Status.UNKNOWN,
+            message=f"Fout: {e}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
 # MAIN DIAGNOSE FUNCTIE
 # ═══════════════════════════════════════════════════════════════
 
@@ -3683,6 +5213,171 @@ def run_deep_health_check() -> Dict[str, CategoryResult]:
     print_check(result)
 
     categories['extern_db'] = cat
+
+    # ─── 20. VOCALIZATION SYSTEEM ─────────────────────────────────
+    print_header("20. VOCALIZATION SYSTEEM")
+    cat = CategoryResult(name="Vocalization")
+
+    print_subheader("Service & Docker")
+    result = check_vocalization_service()
+    cat.checks.append(result)
+    print_check(result)
+
+    result = check_vocalization_docker()
+    cat.checks.append(result)
+    print_check(result)
+
+    print_subheader("Verrijking")
+    result = check_vocalization_enrichment_rate()
+    cat.checks.append(result)
+    print_check(result)
+
+    categories['vocalization'] = cat
+
+    # ─── 21. FLYSAFE RADAR & MIGRATIE ─────────────────────────────
+    print_header("21. FLYSAFE RADAR & MIGRATIE")
+    cat = CategoryResult(name="FlySafe")
+
+    result = check_flysafe_scraper()
+    cat.checks.append(result)
+    print_check(result)
+
+    result = check_migration_data()
+    cat.checks.append(result)
+    print_check(result)
+
+    categories['flysafe'] = cat
+
+    # ─── 22. NESTKAST AI DETECTIE ─────────────────────────────────
+    print_header("22. NESTKAST AI DETECTIE")
+    cat = CategoryResult(name="Nestkast AI")
+
+    print_subheader("AI Models")
+    result = check_nestbox_models()
+    cat.checks.append(result)
+    print_check(result)
+
+    print_subheader("Events & Screenshots")
+    result = check_nestbox_events()
+    cat.checks.append(result)
+    print_check(result)
+
+    result = check_nestbox_screenshots_today()
+    cat.checks.append(result)
+    print_check(result)
+
+    categories['nestkast_ai'] = cat
+
+    # ─── 23. RAPPORT GENERATIE ────────────────────────────────────
+    print_header("23. RAPPORT GENERATIE")
+    cat = CategoryResult(name="Rapporten")
+
+    print_subheader("Report Timers")
+    results = check_report_timers()
+    for result in results:
+        cat.checks.append(result)
+        print_check(result)
+
+    print_subheader("Reports Directory")
+    result = check_reports_directory()
+    cat.checks.append(result)
+    print_check(result)
+
+    categories['rapporten'] = cat
+
+    # ─── 24. ANOMALY DETECTION SYSTEEM ────────────────────────────
+    print_header("24. ANOMALY DETECTION SYSTEEM")
+    cat = CategoryResult(name="Anomaly")
+
+    print_subheader("Checker Services")
+    results = check_anomaly_services()
+    for result in results:
+        cat.checks.append(result)
+        print_check(result)
+
+    print_subheader("Actieve Anomalieën")
+    result = check_active_anomalies()
+    cat.checks.append(result)
+    print_check(result)
+
+    categories['anomaly'] = cat
+
+    # ─── 25. AUDIO & MICROFOON KWALITEIT ──────────────────────────
+    print_header("25. AUDIO & MICROFOON KWALITEIT")
+    cat = CategoryResult(name="Audio")
+
+    for host in ['zolder', 'berging']:
+        if ssh_available.get(host, False):
+            result = check_audio_device(host, HOSTS[host]['ip'])
+            cat.checks.append(result)
+            print_check(result)
+
+    print_subheader("Detectie Patronen")
+    result = check_day_night_ratio()
+    cat.checks.append(result)
+    print_check(result)
+
+    categories['audio'] = cat
+
+    # ─── 26. BACKUP & ARCHIVERING ─────────────────────────────────
+    print_header("26. BACKUP & ARCHIVERING")
+    cat = CategoryResult(name="Backup/Archive")
+
+    print_subheader("SD Backup Timers")
+    results = check_sd_backup_timers()
+    for result in results:
+        cat.checks.append(result)
+        print_check(result)
+
+    print_subheader("Archive Sync & Space")
+    result = check_archive_sync()
+    cat.checks.append(result)
+    print_check(result)
+
+    result = check_archive_space()
+    cat.checks.append(result)
+    print_check(result)
+
+    categories['backup_archive'] = cat
+
+    # ─── 27. NETWERK DIEPTE ───────────────────────────────────────
+    print_header("27. NETWERK DIEPTE")
+    cat = CategoryResult(name="Netwerk Diepte")
+
+    print_subheader("Packet Loss")
+    for host in ['zolder', 'berging', 'nas']:
+        result = check_packet_loss(host, HOSTS[host]['ip'])
+        cat.checks.append(result)
+        print_check(result)
+
+    print_subheader("DNS & Gateway")
+    result = check_dns_resolution()
+    cat.checks.append(result)
+    print_check(result)
+
+    result = check_gateway()
+    cat.checks.append(result)
+    print_check(result)
+
+    categories['netwerk_diepte'] = cat
+
+    # ─── 28. REALTIME SERVICES ────────────────────────────────────
+    print_header("28. REALTIME SERVICES")
+    cat = CategoryResult(name="Realtime")
+
+    result = check_realtime_dual_detection()
+    cat.checks.append(result)
+    print_check(result)
+
+    result = check_mqtt_message_rate()
+    cat.checks.append(result)
+    print_check(result)
+
+    result = check_ulanzi_notifications()
+    cat.checks.append(result)
+    print_check(result)
+
+    categories['realtime'] = cat
 
     # ─── SAMENVATTING ─────────────────────────────────────────────
     elapsed = time.time() - start_time
