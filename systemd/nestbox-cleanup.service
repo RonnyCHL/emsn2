@@ -1,0 +1,19 @@
+[Unit]
+Description=Nestkast Screenshot Cleanup
+After=network-online.target mnt-nas\x2dbirdnet\x2darchive.mount
+Wants=network-online.target
+Requires=mnt-nas\x2dbirdnet\x2darchive.mount
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/nestbox/nestbox_cleanup.py --verbose
+User=ronny
+Group=ronny
+StandardOutput=journal
+StandardError=journal
+
+# Timeout voor grote cleanup operaties
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target

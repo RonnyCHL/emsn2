@@ -1,0 +1,12 @@
+[Unit]
+Description=Dagelijkse nestkast screenshot cleanup
+Requires=nestbox-cleanup.service
+
+[Timer]
+# Elke dag om 04:00 (rustige periode)
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

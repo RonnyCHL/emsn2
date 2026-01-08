@@ -33,8 +33,8 @@ from PIL import Image
 import psycopg2
 
 # Configuratie
-MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_species_model.pt"
-FALLBACK_MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_occupancy_model.pt"
+MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_model_latest.pt"
+FALLBACK_MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_species_model.pt"
 INPUT_SIZE = 224
 CONFIDENCE_THRESHOLD = 0.50  # Minimale confidence voor statuswijziging (verlaagd voor daglicht detectie)
 
@@ -53,17 +53,26 @@ DB_CONFIG = {
 NESTBOXES = ['voor', 'midden', 'achter']
 
 
-def create_model(num_classes=2):
+def create_model(num_classes=2, simple_classifier=False):
     """Maak MobileNetV2 model met aangepaste classifier"""
     model = models.mobilenet_v2(weights=None)
     num_features = model.classifier[1].in_features
-    model.classifier = nn.Sequential(
-        nn.Dropout(p=0.2),
-        nn.Linear(num_features, 128),
-        nn.ReLU(),
-        nn.Dropout(p=0.2),
-        nn.Linear(128, num_classes)
-    )
+
+    if simple_classifier:
+        # Simpele classifier (nieuwe modellen)
+        model.classifier = nn.Sequential(
+            nn.Dropout(p=0.3),
+            nn.Linear(num_features, num_classes)
+        )
+    else:
+        # Complexere classifier (oude modellen)
+        model.classifier = nn.Sequential(
+            nn.Dropout(p=0.2),
+            nn.Linear(num_features, 128),
+            nn.ReLU(),
+            nn.Dropout(p=0.2),
+            nn.Linear(128, num_classes)
+        )
     return model
 
 
@@ -80,9 +89,17 @@ def load_model(model_path=None):
 
     checkpoint = torch.load(model_path, map_location='cpu')
     classes = checkpoint.get('classes', ['leeg', 'bezet'])
+    state_dict = checkpoint['model_state_dict']
 
-    model = create_model(num_classes=len(classes))
-    model.load_state_dict(checkpoint['model_state_dict'])
+    # Fix voor torch.compile() modellen: verwijder _orig_mod. prefix
+    if any(k.startswith('_orig_mod.') for k in state_dict.keys()):
+        state_dict = {k.replace('_orig_mod.', ''): v for k, v in state_dict.items()}
+
+    # Detecteer classifier type aan de hand van state_dict keys
+    simple_classifier = 'classifier.1.weight' in state_dict and state_dict['classifier.1.weight'].shape[0] == len(classes)
+
+    model = create_model(num_classes=len(classes), simple_classifier=simple_classifier)
+    model.load_state_dict(state_dict)
     model.eval()
 
     return model, classes
