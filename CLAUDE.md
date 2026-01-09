@@ -247,6 +247,31 @@ curl -X POST http://192.168.1.178:8081/api/nestbox/events \
   -d '{"nestbox_id": "midden", "event_type": "bezet", "species": "Koolmees"}'
 ```
 
+## Database Permissies
+
+### Users en Rechten
+| User | Rol | Gebruikt door |
+|------|-----|---------------|
+| postgres | Superuser | Migraties, admin |
+| birdpi_zolder | Full access | Pi Zolder scripts |
+| birdpi_berging | Read + write detecties | Pi Berging scripts |
+| meteopi | Read + write weather | Pi Meteo scripts |
+| emsn_readonly | Read only | Grafana dashboards |
+| emsn_admin | Full access | Admin tools |
+
+### Bij Permission Denied Errors
+Gebruik `/fix-db-permissions` skill of handmatig:
+```bash
+PGPASSWORD=IwnadBon2iN psql -h 192.168.1.25 -p 5433 -U postgres -d emsn -c "
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO birdpi_zolder;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO birdpi_zolder;"
+```
+
+### Geleerde Les (Claude)
+- Na tabel recreatie/migratie gaan GRANT permissies verloren
+- Scripts verbinden als `birdpi_zolder`, niet als `postgres`
+- Altijd default privileges instellen voor toekomstige tabellen
+
 ## Commit Stijl
 - feat: nieuwe functionaliteit
 - fix: bug fix
