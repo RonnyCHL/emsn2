@@ -151,7 +151,10 @@ def predict_image(model: nn.Module, image_path: str, classes: List[str]) -> Dict
     detected_class = classes[class_idx]
 
     is_occupied = detected_class.lower() != 'leeg'
-    species = detected_class if is_occupied else None
+
+    # Soort toewijzing: huidige beelden zijn 100% Koolmees
+    # Later uitbreiden naar multi-class model voor andere soorten
+    species = "Koolmees" if is_occupied else None
 
     return {
         'is_occupied': is_occupied,
