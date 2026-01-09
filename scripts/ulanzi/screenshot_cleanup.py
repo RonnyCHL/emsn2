@@ -10,24 +10,20 @@ import os
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
-import logging
 import psycopg2
 
 # Import core modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.config import get_postgres_config
+from core.logging import get_logger
 
 # Configuratie
 SCREENSHOT_DIR = Path("/mnt/nas-reports/ulanzi-screenshots")
 MAX_AGE_DAYS = 30
 DB_CONFIG = get_postgres_config()
 
-# Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('ulanzi_screenshot_cleanup')
 
 
 def get_db_connection():

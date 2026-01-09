@@ -10,11 +10,15 @@ Author: EMSN Team
 """
 
 import os
+import sys
 import json
-import logging
 from datetime import datetime
 from pathlib import Path
 import requests
+
+# Import core modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.logging import get_logger
 
 # Configuration
 ULANZI_IP = "192.168.1.11"
@@ -32,17 +36,8 @@ ALERT_THRESHOLDS = {
 # State file to track daily alerts
 STATE_FILE = Path("/mnt/usb/logs/migration_alert_state.json")
 
-# Logging
-LOGS_DIR = Path("/mnt/usb/logs")
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOGS_DIR / "migration-alerts.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('flysafe_migration_alerts')
 
 
 class MigrationAlertSystem:

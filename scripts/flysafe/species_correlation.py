@@ -88,16 +88,9 @@ for group, species_list in SPECIES_GROUPS.items():
     for sp in species_list:
         SPECIES_TO_GROUP[sp] = group
 
-# Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOGS_DIR / "species-correlation.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+from core.logging import get_logger
+logger = get_logger('flysafe_species_correlation')
 
 
 class SpeciesCorrelationAnalyzer:

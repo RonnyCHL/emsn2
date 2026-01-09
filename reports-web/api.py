@@ -47,6 +47,83 @@ LOGO_PATH = ASSETS_DIR / "logo-pdf.png"  # Optimized version for PDFs
 # Track running report generations
 running_jobs = {}
 
+# Server start time for uptime calculation
+_server_start_time = datetime.now()
+
+
+@app.route('/health')
+@app.route('/api/health')
+def health_check():
+    """
+    Health check endpoint for monitoring.
+
+    Returns JSON with:
+    - status: "healthy" or "unhealthy"
+    - uptime_seconds: Server uptime
+    - checks: Individual component status
+    - timestamp: Current server time
+    """
+    checks = {}
+    overall_healthy = True
+
+    # Check 1: Reports directory accessible
+    try:
+        reports_accessible = REPORTS_DIR.exists() and REPORTS_DIR.is_dir()
+        report_count = len(list(REPORTS_DIR.glob('*.md'))) if reports_accessible else 0
+        checks['reports_dir'] = {
+            'status': 'ok' if reports_accessible else 'error',
+            'path': str(REPORTS_DIR),
+            'report_count': report_count,
+        }
+        if not reports_accessible:
+            overall_healthy = False
+    except Exception as e:
+        checks['reports_dir'] = {'status': 'error', 'error': str(e)}
+        overall_healthy = False
+
+    # Check 2: Assets directory (for PDF generation)
+    try:
+        assets_accessible = ASSETS_DIR.exists()
+        logo_exists = LOGO_PATH.exists() if assets_accessible else False
+        checks['assets'] = {
+            'status': 'ok' if assets_accessible and logo_exists else 'warning',
+            'logo_available': logo_exists,
+        }
+    except Exception as e:
+        checks['assets'] = {'status': 'error', 'error': str(e)}
+
+    # Check 3: Pandoc available (for PDF generation)
+    try:
+        result = subprocess.run(['pandoc', '--version'], capture_output=True, timeout=5)
+        pandoc_ok = result.returncode == 0
+        pandoc_version = result.stdout.decode().split('\n')[0] if pandoc_ok else None
+        checks['pandoc'] = {
+            'status': 'ok' if pandoc_ok else 'error',
+            'version': pandoc_version,
+        }
+    except Exception as e:
+        checks['pandoc'] = {'status': 'error', 'error': str(e)}
+
+    # Check 4: Running jobs
+    checks['running_jobs'] = {
+        'status': 'ok',
+        'count': len(running_jobs),
+    }
+
+    # Calculate uptime
+    uptime = datetime.now() - _server_start_time
+    uptime_seconds = int(uptime.total_seconds())
+
+    return jsonify({
+        'status': 'healthy' if overall_healthy else 'unhealthy',
+        'uptime_seconds': uptime_seconds,
+        'uptime_human': f"{uptime_seconds // 3600}h {(uptime_seconds % 3600) // 60}m",
+        'checks': checks,
+        'timestamp': datetime.now().isoformat(),
+        'version': '2.0',
+    }), 200 if overall_healthy else 503
+
+
 @app.route('/')
 def index():
     """Serve the main index page"""

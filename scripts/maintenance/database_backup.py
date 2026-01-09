@@ -17,7 +17,6 @@ import os
 import sys
 import gzip
 import shutil
-import logging
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -27,23 +26,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
     from core.config import get_postgres_config
+    from core.logging import get_logger
 except ImportError as e:
     print(f"Import error: {e}")
     sys.exit(1)
 
-# Logging
-LOG_DIR = Path("/mnt/usb/logs")
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_DIR / "database_backup.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('database_backup')
 
 # Backup configuratie - naar 8TB USB schijf op NAS
 BACKUP_DIR = Path("/mnt/nas-birdnet-archive/backups/postgresql")

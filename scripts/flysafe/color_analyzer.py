@@ -27,16 +27,15 @@ import sys
 import numpy as np
 from pathlib import Path
 from PIL import Image
-import logging
 from typing import Dict, Tuple, Optional
 import json
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Import core modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.logging import get_logger
+
+# Centrale logger
+logger = get_logger('flysafe_color_analyzer')
 
 
 class RadarColorAnalyzer:

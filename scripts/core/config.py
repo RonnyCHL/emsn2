@@ -171,6 +171,99 @@ def clear_config_cache():
     _config_cache = {}
 
 
+class ConfigValidationError(Exception):
+    """Exception voor ontbrekende of ongeldige configuratie."""
+    pass
+
+
+def validate_config(config: Dict[str, Any], required_keys: list, config_name: str) -> None:
+    """
+    Valideer dat alle vereiste keys aanwezig zijn in config.
+
+    Args:
+        config: De configuratie dictionary om te valideren.
+        required_keys: Lijst met vereiste key namen.
+        config_name: Naam van de config voor error messages.
+
+    Raises:
+        ConfigValidationError: Als vereiste keys ontbreken of leeg zijn.
+    """
+    missing = []
+    empty = []
+
+    for key in required_keys:
+        if key not in config:
+            missing.append(key)
+        elif config[key] is None or config[key] == '':
+            empty.append(key)
+
+    errors = []
+    if missing:
+        errors.append(f"Ontbrekende keys: {', '.join(missing)}")
+    if empty:
+        errors.append(f"Lege values: {', '.join(empty)}")
+
+    if errors:
+        raise ConfigValidationError(
+            f"{config_name} configuratie ongeldig. {'; '.join(errors)}. "
+            f"Controleer het .secrets bestand."
+        )
+
+
+def get_validated_postgres_config(cached: bool = True) -> Dict[str, Any]:
+    """
+    Haal PostgreSQL configuratie op met validatie.
+
+    Args:
+        cached: Gebruik cached config indien beschikbaar (default: True)
+
+    Returns:
+        Dict met host, port, database, user, password
+
+    Raises:
+        ConfigValidationError: Als vereiste configuratie ontbreekt.
+    """
+    config = get_postgres_config(cached)
+    validate_config(config, ['host', 'port', 'database', 'user', 'password'], 'PostgreSQL')
+    return config
+
+
+def get_validated_mqtt_config(cached: bool = True) -> Dict[str, Any]:
+    """
+    Haal MQTT configuratie op met validatie.
+
+    Args:
+        cached: Gebruik cached config indien beschikbaar (default: True)
+
+    Returns:
+        Dict met broker, port, username, password
+
+    Raises:
+        ConfigValidationError: Als vereiste configuratie ontbreekt.
+    """
+    config = get_mqtt_config(cached)
+    validate_config(config, ['broker', 'port', 'username', 'password'], 'MQTT')
+    return config
+
+
+def get_validated_smtp_config(cached: bool = True) -> Dict[str, Any]:
+    """
+    Haal SMTP configuratie op met validatie.
+
+    Args:
+        cached: Gebruik cached config indien beschikbaar (default: True)
+
+    Returns:
+        Dict met host, port, user, password
+
+    Raises:
+        ConfigValidationError: Als vereiste configuratie ontbreekt.
+    """
+    config = get_smtp_config(cached)
+    validate_config(config, ['host', 'port', 'user', 'password'], 'SMTP')
+    return config
+
+
 def get_project_root() -> Path:
     """Retourneer het project root pad"""
     return _PROJECT_ROOT

@@ -67,16 +67,9 @@ MIGRATORY_SPECIES = [
     'Corvus frugilegus',   # Roek
 ]
 
-# Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOGS_DIR / "seasonal-analysis.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+from core.logging import get_logger
+logger = get_logger('flysafe_seasonal_analysis')
 
 
 class SeasonalAnalyzer:

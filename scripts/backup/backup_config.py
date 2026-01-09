@@ -6,6 +6,7 @@ Centrale configuratie voor alle backup scripts
 
 import os
 from pathlib import Path
+from typing import Dict, List
 
 # Bepaal welke Pi dit is
 HOSTNAME = os.uname().nodename
@@ -116,9 +117,13 @@ CONFIG_FILES = [
 ]
 
 # Email configuratie (laden uit .secrets)
-def load_secrets():
-    """Laad credentials uit .secrets bestand"""
-    secrets = {}
+def load_secrets() -> Dict[str, str]:
+    """Laad credentials uit .secrets bestand.
+
+    Returns:
+        Dictionary met key-value pairs uit .secrets bestand.
+    """
+    secrets: Dict[str, str] = {}
     secrets_file = EMSN2_BASE / '.secrets'
 
     if secrets_file.exists():

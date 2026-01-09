@@ -14,7 +14,6 @@ Draait via systemd timer (dagelijks om 03:00)
 
 import os
 import sys
-import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -24,23 +23,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 try:
     import psycopg2
     from core.config import get_postgres_config
+    from core.logging import get_logger
 except ImportError as e:
     print(f"Import error: {e}")
     sys.exit(1)
 
-# Logging
-LOG_DIR = Path("/mnt/usb/logs")
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_DIR / "database_cleanup.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('database_cleanup')
 
 # Cleanup configuratie: tabel -> (kolom, dagen retentie)
 # VOLGORDE IS BELANGRIJK: child tables eerst (FK constraints)

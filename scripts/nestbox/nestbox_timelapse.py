@@ -26,6 +26,7 @@ import subprocess
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import List, Tuple, Optional
 import sys
 
 # Configuratie
@@ -39,9 +40,25 @@ def get_output_dir(nestbox_id: str) -> Path:
     return OUTPUT_BASE / nestbox_id
 
 
-def get_screenshots(nestbox_id: str, start_date: datetime, end_date: datetime,
-                    night_only: bool = False, day_only: bool = False) -> list:
-    """Verzamel screenshots binnen de opgegeven periode."""
+def get_screenshots(
+    nestbox_id: str,
+    start_date: datetime,
+    end_date: datetime,
+    night_only: bool = False,
+    day_only: bool = False
+) -> List[Tuple[datetime, Path]]:
+    """Verzamel screenshots binnen de opgegeven periode.
+
+    Args:
+        nestbox_id: ID van nestkast ('voor', 'midden', 'achter').
+        start_date: Begin van periode.
+        end_date: Einde van periode.
+        night_only: Alleen nacht screenshots (22:00-06:00).
+        day_only: Alleen dag screenshots.
+
+    Returns:
+        Lijst van (timestamp, path) tuples gesorteerd op tijd.
+    """
     screenshots = []
     base_path = SCREENSHOTS_BASE / nestbox_id / "screenshots"
 
@@ -79,8 +96,15 @@ def get_screenshots(nestbox_id: str, start_date: datetime, end_date: datetime,
     return screenshots
 
 
-def get_available_date_range(nestbox_id: str) -> tuple:
-    """Bepaal beschikbare datum range voor een nestkast."""
+def get_available_date_range(nestbox_id: str) -> Tuple[Optional[datetime], Optional[datetime]]:
+    """Bepaal beschikbare datum range voor een nestkast.
+
+    Args:
+        nestbox_id: ID van nestkast.
+
+    Returns:
+        Tuple van (eerste_datum, laatste_datum) of (None, None).
+    """
     base_path = SCREENSHOTS_BASE / nestbox_id / "screenshots"
     if not base_path.exists():
         return None, None
@@ -100,9 +124,25 @@ def get_available_date_range(nestbox_id: str) -> tuple:
     return None, None
 
 
-def create_timelapse(screenshots: list, output_path: Path, fps: int = 10,
-                     resolution: str = "1280x720", show_timestamp: bool = True) -> bool:
-    """Maak timelapse video met ffmpeg."""
+def create_timelapse(
+    screenshots: List[Tuple[datetime, Path]],
+    output_path: Path,
+    fps: int = 10,
+    resolution: str = "1280x720",
+    show_timestamp: bool = True
+) -> bool:
+    """Maak timelapse video met ffmpeg.
+
+    Args:
+        screenshots: Lijst van (timestamp, path) tuples.
+        output_path: Pad voor output video.
+        fps: Frames per seconde.
+        resolution: Video resolutie (WxH).
+        show_timestamp: Timestamp overlay tonen.
+
+    Returns:
+        True bij succes, False bij fout.
+    """
     if not screenshots:
         print("Error: Geen screenshots om te verwerken")
         return False

@@ -18,13 +18,13 @@ import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-import logging
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
 # Import core modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.config import get_postgres_config
+from core.logging import get_logger
 
 # Configuration (from core module)
 DB_CONFIG = get_postgres_config()
@@ -34,17 +34,8 @@ TIME_WINDOW_HOURS = 2  # Look for detections within +/- 2 hours of radar observa
 MIN_CONFIDENCE = 0.7   # Only count high-confidence detections
 CORRELATION_WEIGHT = 0.7  # Weight for high-confidence detections
 
-# Setup logging
-LOGS_DIR = Path("/mnt/usb/logs")
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOGS_DIR / "radar-correlation.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('flysafe_radar_correlation')
 
 
 class RadarCorrelationAnalyzer:

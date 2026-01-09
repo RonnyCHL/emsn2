@@ -10,35 +10,25 @@ import time
 import sys
 import os
 import json
-import logging
 from datetime import datetime
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
-# Logging setup
-LOG_DIR = Path("/mnt/usb/logs")
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_DIR / "network_monitor.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+from typing import Dict, List, Optional, Tuple, Any
 
 # Core modules path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
     from core.config import get_postgres_config, get_mqtt_config
+    from core.logging import get_logger
     _pg = get_postgres_config()
     _mqtt = get_mqtt_config()
 except ImportError as e:
-    logger.error(f"Failed to import core modules: {e}")
+    print(f"Failed to import core modules: {e}")
     sys.exit(1)
+
+# Centrale logger
+logger = get_logger('network_monitor')
 
 # PostgreSQL config (from core module)
 PG_CONFIG = _pg
@@ -104,8 +94,17 @@ SERVICES = [
 ]
 
 
-def ping_device(ip, count=3, timeout=2):
-    """Ping een apparaat en return latency en packet loss"""
+def ping_device(ip: str, count: int = 3, timeout: int = 2) -> Tuple[bool, Optional[float], float]:
+    """Ping een apparaat en return latency en packet loss.
+
+    Args:
+        ip: IP adres om te pingen.
+        count: Aantal ping pogingen.
+        timeout: Timeout per ping in seconden.
+
+    Returns:
+        Tuple van (is_online, latency_ms, packet_loss_pct).
+    """
     try:
         result = subprocess.run(
             ['ping', '-c', str(count), '-W', str(timeout), ip],
@@ -149,8 +148,17 @@ def ping_device(ip, count=3, timeout=2):
         return False, None, 100.0
 
 
-def check_tcp_port(host, port, timeout=5):
-    """Check of een TCP poort open is"""
+def check_tcp_port(host: str, port: int, timeout: int = 5) -> Tuple[bool, Optional[float], Optional[str]]:
+    """Check of een TCP poort open is.
+
+    Args:
+        host: Hostname of IP adres.
+        port: Poort nummer.
+        timeout: Timeout in seconden.
+
+    Returns:
+        Tuple van (is_open, response_time_ms, error_message).
+    """
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout)
@@ -169,8 +177,16 @@ def check_tcp_port(host, port, timeout=5):
         return False, None, str(e)
 
 
-def check_http_service(url, timeout=10):
-    """Check of een HTTP service bereikbaar is"""
+def check_http_service(url: str, timeout: int = 10) -> Tuple[bool, Optional[float], Optional[int], Optional[str]]:
+    """Check of een HTTP service bereikbaar is.
+
+    Args:
+        url: URL om te checken.
+        timeout: Timeout in seconden.
+
+    Returns:
+        Tuple van (is_available, response_time_ms, status_code, error_message).
+    """
     try:
         import urllib.request
         import urllib.error
@@ -195,8 +211,15 @@ def check_http_service(url, timeout=10):
         return False, None, None, str(e)
 
 
-def check_device(device):
-    """Check een apparaat en return resultaat"""
+def check_device(device: Dict[str, str]) -> Dict[str, Any]:
+    """Check een apparaat en return resultaat.
+
+    Args:
+        device: Device configuratie dictionary.
+
+    Returns:
+        Dictionary met device status informatie.
+    """
     is_online, latency, packet_loss = ping_device(device['ip'])
 
     return {
@@ -210,8 +233,16 @@ def check_device(device):
     }
 
 
-def check_service(service, device_ip_map):
-    """Check een service en return resultaat"""
+def check_service(service: Dict[str, Any], device_ip_map: Dict[str, str]) -> Optional[Dict[str, Any]]:
+    """Check een service en return resultaat.
+
+    Args:
+        service: Service configuratie dictionary.
+        device_ip_map: Mapping van device namen naar IP adressen.
+
+    Returns:
+        Dictionary met service status informatie of None.
+    """
     device_name = service['device']
     device_ip = device_ip_map.get(device_name)
 
@@ -237,8 +268,16 @@ def check_service(service, device_ip_map):
     }
 
 
-def save_to_database(device_results, service_results):
-    """Sla resultaten op in PostgreSQL"""
+def save_to_database(device_results: List[Dict[str, Any]], service_results: List[Optional[Dict[str, Any]]]) -> bool:
+    """Sla resultaten op in PostgreSQL.
+
+    Args:
+        device_results: Lijst met device status resultaten.
+        service_results: Lijst met service status resultaten.
+
+    Returns:
+        True bij succes, False bij fout.
+    """
     try:
         import psycopg2
 
@@ -292,8 +331,13 @@ def save_to_database(device_results, service_results):
         return False
 
 
-def publish_to_mqtt(device_results, service_results):
-    """Publiceer status naar MQTT voor Home Assistant"""
+def publish_to_mqtt(device_results: List[Dict[str, Any]], service_results: List[Optional[Dict[str, Any]]]) -> None:
+    """Publiceer status naar MQTT voor Home Assistant.
+
+    Args:
+        device_results: Lijst met device status resultaten.
+        service_results: Lijst met service status resultaten.
+    """
     try:
         import paho.mqtt.client as mqtt
 
@@ -336,8 +380,8 @@ def publish_to_mqtt(device_results, service_results):
         logger.warning(f"MQTT publish failed: {e}")
 
 
-def main():
-    """Main monitoring loop"""
+def main() -> None:
+    """Main monitoring loop."""
     logger.info("=" * 60)
     logger.info("EMSN Network Monitor - Starting scan")
     logger.info("=" * 60)

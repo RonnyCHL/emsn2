@@ -12,23 +12,16 @@ Draait via systemd timer (dagelijks om 04:00)
 
 import os
 import sys
-import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 
-# Logging
-LOG_DIR = Path("/mnt/usb/logs")
-LOG_DIR.mkdir(parents=True, exist_ok=True)
+# Add core modules path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_DIR / "log_cleanup.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+from core.logging import get_logger
+
+# Centrale logger
+logger = get_logger('log_cleanup')
 
 # Configuration
 RETENTION_DAYS = 14  # Keep logs for 14 days

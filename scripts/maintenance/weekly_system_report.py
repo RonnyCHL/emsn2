@@ -26,7 +26,6 @@ import sys
 import json
 import subprocess
 import smtplib
-import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from email.mime.text import MIMEText
@@ -40,23 +39,13 @@ try:
     import psycopg2
     import yaml
     from core.config import get_postgres_config
+    from core.logging import get_logger
 except ImportError as e:
     print(f"Import error: {e}")
     sys.exit(1)
 
-# Logging
-LOG_DIR = Path("/mnt/usb/logs")
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_DIR / "weekly_system_report.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('weekly_system_report')
 
 # Configuration
 STATIONS = {

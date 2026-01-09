@@ -13,23 +13,21 @@ Author: EMSN Team
 """
 
 import os
+import sys
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-import logging
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import math
 
 # Import core modules
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.config import get_postgres_config
+from core.logging import get_logger
 
 # Configuration (from core module)
 DB_CONFIG = get_postgres_config()
-
-LOGS_DIR = Path("/mnt/usb/logs")
 
 # Migration season parameters (Netherlands)
 SPRING_MIGRATION = {'start': (3, 1), 'peak': (4, 15), 'end': (5, 31)}  # March-May
@@ -44,16 +42,8 @@ IDEAL_CONDITIONS = {
     'no_precipitation': True
 }
 
-# Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOGS_DIR / "migration-forecast.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('flysafe_migration_forecast')
 
 
 class MigrationForecaster:

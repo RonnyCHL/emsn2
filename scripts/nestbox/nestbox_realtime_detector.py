@@ -30,7 +30,9 @@ import torch
 import torch.nn as nn
 from torchvision import transforms, models
 from PIL import Image
+from typing import Dict, List, Any, Optional, Tuple
 import psycopg2
+from psycopg2.extensions import connection as PgConnection
 
 # Voeg project root toe voor imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -51,8 +53,16 @@ DB_CONFIG = get_postgres_config()
 NESTBOXES = ['voor', 'midden', 'achter']
 
 
-def create_model(num_classes=2, simple_classifier=False):
-    """Maak MobileNetV2 model met aangepaste classifier"""
+def create_model(num_classes: int = 2, simple_classifier: bool = False) -> nn.Module:
+    """Maak MobileNetV2 model met aangepaste classifier.
+
+    Args:
+        num_classes: Aantal output classes.
+        simple_classifier: Gebruik eenvoudige classifier (nieuwe modellen).
+
+    Returns:
+        PyTorch model.
+    """
     model = models.mobilenet_v2(weights=None)
     num_features = model.classifier[1].in_features
 
@@ -74,8 +84,15 @@ def create_model(num_classes=2, simple_classifier=False):
     return model
 
 
-def load_model(model_path=None):
-    """Laad het getrainde model"""
+def load_model(model_path: Optional[str] = None) -> Tuple[nn.Module, List[str]]:
+    """Laad het getrainde model.
+
+    Args:
+        model_path: Pad naar model checkpoint.
+
+    Returns:
+        Tuple van (model, class namen).
+    """
     if model_path is None:
         model_path = MODEL_PATH
 
@@ -103,8 +120,17 @@ def load_model(model_path=None):
     return model, classes
 
 
-def predict_image(model, image_path, classes):
-    """Voorspel status van nestkast"""
+def predict_image(model: nn.Module, image_path: str, classes: List[str]) -> Dict[str, Any]:
+    """Voorspel status van nestkast.
+
+    Args:
+        model: PyTorch model.
+        image_path: Pad naar afbeelding.
+        classes: Lijst met class namen.
+
+    Returns:
+        Dictionary met is_occupied, species, confidence, detected_class.
+    """
     transform = transforms.Compose([
         transforms.Resize((INPUT_SIZE, INPUT_SIZE)),
         transforms.ToTensor(),
@@ -135,13 +161,25 @@ def predict_image(model, image_path, classes):
     }
 
 
-def get_db_connection():
-    """Maak database connectie"""
+def get_db_connection() -> PgConnection:
+    """Maak database connectie.
+
+    Returns:
+        PostgreSQL connectie.
+    """
     return psycopg2.connect(**DB_CONFIG)
 
 
-def get_current_status(conn, nestbox_id):
-    """Haal huidige status op uit nestbox_events (laatste event)"""
+def get_current_status(conn: PgConnection, nestbox_id: str) -> Optional[Dict[str, Any]]:
+    """Haal huidige status op uit nestbox_events (laatste event).
+
+    Args:
+        conn: Database connectie.
+        nestbox_id: ID van nestkast.
+
+    Returns:
+        Dictionary met event_type, species, timestamp of None.
+    """
     cur = conn.cursor()
     cur.execute("""
         SELECT event_type, species, event_timestamp

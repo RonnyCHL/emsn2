@@ -18,7 +18,6 @@ Auteur: EMSN Project
 import sys
 import time
 import math
-import logging
 import signal
 from pathlib import Path
 from datetime import datetime
@@ -31,6 +30,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import psycopg2
 from core.config import get_postgres_config
+from core.logging import get_logger
 
 # GPIO pins
 DHT_PIN = 4       # GPIO4 voor DHT22
@@ -48,13 +48,8 @@ COOLDOWN_TIME = 120
 # Database config via core.config
 PG_CONFIG = get_postgres_config()
 
-# Logging setup
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger('climate_control')
+# Centrale logger
+logger = get_logger('climate_control')
 
 
 @dataclass

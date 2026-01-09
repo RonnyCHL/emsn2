@@ -10,7 +10,6 @@ import os
 import sys
 import json
 import time
-import logging
 import smtplib
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
@@ -28,6 +27,7 @@ sys.path.insert(0, str(PROJECT_ROOT / 'config'))
 
 # Import EMSN core modules
 from scripts.core.config import get_postgres_config, get_mqtt_config
+from scripts.core.logging import get_logger
 
 # Get configurations from core
 _pg = get_postgres_config()
@@ -57,16 +57,8 @@ SMTP_PASSWORD = os.getenv("EMSN_SMTP_PASSWORD")
 LOG_DIR = Path("/mnt/usb/logs")
 STATE_FILE = LOG_DIR / "bridge_monitor_state.json"
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_DIR / "bridge_monitor.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('bridge_monitor')
 
 
 class BridgeMonitor:

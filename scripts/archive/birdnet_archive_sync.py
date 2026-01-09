@@ -19,7 +19,6 @@ Auteur: EMSN 2.0
 
 import os
 import sys
-import logging
 import argparse
 import subprocess
 import re
@@ -33,6 +32,7 @@ from psycopg2.extras import execute_values
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.config import get_postgres_config
 from core.network import HOSTS
+from core.logging import get_logger
 
 # Configuratie
 ARCHIVE_BASE = Path("/mnt/nas-birdnet-archive")
@@ -53,16 +53,8 @@ STATIONS = {
 # Database configuratie via core module
 DB_CONFIG = get_postgres_config()
 
-# Logging setup
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('/home/ronny/emsn2/logs/archive_sync.log')
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('birdnet_archive_sync')
 
 
 def parse_filename(filename: str) -> Optional[Dict]:

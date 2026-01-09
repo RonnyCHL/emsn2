@@ -12,7 +12,6 @@ import os
 import sys
 import json
 import subprocess
-import logging
 import smtplib
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -29,6 +28,7 @@ sys.path.insert(0, str(PROJECT_ROOT / 'config'))
 # Import EMSN core modules
 from scripts.core.config import get_mqtt_config, get_smtp_config
 from scripts.core.network import HOSTS
+from scripts.core.logging import get_logger
 
 # Get config from core
 _mqtt = get_mqtt_config()
@@ -45,16 +45,8 @@ SMTP_PASSWORD = _smtp.get('password') or os.getenv("EMSN_SMTP_PASSWORD")
 MQTT_USER = _mqtt.get('username')
 MQTT_PASS = _mqtt.get('password')
 
-# Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_DIR / "mqtt_failover.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('mqtt_failover')
 
 
 class MQTTFailover:

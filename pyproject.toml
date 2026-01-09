@@ -1,0 +1,73 @@
+# EMSN 2.0 Project Configuration
+# Python package metadata en tool configuraties
+
+[project]
+name = "emsn2"
+version = "2.0.0"
+description = "Ecologisch Monitoring Systeem Nijverdal - Biodiversity monitoring with BirdNET-Pi"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    {name = "Ronny Hullegie", email = "ronny@ronnyhullegie.nl"}
+]
+
+[tool.black]
+line-length = 120
+target-version = ['py311']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+    | \.venv
+    | venv
+    | __pycache__
+    | \.mypy_cache
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip = [".venv", "venv", "__pycache__"]
+known_first_party = ["core", "scripts"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+no_strict_optional = true
+exclude = [
+    "venv/",
+    ".venv/",
+    "__pycache__/",
+]
+
+# Per-module strictheid (strenger voor core modules)
+[[tool.mypy.overrides]]
+module = "core.*"
+warn_return_any = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", "venv", ".venv"]
+skips = ["B101", "B311"]  # assert_used, random
+
+[tool.flake8]
+max-line-length = 120
+extend-ignore = ["E501", "W503", "E203"]
+exclude = [".git", "__pycache__", ".venv", "venv"]
+per-file-ignores = [
+    "__init__.py:F401",  # unused imports in __init__
+]

@@ -14,12 +14,16 @@ Author: EMSN Team
 """
 
 import os
+import sys
 import subprocess
 import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
-import logging
 from PIL import Image, ImageDraw, ImageFont
+
+# Import core modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.logging import get_logger
 
 # Configuration
 STORAGE_BASE = Path("/mnt/usb/flysafe")
@@ -27,16 +31,8 @@ IMAGES_DIR = STORAGE_BASE / "images"
 TIMELAPSE_DIR = STORAGE_BASE / "timelapses"
 LOGS_DIR = Path("/mnt/usb/logs")
 
-# Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOGS_DIR / "timelapse-generator.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('flysafe_timelapse_generator')
 
 
 class TimelapseGenerator:

@@ -26,7 +26,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, List, Tuple, Any
 
 import paho.mqtt.client as mqtt
 import psycopg2
@@ -65,8 +65,12 @@ SQLITE_RETRY_ATTEMPTS = 3
 SQLITE_RETRY_DELAY = 5  # seconds
 
 
-def load_secrets() -> dict:
-    """Load database and MQTT credentials."""
+def load_secrets() -> Dict[str, Dict[str, Any]]:
+    """Load database and MQTT credentials.
+
+    Returns:
+        Dictionary with 'postgres' and 'mqtt' configuration dicts.
+    """
     sys.path.insert(0, str(Path(__file__).parent.parent))
     try:
         from core.config import get_postgres_config, get_mqtt_config
@@ -197,7 +201,15 @@ class MQTTPublisher:
 # =============================================================================
 
 def connect_sqlite(path: Path, logger: logging.Logger) -> Optional[sqlite3.Connection]:
-    """Connect to SQLite with retry logic for database locks."""
+    """Connect to SQLite with retry logic for database locks.
+
+    Args:
+        path: Path to SQLite database file.
+        logger: Logger instance for output.
+
+    Returns:
+        SQLite connection or None on failure.
+    """
     for attempt in range(1, SQLITE_RETRY_ATTEMPTS + 1):
         try:
             conn = sqlite3.connect(str(path), timeout=30)
@@ -214,8 +226,16 @@ def connect_sqlite(path: Path, logger: logging.Logger) -> Optional[sqlite3.Conne
     return None
 
 
-def connect_postgres(config: dict, logger: logging.Logger) -> Optional[psycopg2.extensions.connection]:
-    """Connect to PostgreSQL database."""
+def connect_postgres(config: Dict[str, Any], logger: logging.Logger) -> Optional[psycopg2.extensions.connection]:
+    """Connect to PostgreSQL database.
+
+    Args:
+        config: PostgreSQL configuration dict with host, port, database, user, password.
+        logger: Logger instance for output.
+
+    Returns:
+        PostgreSQL connection or None on failure.
+    """
     try:
         conn = psycopg2.connect(
             host=config["host"],
@@ -244,11 +264,14 @@ class SyncResult:
     errors: int = 0
 
 
-def get_sqlite_detections(conn: sqlite3.Connection) -> dict:
-    """
-    Fetch all detections from SQLite, keyed by file_name.
+def get_sqlite_detections(conn: sqlite3.Connection) -> Dict[str, Dict[str, Any]]:
+    """Fetch all detections from SQLite, keyed by file_name.
 
-    Returns dict mapping file_name -> detection data
+    Args:
+        conn: SQLite database connection.
+
+    Returns:
+        Dictionary mapping file_name -> detection data dict.
     """
     cursor = conn.cursor()
     cursor.execute("""
@@ -280,11 +303,17 @@ def get_sqlite_detections(conn: sqlite3.Connection) -> dict:
     return detections
 
 
-def get_postgres_detections(conn: psycopg2.extensions.connection, station: str) -> tuple[dict, dict]:
-    """
-    Fetch all detections from PostgreSQL for a station.
+def get_postgres_detections(
+    conn: psycopg2.extensions.connection, station: str
+) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
+    """Fetch all detections from PostgreSQL for a station.
+
+    Args:
+        conn: PostgreSQL database connection.
+        station: Station name ('zolder' or 'berging').
 
     Returns:
+        Tuple of:
         - dict mapping file_name -> {id, species, common_name, deleted, date, time}
         - dict mapping date+time -> list of detections (for species correction matching)
     """
@@ -322,11 +351,18 @@ def get_postgres_detections(conn: psycopg2.extensions.connection, station: str) 
 
 def sync_station(
     station_config: StationConfig,
-    pg_config: dict,
+    pg_config: Dict[str, Any],
     logger: logging.Logger,
 ) -> SyncResult:
-    """
-    Synchronize a single station's detections to PostgreSQL.
+    """Synchronize a single station's detections to PostgreSQL.
+
+    Args:
+        station_config: Configuration for the station to sync.
+        pg_config: PostgreSQL connection configuration.
+        logger: Logger instance for output.
+
+    Returns:
+        SyncResult with counts of inserted, updated, deleted records.
 
     Logic:
     1. For each SQLite detection (by file_name):
@@ -534,8 +570,16 @@ def sync_station(
     return result
 
 
-def get_station_stats(pg_config: dict, station: str) -> dict:
-    """Get statistics for a station from PostgreSQL."""
+def get_station_stats(pg_config: Dict[str, Any], station: str) -> Dict[str, Any]:
+    """Get statistics for a station from PostgreSQL.
+
+    Args:
+        pg_config: PostgreSQL connection configuration.
+        station: Station name ('zolder' or 'berging').
+
+    Returns:
+        Dictionary with station statistics (active_detections, unique_species, etc.)
+    """
     try:
         conn = psycopg2.connect(**pg_config)
         cursor = conn.cursor()
@@ -569,7 +613,12 @@ def get_station_stats(pg_config: dict, station: str) -> dict:
 # Main
 # =============================================================================
 
-def main():
+def main() -> int:
+    """Main entry point for lifetime sync.
+
+    Returns:
+        Exit code (0 for success, 1 for errors).
+    """
     parser = argparse.ArgumentParser(description="EMSN Lifetime Sync")
     parser.add_argument(
         "--station",

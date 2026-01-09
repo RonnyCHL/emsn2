@@ -13,7 +13,6 @@ import sys
 import json
 import time
 import sqlite3
-import logging
 import socket
 from datetime import datetime
 from pathlib import Path
@@ -26,26 +25,10 @@ sys.path.insert(0, str(PROJECT_ROOT / 'config'))
 
 # Import EMSN core modules
 from scripts.core.config import get_mqtt_config
+from scripts.core.logging import get_logger
 
 # Get MQTT config from core
 _mqtt = get_mqtt_config()
-
-# Import vocalization classifier (lazy loaded)
-_vocalization_classifier = None
-
-def get_vocalization_classifier():
-    """Lazy load vocalization classifier om startup te versnellen."""
-    global _vocalization_classifier
-    if _vocalization_classifier is None:
-        try:
-            sys.path.insert(0, str(Path(__file__).parent.parent / 'vocalization'))
-            from vocalization_classifier import VocalizationClassifier
-            _vocalization_classifier = VocalizationClassifier(max_cached_models=3)
-            logging.getLogger(__name__).info("Vocalization classifier loaded")
-        except Exception as e:
-            logging.getLogger(__name__).warning(f"Vocalization classifier not available: {e}")
-            _vocalization_classifier = False  # Mark as failed, don't retry
-    return _vocalization_classifier if _vocalization_classifier else None
 
 # Configuration
 STATION_NAME = os.getenv("EMSN_STATION", socket.gethostname().replace("emsn2-", ""))
@@ -68,17 +51,25 @@ CHECK_INTERVAL = 30  # seconds
 MAX_CATCHUP_DETECTIONS = 50  # Skip to current if backlog exceeds this
 MAX_DETECTION_AGE_SECONDS = 900  # 15 minuten - oudere detecties niet naar Ulanzi
 
-# Logging
-LOG_DIR = Path("/mnt/usb/logs")
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_DIR / f"birdnet_mqtt_{STATION_NAME}.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger(f'birdnet_mqtt_{STATION_NAME}')
+
+# Import vocalization classifier (lazy loaded)
+_vocalization_classifier = None
+
+def get_vocalization_classifier():
+    """Lazy load vocalization classifier om startup te versnellen."""
+    global _vocalization_classifier
+    if _vocalization_classifier is None:
+        try:
+            sys.path.insert(0, str(Path(__file__).parent.parent / 'vocalization'))
+            from vocalization_classifier import VocalizationClassifier
+            _vocalization_classifier = VocalizationClassifier(max_cached_models=3)
+            logger.info("Vocalization classifier loaded")
+        except Exception as e:
+            logger.warning(f"Vocalization classifier not available: {e}")
+            _vocalization_classifier = False  # Mark as failed, don't retry
+    return _vocalization_classifier if _vocalization_classifier else None
 
 
 class BirdNetMQTTPublisher:

@@ -15,6 +15,7 @@ from torchvision import transforms, models
 from PIL import Image
 from datetime import datetime
 from pathlib import Path
+from typing import Dict, List, Any, Optional, Tuple
 import argparse
 import json
 import psycopg2
@@ -33,8 +34,15 @@ CONFIDENCE_THRESHOLD = 0.7  # Minimale confidence voor detectie
 DB_CONFIG = get_postgres_config()
 
 
-def create_model(num_classes=2):
-    """Maak MobileNetV2 model met aangepaste classifier"""
+def create_model(num_classes: int = 2) -> nn.Module:
+    """Maak MobileNetV2 model met aangepaste classifier.
+
+    Args:
+        num_classes: Aantal output classes.
+
+    Returns:
+        PyTorch model.
+    """
     model = models.mobilenet_v2(weights=None)
     num_features = model.classifier[1].in_features
     model.classifier = nn.Sequential(
@@ -47,8 +55,15 @@ def create_model(num_classes=2):
     return model
 
 
-def load_model(model_path=None):
-    """Laad het getrainde model"""
+def load_model(model_path: Optional[str] = None) -> Tuple[nn.Module, Dict[str, Any]]:
+    """Laad het getrainde model.
+
+    Args:
+        model_path: Pad naar model checkpoint, gebruikt default als None.
+
+    Returns:
+        Tuple van (model, checkpoint dict).
+    """
     if model_path is None:
         model_path = MODEL_PATH
 
@@ -69,8 +84,17 @@ def load_model(model_path=None):
     return model, checkpoint
 
 
-def predict_image(model, image_path, classes):
-    """Voorspel welke soort in de nestkast zit (of leeg)"""
+def predict_image(model: nn.Module, image_path: str, classes: List[str]) -> Dict[str, Any]:
+    """Voorspel welke soort in de nestkast zit (of leeg).
+
+    Args:
+        model: PyTorch model voor inferentie.
+        image_path: Pad naar afbeelding.
+        classes: Lijst met class namen.
+
+    Returns:
+        Dictionary met class, confidence, is_occupied, species, probabilities.
+    """
     transform = transforms.Compose([
         transforms.Resize((INPUT_SIZE, INPUT_SIZE)),
         transforms.ToTensor(),
@@ -109,8 +133,23 @@ def predict_image(model, image_path, classes):
     }
 
 
-def analyze_screenshot(image_path, model=None, classes=None, verbose=False):
-    """Analyseer een nestkast screenshot"""
+def analyze_screenshot(
+    image_path: str,
+    model: Optional[nn.Module] = None,
+    classes: Optional[List[str]] = None,
+    verbose: bool = False
+) -> Dict[str, Any]:
+    """Analyseer een nestkast screenshot.
+
+    Args:
+        image_path: Pad naar screenshot.
+        model: PyTorch model (wordt geladen als None).
+        classes: Class namen (worden geladen als None).
+        verbose: Print extra output.
+
+    Returns:
+        Dictionary met analyse resultaten.
+    """
     if model is None:
         model, checkpoint = load_model(MODEL_PATH)
         classes = checkpoint.get('classes', ['leeg', 'bezet'])
@@ -131,8 +170,25 @@ def analyze_screenshot(image_path, model=None, classes=None, verbose=False):
     return result
 
 
-def analyze_nestbox(nestbox_id, model=None, classes=None, latest_only=True, verbose=False):
-    """Analyseer screenshots van een specifieke nestkast"""
+def analyze_nestbox(
+    nestbox_id: str,
+    model: Optional[nn.Module] = None,
+    classes: Optional[List[str]] = None,
+    latest_only: bool = True,
+    verbose: bool = False
+) -> Optional[List[Dict[str, Any]]]:
+    """Analyseer screenshots van een specifieke nestkast.
+
+    Args:
+        nestbox_id: ID van nestkast ('voor', 'midden', 'achter').
+        model: PyTorch model (wordt geladen als None).
+        classes: Class namen (worden geladen als None).
+        latest_only: Alleen laatste screenshot analyseren.
+        verbose: Print extra output.
+
+    Returns:
+        Lijst met analyse resultaten of None.
+    """
     base_path = Path(f"/mnt/nas-birdnet-archive/nestbox/{nestbox_id}/screenshots")
 
     if not base_path.exists():

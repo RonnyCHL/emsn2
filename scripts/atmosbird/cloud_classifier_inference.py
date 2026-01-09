@@ -20,11 +20,15 @@ Model training:
     Zie notebooks/EMSN_Cloud_Classifier_Colab.ipynb in de emsn-vocalization repo.
 """
 
+import sys
 import numpy as np
 from PIL import Image
 from pathlib import Path
 from typing import Dict, Union, Optional
-import logging
+
+# Import core modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.logging import get_logger
 
 # Probeer onnxruntime te importeren
 try:
@@ -34,7 +38,8 @@ except ImportError:
     ONNX_AVAILABLE = False
     ort = None
 
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('cloud_classifier_inference')
 
 
 class CloudClassifierONNX:

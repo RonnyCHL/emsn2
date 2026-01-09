@@ -17,7 +17,6 @@ import psycopg2
 from datetime import datetime, timedelta
 from pathlib import Path
 from PIL import Image
-import logging
 
 # Configuration
 STATION_ID = "berging"
@@ -40,16 +39,12 @@ THUMBNAIL_QUALITY = 75
 # Import core modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.config import get_postgres_config
+from core.logging import get_logger
 
 DB_CONFIG = get_postgres_config()
 
-# Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('atmosbird_archive_sync')
 
 
 class AtmosBirdArchiveSync:

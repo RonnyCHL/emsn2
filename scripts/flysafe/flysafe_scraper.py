@@ -69,20 +69,13 @@ LOGS_DIR = Path("/mnt/usb/logs")
 # Import core modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.config import get_postgres_config
+from core.logging import get_logger
 
 # Database configuration (from core module)
 DB_CONFIG = get_postgres_config()
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOGS_DIR / "flysafe-scraper.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('flysafe_scraper')
 
 
 class FlySafeScraper:

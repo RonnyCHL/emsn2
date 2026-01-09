@@ -11,7 +11,6 @@ import os
 import sys
 import subprocess
 import shutil
-import logging
 import smtplib
 from datetime import datetime
 from email.mime.text import MIMEText
@@ -19,24 +18,15 @@ from pathlib import Path
 
 # Voeg parent directory toe voor imports
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from backup_config import (
     STATION, DATABASE_DIR, LOCAL_LOG_DIR, BIRDNET_DB,
     EMAIL_CONFIG
 )
+from core.logging import get_logger
 
-# Logging setup
-LOCAL_LOG_DIR.mkdir(parents=True, exist_ok=True)
-log_file = LOCAL_LOG_DIR / 'sd_backup_database.log'
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_file),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('sd_backup_database')
 
 
 def send_alert(subject: str, message: str):

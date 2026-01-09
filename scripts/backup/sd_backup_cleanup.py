@@ -11,7 +11,6 @@ Draait dagelijks na de backup via systemd timer
 
 import os
 import sys
-import logging
 import smtplib
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
@@ -19,25 +18,16 @@ from pathlib import Path
 
 # Voeg parent directory toe voor imports
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from backup_config import (
     STATION, IMAGES_DIR, DAILY_DIR, DATABASE_DIR, LOCAL_LOG_DIR,
     RETENTION_DAYS_IMAGES, RETENTION_DAYS_DAILY, RETENTION_DAYS_DATABASE,
     EMAIL_CONFIG, NAS_BACKUP_BASE
 )
+from core.logging import get_logger
 
-# Logging setup
-LOCAL_LOG_DIR.mkdir(parents=True, exist_ok=True)
-log_file = LOCAL_LOG_DIR / 'sd_backup_cleanup.log'
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_file),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
+# Centrale logger
+logger = get_logger('sd_backup_cleanup')
 
 
 def send_alert(subject: str, message: str):
