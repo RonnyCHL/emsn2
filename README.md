@@ -1,5 +1,8 @@
 # EMSN 2.0
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18010564.svg)](https://doi.org/10.5281/zenodo.18010564)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 **EcoMonitoring Systeem Nijverdal**
 
 > *"Je beschermt wat je kent"*
