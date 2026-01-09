@@ -1,0 +1,14 @@
+[Unit]
+Description=Update Homer dashboard with EMSN stats
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ronny
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/homer/update_homer_stats.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
