@@ -1,0 +1,11 @@
+[Unit]
+Description=Dagelijkse export van zeldzame detecties voor Waarneming.nl
+
+[Timer]
+# Draai dagelijks om 06:00 (na rarity cache refresh om 04:00)
+OnCalendar=*-*-* 06:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

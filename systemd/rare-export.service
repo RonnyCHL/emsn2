@@ -1,0 +1,20 @@
+[Unit]
+Description=EMSN Zeldzame Detecties Export voor Waarneming.nl
+After=network-online.target mnt-nas\x2dbirdnet\x2darchive.mount
+Wants=network-online.target
+Requires=mnt-nas\x2dbirdnet\x2darchive.mount
+
+[Service]
+Type=oneshot
+User=ronny
+Group=ronny
+WorkingDirectory=/home/ronny/emsn2
+ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/reports/rare_detections_export.py --days 1
+StandardOutput=journal
+StandardError=journal
+
+# Voorkom dat service blijft hangen
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
