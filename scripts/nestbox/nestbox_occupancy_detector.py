@@ -19,20 +19,18 @@ import argparse
 import json
 import psycopg2
 
+# Voeg project root toe voor imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.config import get_postgres_config
+
 # Configuratie - gebruik het nieuwe soort-herkenning model
 MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_species_model.pt"
 FALLBACK_MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_occupancy_model.pt"
 INPUT_SIZE = 224
 CONFIDENCE_THRESHOLD = 0.7  # Minimale confidence voor detectie
 
-# Database configuratie
-DB_CONFIG = {
-    'host': '192.168.1.25',
-    'port': 5433,
-    'database': 'emsn',
-    'user': 'postgres',
-    'password': 'IwnadBon2iN'
-}
+# Database configuratie via core.config
+DB_CONFIG = get_postgres_config()
 
 
 def create_model(num_classes=2):

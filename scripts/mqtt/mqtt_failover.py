@@ -5,6 +5,7 @@ Checks bridge health and takes corrective action if needed
 Run via timer every 5 minutes
 
 Refactored: 2025-12-29 - Gebruikt nu core modules voor config
+Modernized: 2026-01-09 - Type hints, proper exception handling
 """
 
 import os
@@ -17,6 +18,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from typing import Optional, Dict, Any, List
 import yaml
 
 # Add project root to path for core modules
@@ -25,19 +27,21 @@ sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / 'config'))
 
 # Import EMSN core modules
-from scripts.core.config import get_mqtt_config
+from scripts.core.config import get_mqtt_config, get_smtp_config
 from scripts.core.network import HOSTS
 
-# Get MQTT config from core
+# Get config from core
 _mqtt = get_mqtt_config()
+_smtp = get_smtp_config()
 
 # Configuration
 LOG_DIR = Path("/mnt/usb/logs")
 STATE_FILE = LOG_DIR / "mqtt_failover_state.json"
 CONFIG_PATH = PROJECT_ROOT / "config"
 EMAIL_FILE = CONFIG_PATH / "email.yaml"
-SMTP_PASSWORD = os.getenv("EMSN_SMTP_PASSWORD")
 
+# Credentials uit core.config (fallback naar env var)
+SMTP_PASSWORD = _smtp.get('password') or os.getenv("EMSN_SMTP_PASSWORD")
 MQTT_USER = _mqtt.get('username')
 MQTT_PASS = _mqtt.get('password')
 
@@ -54,17 +58,19 @@ logger = logging.getLogger(__name__)
 
 
 class MQTTFailover:
-    def __init__(self):
-        self.state = self.load_state()
+    """MQTT failover monitor met automatische recovery."""
 
-    def load_state(self):
-        """Load previous state"""
+    def __init__(self) -> None:
+        self.state: Dict[str, Any] = self.load_state()
+
+    def load_state(self) -> Dict[str, Any]:
+        """Load previous state from JSON file."""
         if STATE_FILE.exists():
             try:
                 with open(STATE_FILE) as f:
                     return json.load(f)
-            except:
-                pass
+            except (json.JSONDecodeError, IOError, OSError) as e:
+                logger.warning(f"Could not load state file: {e}")
         return {
             "last_check": None,
             "consecutive_failures": 0,
@@ -72,21 +78,21 @@ class MQTTFailover:
             "last_alert": None,
         }
 
-    def save_state(self):
-        """Save state"""
+    def save_state(self) -> None:
+        """Save state to JSON file."""
         self.state["last_check"] = datetime.now().isoformat()
         with open(STATE_FILE, 'w') as f:
             json.dump(self.state, f, indent=2)
 
-    def load_email_config(self):
-        """Load email configuration"""
+    def load_email_config(self) -> Optional[Dict[str, Any]]:
+        """Load email configuration from YAML file."""
         if not EMAIL_FILE.exists():
             return None
         with open(EMAIL_FILE) as f:
             return yaml.safe_load(f)
 
-    def send_alert(self, subject, body):
-        """Send email alert"""
+    def send_alert(self, subject: str, body: str) -> bool:
+        """Send email alert via SMTP."""
         config = self.load_email_config()
         if not config or not SMTP_PASSWORD:
             logger.warning("Email not configured")
@@ -94,7 +100,7 @@ class MQTTFailover:
 
         smtp_config = config.get('smtp', {})
         email_config = config.get('email', {})
-        recipients = config.get('recipients', [])
+        recipients: List[str] = config.get('recipients', [])
 
         if not recipients:
             return False
@@ -115,12 +121,12 @@ class MQTTFailover:
 
             logger.info(f"Alert sent: {subject}")
             return True
-        except Exception as e:
+        except (smtplib.SMTPException, ConnectionError, OSError) as e:
             logger.error(f"Failed to send alert: {e}")
             return False
 
-    def check_mosquitto_status(self, host="localhost"):
-        """Check if Mosquitto is running"""
+    def check_mosquitto_status(self, host: str = "localhost") -> bool:
+        """Check if Mosquitto is running on specified host."""
         try:
             if host == "localhost":
                 result = subprocess.run(
@@ -136,12 +142,12 @@ class MQTTFailover:
                     capture_output=True, text=True, timeout=10
                 )
                 return result.stdout.strip() == "active"
-        except Exception as e:
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError) as e:
             logger.error(f"Could not check Mosquitto status on {host}: {e}")
             return False
 
-    def check_bridge_connected(self):
-        """Check if bridges are connected via MQTT notification topics"""
+    def check_bridge_connected(self) -> Dict[str, Optional[bool]]:
+        """Check if bridges are connected via MQTT notification topics."""
         bridges = {
             "berging-to-zolder": None,  # None = unknown, True = connected, False = disconnected
             "zolder-to-berging": None,
@@ -168,7 +174,7 @@ class MQTTFailover:
                     elif "bridge/zolder-status" in topic:
                         bridges["zolder-to-berging"] = payload.strip() == "1"
 
-        except Exception as e:
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError) as e:
             logger.warning(f"Could not check bridge status via MQTT: {e}")
 
         # If MQTT check didn't work, fall back to log parsing
@@ -189,13 +195,13 @@ class MQTTFailover:
                         if "bridge-to-berging" in line:
                             bridges["zolder-to-berging"] = True
 
-            except Exception as e:
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError) as e:
                 logger.error(f"Could not check bridge status via logs: {e}")
 
         return bridges
 
-    def restart_mosquitto(self, host="localhost"):
-        """Restart Mosquitto service"""
+    def restart_mosquitto(self, host: str = "localhost") -> bool:
+        """Restart Mosquitto service on specified host."""
         try:
             if host == "localhost":
                 result = subprocess.run(
@@ -218,23 +224,23 @@ class MQTTFailover:
 
             return success
 
-        except Exception as e:
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError) as e:
             logger.error(f"Could not restart Mosquitto on {host}: {e}")
             return False
 
-    def should_alert(self):
-        """Check if we should send an alert (1 hour cooldown)"""
+    def should_alert(self) -> bool:
+        """Check if we should send an alert (1 hour cooldown)."""
         if not self.state.get("last_alert"):
             return True
         last = datetime.fromisoformat(self.state["last_alert"])
         return datetime.now() - last > timedelta(hours=1)
 
-    def run(self):
-        """Main check routine"""
+    def run(self) -> bool:
+        """Main check routine. Returns True if all checks pass."""
         logger.info("Starting MQTT failover check")
 
-        issues = []
-        actions = []
+        issues: List[str] = []
+        actions: List[str] = []
 
         # Check Zolder Mosquitto
         zolder_ok = self.check_mosquitto_status("localhost")

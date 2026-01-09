@@ -54,8 +54,8 @@ class CooldownPublisher:
             if self.pg_conn:
                 try:
                     self.pg_conn.close()
-                except:
-                    pass
+                except (Exception, OSError):
+                    pass  # Connection cleanup is non-critical
             self.pg_conn = psycopg2.connect(**PG_CONFIG)
             self.pg_conn.autocommit = True  # Voorkom idle in transaction
             self.logger.success("Connected to database")

@@ -10,9 +10,12 @@ Type=oneshot
 User=root
 Group=root
 ExecStart=/usr/bin/python3 /home/ronny/emsn2/scripts/backup/sd_backup_daily.py
-TimeoutStartSec=3600
+# 90 minuten timeout (rsync ~60 min + marge voor cleanup/stats)
+TimeoutStartSec=5400
 StandardOutput=journal
 StandardError=journal
+# Herstart niet bij warning exit code (1)
+SuccessExitStatus=1
 
 [Install]
 WantedBy=multi-user.target

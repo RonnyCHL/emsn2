@@ -142,7 +142,7 @@ def _format_date(date_str: str) -> str:
         month_names = ['januari', 'februari', 'maart', 'april', 'mei', 'juni',
                        'juli', 'augustus', 'september', 'oktober', 'november', 'december']
         return f"{day_names[dt.weekday()]} {dt.day} {month_names[dt.month - 1]}"
-    except:
+    except (ValueError, IndexError):
         return date_str
 
 

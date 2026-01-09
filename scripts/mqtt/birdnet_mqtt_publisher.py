@@ -88,15 +88,15 @@ class BirdNetMQTTPublisher:
         self.connected = False
         self._check_catchup_needed()
 
-    def load_last_id(self):
-        """Load last processed detection ID"""
+    def load_last_id(self) -> int:
+        """Load last processed detection ID."""
         if STATE_FILE.exists():
             try:
                 with open(STATE_FILE) as f:
                     data = json.load(f)
                     return data.get("last_detection_id", 0)
-            except:
-                pass
+            except (json.JSONDecodeError, IOError, OSError) as e:
+                logger.warning(f"Could not load state file: {e}")
         return 0
 
     def save_last_id(self):

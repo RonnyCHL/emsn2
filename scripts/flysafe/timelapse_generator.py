@@ -72,7 +72,7 @@ class TimelapseGenerator:
             date_str = parts[2]
             time_str = parts[3]
             return datetime.strptime(f"{date_str}_{time_str}", '%Y%m%d_%H%M%S')
-        except:
+        except (IndexError, ValueError):
             return datetime.now()
 
     def add_timestamp_overlay(self, image_path, timestamp, output_path):
@@ -86,7 +86,7 @@ class TimelapseGenerator:
             # Try to use a nice font, fallback to default
             try:
                 font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
-            except:
+            except (IOError, OSError):
                 font = ImageFont.load_default()
 
             # Format timestamp

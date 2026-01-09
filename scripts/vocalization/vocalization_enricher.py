@@ -235,8 +235,8 @@ class VocalizationEnricher:
             if station == 'berging' and audio_file and '/tmp/' in str(audio_file):
                 try:
                     Path(audio_file).unlink(missing_ok=True)
-                except:
-                    pass
+                except OSError:
+                    pass  # File cleanup is non-critical
 
         return None, None
 
@@ -335,8 +335,8 @@ class VocalizationEnricher:
                 if self.pg_conn:
                     try:
                         self.pg_conn.close()
-                    except:
-                        pass
+                    except (Exception, OSError):
+                        pass  # Connection cleanup is non-critical
                     self.pg_conn = None
 
             time.sleep(interval_minutes * 60)

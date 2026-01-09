@@ -177,7 +177,8 @@ def train_species(name, dirname):
                     match = re.search(r'(\d+\.?\d*)%', line)
                     if match:
                         acc = float(match.group(1)) / 100
-                except: pass
+                except (ValueError, AttributeError):
+                    pass
 
         update_status(name, 'completed', 'Voltooid', 100, accuracy=acc)
         print(f"\n  SUCCESS! Accuracy: {acc:.1%}")

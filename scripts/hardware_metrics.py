@@ -37,7 +37,7 @@ def get_cpu_temperature():
         with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
             temp = float(f.read().strip()) / 1000.0
             return round(temp, 1)
-    except:
+    except (IOError, ValueError, OSError):
         return None
 
 

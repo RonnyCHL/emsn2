@@ -366,8 +366,8 @@ def check_once():
         )
         if result.stdout:
             logger.info(f"Bridge topics: {result.stdout.strip()}")
-    except:
-        pass
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
+        pass  # MQTT check is non-critical
 
 
 if __name__ == "__main__":

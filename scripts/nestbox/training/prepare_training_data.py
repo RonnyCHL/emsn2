@@ -40,7 +40,7 @@ def get_hour_from_filename(filename):
         time_part = filename.split('_')[2].split('.')[0]
         hour = int(time_part[:2])
         return hour
-    except:
+    except (IndexError, ValueError):
         return None
 
 

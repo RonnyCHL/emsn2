@@ -7,13 +7,25 @@
 
 HOMER_CONFIG="/mnt/nas-docker/homer/config.yml"
 LOG_FILE="/var/log/homer-stats.log"
+SECRETS_FILE="/home/ronny/emsn2/.secrets"
 
-# Database credentials
-PGPASSWORD="IwnadBon2iN"
-DB_HOST="192.168.1.25"
-DB_PORT="5433"
-DB_NAME="emsn"
-DB_USER="postgres"
+# Laad database credentials uit .secrets
+if [ -f "$SECRETS_FILE" ]; then
+    export PGPASSWORD=$(grep '^POSTGRES_PASSWORD=' "$SECRETS_FILE" | cut -d'=' -f2)
+    DB_HOST=$(grep '^POSTGRES_HOST=' "$SECRETS_FILE" | cut -d'=' -f2 || echo "192.168.1.25")
+    DB_PORT=$(grep '^POSTGRES_PORT=' "$SECRETS_FILE" | cut -d'=' -f2 || echo "5433")
+    DB_NAME=$(grep '^POSTGRES_DB=' "$SECRETS_FILE" | cut -d'=' -f2 || echo "emsn")
+    DB_USER=$(grep '^POSTGRES_USER=' "$SECRETS_FILE" | cut -d'=' -f2 || echo "postgres")
+else
+    echo "ERROR: Secrets file not found: $SECRETS_FILE"
+    exit 1
+fi
+
+# Fallback defaults
+DB_HOST="${DB_HOST:-192.168.1.25}"
+DB_PORT="${DB_PORT:-5433}"
+DB_NAME="${DB_NAME:-emsn}"
+DB_USER="${DB_USER:-postgres}"
 
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE" 2>/dev/null || echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
@@ -21,7 +33,7 @@ log() {
 
 # Haal archief stats
 get_archive_stats() {
-    PGPASSWORD=$PGPASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -A -c "
+    psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -A -c "
         SELECT
             COUNT(*),
             COUNT(DISTINCT species),
@@ -32,7 +44,7 @@ get_archive_stats() {
 
 # Haal vandaag detecties
 get_today_detections() {
-    PGPASSWORD=$PGPASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -A -c "
+    psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -A -c "
         SELECT COUNT(*) FROM bird_detections
         WHERE detection_timestamp >= CURRENT_DATE
     " 2>/dev/null
@@ -40,7 +52,7 @@ get_today_detections() {
 
 # Haal top soort vandaag (Nederlandse naam)
 get_top_species() {
-    PGPASSWORD=$PGPASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -A -c "
+    psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -A -c "
         SELECT COALESCE(common_name, species) FROM bird_detections
         WHERE detection_timestamp >= CURRENT_DATE
         GROUP BY COALESCE(common_name, species)
@@ -51,7 +63,7 @@ get_top_species() {
 
 # Check stations online (laatste 15 min)
 get_stations_online() {
-    PGPASSWORD=$PGPASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -A -c "
+    psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -A -c "
         SELECT COUNT(DISTINCT station)
         FROM bird_detections
         WHERE detection_timestamp >= NOW() - INTERVAL '15 minutes'

@@ -427,26 +427,19 @@ def get_database_info() -> dict:
     if not HAS_PSYCOPG2:
         return {"error": "psycopg2 niet geinstalleerd"}
 
-    # Try to load from core modules
-    db_password = None
+    # Laad credentials via core.config module
     try:
         import sys
         from pathlib import Path
         sys.path.insert(0, str(Path(__file__).parent))
         from core.config import get_postgres_config
-        _pg = get_postgres_config()
-        db_password = _pg.get('password', '')
-    except ImportError:
-        pass
-    db_password = db_password or os.environ.get('EMSN_DB_PASSWORD', '')
+        pg_config = get_postgres_config()
+    except ImportError as e:
+        return {"error": f"core.config module niet beschikbaar: {e}"}
 
     try:
         conn = psycopg2.connect(
-            host=CONFIG['nas']['ip'],
-            port=CONFIG['nas']['db_port'],
-            database=CONFIG['nas']['db_name'],
-            user=CONFIG['nas']['db_user'],
-            password=db_password,
+            **pg_config,
             connect_timeout=10
         )
         cur = conn.cursor()
@@ -474,7 +467,7 @@ def get_database_info() -> dict:
             try:
                 cur.execute(f"SELECT COUNT(*) FROM {table_name}")
                 row_count = cur.fetchone()[0]
-            except:
+            except (psycopg2.Error, Exception):
                 row_count = "N/A"
 
             info['tables'].append({

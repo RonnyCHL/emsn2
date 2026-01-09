@@ -171,6 +171,74 @@ from enum import Enum
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # ═══════════════════════════════════════════════════════════════
+# CREDENTIALS HELPER (centrale functie voor alle DB connecties)
+# ═══════════════════════════════════════════════════════════════
+
+_pg_config_cache: Optional[Dict[str, Any]] = None
+
+def get_pg_config() -> Optional[Dict[str, Any]]:
+    """
+    Haal PostgreSQL config op via core.config module.
+    Cached voor hergebruik tijdens health check run.
+    """
+    global _pg_config_cache
+
+    if _pg_config_cache is not None:
+        return _pg_config_cache
+
+    try:
+        from core.config import get_postgres_config
+        _pg_config_cache = get_postgres_config()
+        return _pg_config_cache
+    except ImportError:
+        # Fallback: lees direct uit .secrets
+        secrets_file = Path(__file__).parent.parent.parent / '.secrets'
+        if secrets_file.exists():
+            config = {
+                'host': '192.168.1.25',
+                'port': 5433,
+                'database': 'emsn',
+                'user': 'birdpi_zolder',
+                'password': None
+            }
+            with open(secrets_file) as f:
+                for line in f:
+                    if line.startswith('PG_PASS='):
+                        config['password'] = line.strip().split('=', 1)[1]
+                        break
+            if config['password']:
+                _pg_config_cache = config
+                return config
+        return None
+
+
+def get_mqtt_config() -> Optional[Dict[str, Any]]:
+    """Haal MQTT config op via core.config module."""
+    try:
+        from core.config import get_mqtt_config as _get_mqtt
+        return _get_mqtt()
+    except ImportError:
+        # Fallback: lees direct uit .secrets
+        secrets_file = Path(__file__).parent.parent.parent / '.secrets'
+        if secrets_file.exists():
+            config = {
+                'broker': '192.168.1.178',
+                'port': 1883,
+                'username': None,
+                'password': None
+            }
+            with open(secrets_file) as f:
+                for line in f:
+                    if line.startswith('MQTT_USER='):
+                        config['username'] = line.strip().split('=', 1)[1]
+                    elif line.startswith('MQTT_PASS='):
+                        config['password'] = line.strip().split('=', 1)[1]
+            if config['username'] and config['password']:
+                return config
+        return None
+
+
+# ═══════════════════════════════════════════════════════════════
 # CONFIGURATIE
 # ═══════════════════════════════════════════════════════════════
 
@@ -592,7 +660,7 @@ def check_ssh_available(host: str, ip: str) -> bool:
             timeout=5
         )
         return result.returncode == 0
-    except:
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
         return False
 
 

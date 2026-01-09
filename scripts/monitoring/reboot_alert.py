@@ -11,6 +11,7 @@ Analyseert:
 - Uptime history
 
 Ronny Hullegie - EMSN 2.0
+Modernized: 2026-01-09 - Type hints, proper exception handling
 """
 
 import os
@@ -20,6 +21,7 @@ import subprocess
 import socket
 from datetime import datetime
 from pathlib import Path
+from typing import Optional, Dict, Any
 
 # Add core modules path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -54,9 +56,9 @@ def log(message: str):
         print(f"Log write error: {e}")
 
 
-def get_boot_info() -> dict:
-    """Verzamel boot informatie"""
-    info = {
+def get_boot_info() -> Dict[str, Any]:
+    """Verzamel boot informatie."""
+    info: Dict[str, Any] = {
         "hostname": STATION_NAME,
         "boot_time": datetime.now().isoformat(),
         "boot_id": None,
@@ -134,25 +136,25 @@ def get_boot_info() -> dict:
     try:
         with open("/proc/uptime") as f:
             info["uptime_seconds"] = int(float(f.read().split()[0]))
-    except:
-        pass
+    except (IOError, ValueError, OSError) as e:
+        log(f"Uptime read error: {e}")
 
     return info
 
 
-def load_previous_state() -> dict:
-    """Laad vorige shutdown state"""
+def load_previous_state() -> Dict[str, Any]:
+    """Laad vorige shutdown state."""
     if STATE_FILE.exists():
         try:
             with open(STATE_FILE) as f:
                 return json.load(f)
-        except:
-            pass
+        except (json.JSONDecodeError, IOError, OSError) as e:
+            log(f"State load error: {e}")
     return {}
 
 
-def save_current_state(info: dict):
-    """Sla huidige state op voor volgende boot"""
+def save_current_state(info: Dict[str, Any]) -> None:
+    """Sla huidige state op voor volgende boot."""
     try:
         STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         state = {
@@ -166,8 +168,8 @@ def save_current_state(info: dict):
         log(f"State save error: {e}")
 
 
-def determine_reboot_reason(info: dict, prev_state: dict) -> str:
-    """Bepaal de meest waarschijnlijke reboot reden"""
+def determine_reboot_reason(info: Dict[str, Any], prev_state: Dict[str, Any]) -> str:
+    """Bepaal de meest waarschijnlijke reboot reden."""
 
     if info["kernel_panic"]:
         return "Kernel panic/crash gedetecteerd"
@@ -190,8 +192,8 @@ def determine_reboot_reason(info: dict, prev_state: dict) -> str:
     return "Onverwachte reboot (reden onbekend)"
 
 
-def send_mqtt_alert(info: dict, reason: str):
-    """Stuur reboot alert via MQTT"""
+def send_mqtt_alert(info: Dict[str, Any], reason: str) -> bool:
+    """Stuur reboot alert via MQTT."""
     if mqtt is None:
         log("MQTT library niet beschikbaar")
         return False
@@ -213,7 +215,7 @@ def send_mqtt_alert(info: dict, reason: str):
         client.connect(broker, port, 60)
 
         # Reboot info bericht
-        reboot_msg = {
+        reboot_msg: Dict[str, Any] = {
             "timestamp": info["boot_time"],
             "hostname": info["hostname"],
             "reason": reason,
@@ -235,7 +237,7 @@ def send_mqtt_alert(info: dict, reason: str):
 
         # Alert bericht (alleen bij onverwachte reboot)
         if info["shutdown_type"] not in ["clean"]:
-            alert_msg = {
+            alert_msg: Dict[str, Any] = {
                 "timestamp": info["boot_time"],
                 "source": info["hostname"],
                 "level": "warning" if info["shutdown_type"] == "unknown" else "critical",
@@ -253,14 +255,15 @@ def send_mqtt_alert(info: dict, reason: str):
         log(f"MQTT alert verzonden naar {broker}")
         return True
 
-    except Exception as e:
+    except (ConnectionError, OSError, ValueError) as e:
         import traceback
         log(f"MQTT error: {e}")
         log(f"Traceback: {traceback.format_exc()}")
         return False
 
 
-def main():
+def main() -> None:
+    """Main entry point voor reboot alert service."""
     log("=" * 50)
     log(f"Reboot Alert Service gestart op {STATION_NAME}")
 

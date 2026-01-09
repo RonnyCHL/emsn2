@@ -12,6 +12,7 @@ Strategie:
 - Twijfelgevallen (lage confidence) worden bewaard
 
 Draait dagelijks via systemd timer.
+Modernized: 2026-01-09 - Type hints toegevoegd
 """
 
 import os
@@ -19,8 +20,14 @@ import sys
 import argparse
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional, Dict, Any, Tuple
 
 import psycopg2
+from psycopg2.extensions import connection as PgConnection
+
+# Voeg project root toe voor imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.config import get_postgres_config
 
 # Configuratie
 NAS_BASE = Path("/mnt/nas-birdnet-archive/nestbox")
@@ -30,23 +37,14 @@ NESTBOXES = ['voor', 'midden', 'achter']
 RETENTION_DAYS = 180  # 6 maanden
 MIN_CONFIDENCE_FOR_DELETE = 0.90  # Alleen verwijderen bij >90% zeker leeg
 
-# Database configuratie
-DB_CONFIG = {
-    'host': '192.168.1.25',
-    'port': 5433,
-    'database': 'emsn',
-    'user': 'postgres',
-    'password': 'IwnadBon2iN'
-}
+
+def get_db_connection() -> PgConnection:
+    """Maak database connectie via core.config."""
+    return psycopg2.connect(**get_postgres_config())
 
 
-def get_db_connection():
-    """Maak database connectie"""
-    return psycopg2.connect(**DB_CONFIG)
-
-
-def get_image_classification(conn, image_path):
-    """Haal AI classificatie op voor een afbeelding"""
+def get_image_classification(conn: PgConnection, image_path: Path) -> Optional[Dict[str, Any]]:
+    """Haal AI classificatie op voor een afbeelding."""
     cur = conn.cursor()
     cur.execute("""
         SELECT is_occupied, confidence, prob_leeg
@@ -67,8 +65,8 @@ def get_image_classification(conn, image_path):
     return None
 
 
-def get_date_from_path(image_path):
-    """Extract datum uit bestandspad of naam"""
+def get_date_from_path(image_path: Path) -> datetime:
+    """Extract datum uit bestandspad of naam."""
     # Probeer uit pad: .../screenshots/2026/01/08/bestand.jpg
     parts = image_path.parts
     try:
@@ -94,8 +92,8 @@ def get_date_from_path(image_path):
     return datetime.fromtimestamp(image_path.stat().st_mtime)
 
 
-def should_delete(classification, image_date, cutoff_date):
-    """Bepaal of een afbeelding verwijderd mag worden"""
+def should_delete(classification: Optional[Dict[str, Any]], image_date: datetime, cutoff_date: datetime) -> Tuple[bool, str]:
+    """Bepaal of een afbeelding verwijderd mag worden."""
     # Alleen beelden ouder dan cutoff
     if image_date >= cutoff_date:
         return False, "te recent"
@@ -116,8 +114,9 @@ def should_delete(classification, image_date, cutoff_date):
     return True, f"leeg ({classification['confidence']:.0%})"
 
 
-def cleanup_nestbox(nestbox_id, conn, cutoff_date, dry_run=False, verbose=False):
-    """Cleanup oude screenshots voor één nestkast"""
+def cleanup_nestbox(nestbox_id: str, conn: PgConnection, cutoff_date: datetime,
+                    dry_run: bool = False, verbose: bool = False) -> Dict[str, Any]:
+    """Cleanup oude screenshots voor één nestkast."""
     screenshot_dir = NAS_BASE / nestbox_id / "screenshots"
     if not screenshot_dir.exists():
         if verbose:
@@ -157,8 +156,8 @@ def cleanup_nestbox(nestbox_id, conn, cutoff_date, dry_run=False, verbose=False)
     return stats
 
 
-def cleanup_empty_directories(base_path, dry_run=False, verbose=False):
-    """Verwijder lege directories na cleanup"""
+def cleanup_empty_directories(base_path: Path, dry_run: bool = False, verbose: bool = False) -> int:
+    """Verwijder lege directories na cleanup."""
     removed = 0
     for dirpath, dirnames, filenames in os.walk(base_path, topdown=False):
         if not dirnames and not filenames:
@@ -171,7 +170,8 @@ def cleanup_empty_directories(base_path, dry_run=False, verbose=False):
     return removed
 
 
-def main():
+def main() -> None:
+    """Main entry point voor nestbox cleanup."""
     parser = argparse.ArgumentParser(
         description='Nestkast Screenshot Cleanup',
         formatter_class=argparse.RawDescriptionHelpFormatter

@@ -464,8 +464,8 @@ class CooldownManager:
                 self.logger.error(f"Failed to update cooldown DB: {e}")
             try:
                 self.pg_conn.rollback()
-            except:
-                pass
+            except (Exception, OSError):
+                pass  # Rollback is non-critical
 
     def cleanup_expired_cooldowns(self):
         """Remove expired cooldowns from database"""
@@ -803,8 +803,8 @@ class UlanziBridge:
             try:
                 self.presence_home = msg.payload.decode().lower() in ('true', '1', 'home')
                 self.logger.info(f"Presence updated: {'home' if self.presence_home else 'away'}")
-            except:
-                pass
+            except (UnicodeDecodeError, AttributeError):
+                pass  # Invalid payload is non-critical
             return
 
         # Handle dual detection messages (JSON format from dual_detection_sync)

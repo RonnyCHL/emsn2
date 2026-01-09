@@ -26,10 +26,11 @@ from dataclasses import dataclass
 from typing import Optional
 
 # Project root voor imports
-PROJECT_ROOT = Path(__file__).parent.parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import psycopg2
+from core.config import get_postgres_config
 
 # GPIO pins
 DHT_PIN = 4       # GPIO4 voor DHT22
@@ -44,14 +45,8 @@ READ_INTERVAL = 30
 MAX_HEATER_TIME = 600
 COOLDOWN_TIME = 120
 
-# Database config
-PG_CONFIG = {
-    'host': '192.168.1.25',
-    'port': 5433,
-    'database': 'emsn',
-    'user': 'birdpi_berging',
-    'password': 'IwnadBon2iN'
-}
+# Database config via core.config
+PG_CONFIG = get_postgres_config()
 
 # Logging setup
 logging.basicConfig(
@@ -146,12 +141,12 @@ class ClimateController:
             if self.pg_conn:
                 try:
                     self.pg_conn.rollback()
-                except:
-                    pass
+                except (Exception, OSError):
+                    pass  # Rollback is non-critical
                 try:
                     self.pg_conn.close()
-                except:
-                    pass
+                except (Exception, OSError):
+                    pass  # Connection cleanup is non-critical
                 self.pg_conn = None
 
     def get_heater_reason(self) -> str:
@@ -219,22 +214,22 @@ class ClimateController:
                 GPIO.output(HEATER_PIN, GPIO.LOW)
                 GPIO.cleanup(HEATER_PIN)
                 logger.info("Heater uitgeschakeld")
-            except:
-                pass
+            except (ImportError, RuntimeError):
+                pass  # GPIO cleanup is non-critical
 
         # DHT cleanup
         if self.dht_device:
             try:
                 self.dht_device.exit()
-            except:
-                pass
+            except (AttributeError, RuntimeError):
+                pass  # DHT cleanup is non-critical
 
         # Database connectie sluiten
         if self.pg_conn:
             try:
                 self.pg_conn.close()
-            except:
-                pass
+            except (Exception, OSError):
+                pass  # Connection cleanup is non-critical
 
     def calculate_dewpoint(self, temp_c: float, humidity: float) -> float:
         """Bereken dauwpunt met Magnus formule."""

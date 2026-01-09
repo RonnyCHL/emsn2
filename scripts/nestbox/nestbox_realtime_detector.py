@@ -32,6 +32,10 @@ from torchvision import transforms, models
 from PIL import Image
 import psycopg2
 
+# Voeg project root toe voor imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.config import get_postgres_config
+
 # Configuratie
 MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_model_latest.pt"
 FALLBACK_MODEL_PATH = "/mnt/nas-birdnet-archive/nestbox/models/nestbox_species_model.pt"
@@ -41,14 +45,8 @@ CONFIDENCE_THRESHOLD = 0.50  # Minimale confidence voor statuswijziging (verlaag
 # Minimale tijd tussen status events (voorkom ruis)
 MIN_EVENT_INTERVAL_MINUTES = 30
 
-# Database configuratie
-DB_CONFIG = {
-    'host': '192.168.1.25',
-    'port': 5433,
-    'database': 'emsn',
-    'user': 'postgres',
-    'password': 'IwnadBon2iN'
-}
+# Database configuratie via core.config
+DB_CONFIG = get_postgres_config()
 
 NESTBOXES = ['voor', 'midden', 'achter']
 

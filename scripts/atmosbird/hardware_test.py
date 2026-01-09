@@ -117,8 +117,8 @@ def test_dht22():
     print("   - Pin 7 (GPIO4) → DHT22 data")
     try:
         dht_device.exit()
-    except:
-        pass
+    except (AttributeError, RuntimeError):
+        pass  # DHT cleanup is non-critical
     return False
 
 

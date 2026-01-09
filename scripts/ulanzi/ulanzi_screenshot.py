@@ -165,8 +165,8 @@ class UlanziScreenshot:
             self.log('ERROR', f'Failed to log screenshot: {e}')
             try:
                 self.pg_conn.rollback()
-            except:
-                pass
+            except (Exception, OSError):
+                pass  # Rollback is non-critical
 
     def get_recent_screenshots(self, limit=20):
         """Get recent screenshots for dashboard"""

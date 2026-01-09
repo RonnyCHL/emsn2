@@ -12,19 +12,18 @@ import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# Voeg project root toe voor imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.config import get_postgres_config
+
 # Config
 ARCHIVE_BASE = Path("/mnt/nas-birdnet-archive")
 BERGING_HOST = "192.168.1.87"
 BERGING_USER = "ronny"
 BERGING_PATH = "/home/ronny/BirdSongs/Extracted/By_Date"
 
-DB_CONFIG = {
-    "host": "192.168.1.25",
-    "port": 5433,
-    "database": "emsn",
-    "user": "postgres",
-    "password": "IwnadBon2iN"
-}
+# Database config via core.config
+DB_CONFIG = get_postgres_config()
 
 # Regex voor BirdNET bestandsnamen
 FILENAME_PATTERN = re.compile(
