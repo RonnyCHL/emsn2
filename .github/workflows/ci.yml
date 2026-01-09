@@ -1,0 +1,160 @@
+# EMSN 2.0 CI/CD Pipeline
+# Automatische tests en code quality checks bij elke push/PR
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'scripts/**'
+      - 'tests/**'
+      - 'reports-web/**'
+      - 'pyproject.toml'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+      - 'tests/**'
+      - 'reports-web/**'
+
+jobs:
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install black isort flake8 bandit
+
+      - name: Check formatting with Black
+        run: black --check --diff scripts/ tests/
+
+      - name: Check import sorting with isort
+        run: isort --check-only --diff scripts/ tests/
+
+      - name: Lint with flake8
+        run: |
+          flake8 scripts/ tests/ \
+            --max-line-length=120 \
+            --ignore=E501,W503,E203 \
+            --exclude=__pycache__,venv,.venv
+
+      - name: Security check with Bandit
+        run: |
+          bandit -r scripts/ \
+            -ll \
+            --skip=B101,B311 \
+            --exclude=tests/
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+          # Install project dependencies (mock heavy ones)
+          pip install paho-mqtt psycopg2-binary PyYAML requests
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install pillow numpy opencv-python-headless
+          pip install astral ephem
+
+      - name: Create mock .secrets file
+        run: |
+          cat > .secrets << 'EOF'
+          # Mock secrets for CI testing
+          PG_HOST=localhost
+          PG_PORT=5432
+          PG_DATABASE=test
+          PG_USER=test
+          PG_PASSWORD=test
+          MQTT_BROKER=localhost
+          MQTT_PORT=1883
+          MQTT_USER=test
+          MQTT_PASS=test
+          SMTP_HOST=localhost
+          SMTP_PORT=587
+          SMTP_USER=test@test.com
+          SMTP_PASS=test
+          EOF
+
+      - name: Run tests
+        run: |
+          python -m pytest tests/ \
+            -v \
+            --tb=short \
+            --ignore=tests/integration/ \
+            --cov=scripts/core \
+            --cov-report=xml \
+            --cov-report=term-missing
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+          verbose: true
+
+  type-check:
+    name: Type Checking
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install mypy
+        run: |
+          pip install mypy types-requests types-PyYAML
+
+      - name: Run mypy on core modules
+        run: |
+          mypy scripts/core/ \
+            --ignore-missing-imports \
+            --no-error-summary \
+            --no-strict-optional \
+            || true  # Don't fail on type errors yet
+
+  docs:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check CLAUDE.md exists
+        run: test -f CLAUDE.md
+
+      - name: Check README exists
+        run: test -f README.md || echo "README.md not found (optional)"
+
+      - name: Check docs directory
+        run: test -d docs/

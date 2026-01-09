@@ -166,7 +166,7 @@ def generate_pdf_with_logo(md_path, output_pdf_path, title=None):
             if len(parts) >= 3:
                 try:
                     metadata = yaml.safe_load(parts[1]) or {}
-                except:
+                except (yaml.YAMLError, ValueError):
                     pass
                 content = parts[2].strip()
 
@@ -268,7 +268,7 @@ def generate_pdf():
         def cleanup():
             try:
                 pdf_path.unlink()
-            except:
+            except OSError:
                 pass
 
         return response
@@ -560,7 +560,7 @@ def load_email_history():
     try:
         with open(EMAIL_LOG_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except:
+    except (OSError, json.JSONDecodeError, ValueError):
         return []
 
 
@@ -626,7 +626,7 @@ def load_email_tracking():
     try:
         with open(EMAIL_TRACKING_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except:
+    except (OSError, json.JSONDecodeError, ValueError):
         return {'opens': [], 'clicks': []}
 
 
@@ -667,7 +667,7 @@ def track_email_open(report, email_hash):
         import json
         with open(EMAIL_TRACKING_FILE, 'w', encoding='utf-8') as f:
             json.dump(tracking, f, indent=2, ensure_ascii=False)
-    except:
+    except (OSError, json.JSONDecodeError, TypeError):
         pass
 
     # Return a 1x1 transparent GIF
@@ -984,7 +984,7 @@ def send_report_copy():
                 title = f"Weekrapport Week {frontmatter.get('week', '')} - {frontmatter.get('year', '')}"
             elif frontmatter.get('type') == 'maandrapport':
                 title = f"Maandrapport {frontmatter.get('month', '')} {frontmatter.get('year', '')}"
-        except:
+        except (ValueError, yaml.YAMLError, AttributeError):
             pass
 
     # Create email
@@ -3133,7 +3133,7 @@ def stop_nestbox_video():
                 str(file_path)
             ], capture_output=True, timeout=10)
             duration = int(float(result.stdout.decode().strip()))
-        except:
+        except (subprocess.SubprocessError, ValueError, UnicodeDecodeError, OSError):
             duration = None
 
         # Save to database
@@ -3261,7 +3261,7 @@ def timelapse_info():
             if 'screenshots gevonden' in line.lower():
                 try:
                     count = int(line.split()[0])
-                except:
+                except (ValueError, IndexError):
                     pass
             if 'Beschikbare periode:' in line:
                 # Parse: "Beschikbare periode: 2025-12-23 tot 2026-01-05"
@@ -3269,7 +3269,7 @@ def timelapse_info():
                     parts = line.split(':')[1].strip().split(' tot ')
                     date_range['start'] = parts[0].strip()
                     date_range['end'] = parts[1].strip()
-                except:
+                except (ValueError, IndexError):
                     pass
 
         return jsonify({
@@ -3466,14 +3466,14 @@ def atmosbird_timelapse_info():
             if 'screenshots gevonden' in line.lower():
                 try:
                     count = int(line.split()[0])
-                except:
+                except (ValueError, IndexError):
                     pass
             if 'Beschikbare periode:' in line:
                 try:
                     parts = line.split(':')[1].strip().split(' tot ')
                     date_range['start'] = parts[0].strip()
                     date_range['end'] = parts[1].strip()
-                except:
+                except (ValueError, IndexError):
                     pass
 
         return jsonify({
