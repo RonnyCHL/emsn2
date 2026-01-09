@@ -26,3 +26,10 @@ Thumbs.db
 # IDE
 .vscode/
 *.swp
+
+# Backups (horen niet in git)
+backups/
+
+# Test/temp files
+.pytest_cache/
+*.tmp
