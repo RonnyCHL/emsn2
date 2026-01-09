@@ -33,17 +33,36 @@ logger = get_logger('database_cleanup')
 
 # Cleanup configuratie: tabel -> (kolom, dagen retentie)
 # VOLGORDE IS BELANGRIJK: child tables eerst (FK constraints)
-# ulanzi_notification_log: 7 dagen (98% is 'niet getoond', ~52K records/dag = 364K/week)
-# ulanzi_screenshots: moet VOOR notification_log (FK naar notification_log.id)
+#
+# BELANGRIJK: Deze tabellen worden NOOIT opgeschoond (waardevolle data):
+# - bird_detections (vogel detecties)
+# - media_archive (audio/spectrogram metadata)
+# - weather_data (weer metingen)
+# - atmosbird_climate, sky_observations, moon_observations (hemel data)
+# - dual_detections (simultane detecties)
+# - species_reference (soorten database)
+# - nestbox_* tabellen (nestkast observaties)
+#
 CLEANUP_CONFIG = {
-    'ulanzi_screenshots': ('timestamp', 7),           # Child table eerst
+    # Ulanzi logs: 7 dagen (98% is 'niet getoond', weinig waarde)
+    'ulanzi_screenshots': ('timestamp', 7),           # Child table eerst (FK)
     'ulanzi_notification_log': ('timestamp', 7),      # Dan parent
-    'system_health': ('measurement_timestamp', 90),
+
+    # Monitoring data: 30 dagen is genoeg voor troubleshooting
+    'service_status': ('timestamp', 30),              # ~12K records/dag
+    'network_status': ('timestamp', 30),              # Netwerk checks
+
+    # Hardware metrics: 60-90 dagen voor trends
+    'system_health': ('measurement_timestamp', 60),   # CPU/mem/disk per Pi
     'performance_metrics': ('measurement_timestamp', 60),
-    'anomaly_check_log': ('check_timestamp', 30),
     'nas_metrics': ('timestamp', 60),
+
+    # MQTT stats: 90 dagen
     'mqtt_hourly_stats': ('hour_timestamp', 90),
     'mqtt_bridge_events': ('timestamp', 60),
+
+    # Anomaly detection: 30 dagen
+    'anomaly_check_log': ('check_timestamp', 30),
 }
 
 

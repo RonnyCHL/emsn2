@@ -850,7 +850,7 @@ class UlanziBridge:
         # Check for burst detection (duplicate within 5 seconds)
         if self.cooldown.is_burst_detection(dutch_name):
             self.logger.info(f"Skipping (burst detection): {dutch_name} - duplicate within 5 seconds")
-            self.log_notification(dutch_name, detection['confidence'], station, 'burst', False, 'burst_duplicate')
+            # Skip database logging for filtered detections - saves ~99% of log entries
             return
 
         # Record that we received this detection
@@ -878,10 +878,9 @@ class UlanziBridge:
                 elapsed = (datetime.now() - last_time).total_seconds()
                 if elapsed < self.cooldown.anti_spam_seconds:
                     self.logger.info(f"Skipping (anti-spam): {dutch_name} (within {int(elapsed)}s)")
-                    self.log_notification(dutch_name, detection['confidence'], station, tier, False, 'anti_spam')
                 else:
                     self.logger.info(f"Skipping (cooldown): {dutch_name} (within {int(elapsed)}s)")
-                    self.log_notification(dutch_name, detection['confidence'], station, tier, False, 'cooldown')
+            # Skip database logging for filtered detections - saves ~99% of log entries
             return
 
         # Get vocalization type - prefer from MQTT message (already classified by publisher)
@@ -992,7 +991,7 @@ class UlanziBridge:
                 if elapsed < self.dual_burst_window:
                     # Within burst window - skip ALL duplicates (don't show any after first)
                     self.logger.info(f"Skipping dual burst: {common_name} ({avg_confidence:.0%}) within {int(elapsed)}s of first detection")
-                    self.log_notification(common_name, avg_confidence, 'dual', 'special', False, 'dual_burst_duplicate', notification_type='dual')
+                    # Skip database logging for filtered detections - saves ~99% of log entries
                     return
 
             # Record this as the FIRST dual detection of this species (start of burst window)
