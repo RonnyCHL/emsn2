@@ -1,0 +1,11 @@
+[Unit]
+Description=Dagelijkse database permissies check
+Requires=db-permissions.service
+
+[Timer]
+# Elke dag om 05:00 (na cleanup om 04:00)
+OnCalendar=*-*-* 05:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

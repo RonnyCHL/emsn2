@@ -1,0 +1,15 @@
+[Unit]
+Description=EMSN Database Permissies Herstel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/ronny/emsn2/venv/bin/python3 /home/ronny/emsn2/scripts/db/ensure_permissions.py --verbose
+User=ronny
+Group=ronny
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
