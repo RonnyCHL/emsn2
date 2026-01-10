@@ -47,6 +47,13 @@ CONFIDENCE_THRESHOLD = 0.50  # Minimale confidence voor statuswijziging (verlaag
 # Minimale tijd tussen status events (voorkom ruis)
 MIN_EVENT_INTERVAL_MINUTES = 30
 
+# Nachtelijke slaapplaats bescherming
+# Als een vogel 's nachts slaapt, negeren we korte "leeg" detecties
+# (vogel beweegt even of slechte belichting veroorzaakt false negative)
+NIGHT_PROTECTION_ENABLED = True
+NIGHT_MIN_EMPTY_STREAK = 3  # Minimaal 3 opeenvolgende "leeg" detecties nodig 's nachts
+NIGHT_HOURS = (20, 8)  # Tussen 20:00 en 08:00 is "nacht"
+
 # Database configuratie via core.config
 DB_CONFIG = get_postgres_config()
 
@@ -258,6 +265,56 @@ def is_breeding_season():
     return 3 <= month <= 9
 
 
+def is_night_time() -> bool:
+    """Check of het nacht is (tussen NIGHT_HOURS).
+
+    Returns:
+        True als het nacht is.
+    """
+    hour = datetime.now().hour
+    start, end = NIGHT_HOURS
+    if start > end:  # bijv. 20:00 - 08:00
+        return hour >= start or hour < end
+    return start <= hour < end
+
+
+def get_recent_empty_count(conn: PgConnection, nestbox_id: str, hours: int = 2) -> int:
+    """Tel aantal opeenvolgende 'leeg' detecties in de afgelopen uren.
+
+    Dit helpt om nachtelijke false negatives te filteren. Als een vogel slaapt
+    maar even beweegt, kan de AI denken dat de kast leeg is.
+
+    Args:
+        conn: Database connectie.
+        nestbox_id: ID van nestkast.
+        hours: Aantal uur terug kijken.
+
+    Returns:
+        Aantal opeenvolgende 'leeg' detecties (stopt bij eerste 'bezet').
+    """
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT is_occupied
+        FROM nestbox_occupancy
+        WHERE nestbox_id = %s
+          AND timestamp > NOW() - INTERVAL '%s hours'
+        ORDER BY timestamp DESC
+        LIMIT 10
+    """, (nestbox_id, hours))
+
+    rows = cur.fetchall()
+    cur.close()
+
+    # Tel opeenvolgende 'leeg' (is_occupied=False) vanaf meest recente
+    count = 0
+    for row in rows:
+        if row[0]:  # is_occupied = True
+            break
+        count += 1
+
+    return count
+
+
 def register_status_change(conn, nestbox_id, new_status, species=None, image_path=None, notes=None):
     """Registreer statusverandering in nestbox_events"""
     cur = conn.cursor()
@@ -293,8 +350,13 @@ def register_status_change(conn, nestbox_id, new_status, species=None, image_pat
     cur.close()
 
 
-def should_register_change(current_event, new_is_occupied, new_species):
-    """Bepaal of we een statuswijziging moeten registreren"""
+def should_register_change(current_event, new_is_occupied, new_species, conn=None, nestbox_id=None):
+    """Bepaal of we een statuswijziging moeten registreren.
+
+    Nachtelijke bescherming: Als een vogel 's nachts slaapt en de AI detecteert
+    kort "leeg", negeren we dit tot er meerdere opeenvolgende "leeg" detecties zijn.
+    Dit voorkomt false vertrek-events door beweging of slechte belichting.
+    """
     if current_event is None:
         # Geen eerdere events - altijd registreren
         return True
@@ -307,6 +369,22 @@ def should_register_change(current_event, new_is_occupied, new_species):
         # Status is veranderd - check minimum interval
         time_since_last = datetime.now() - current_event['timestamp']
         if time_since_last >= timedelta(minutes=MIN_EVENT_INTERVAL_MINUTES):
+
+            # Nachtelijke slaapplaats bescherming
+            if (NIGHT_PROTECTION_ENABLED and
+                is_night_time() and
+                current_is_occupied and
+                not new_is_occupied and
+                current_type == 'slaapplaats' and
+                conn is not None and
+                nestbox_id is not None):
+
+                # 's Nachts: alleen "vertrek" registreren na meerdere opeenvolgende "leeg" detecties
+                empty_streak = get_recent_empty_count(conn, nestbox_id, hours=2)
+                if empty_streak < NIGHT_MIN_EMPTY_STREAK:
+                    # Nog niet genoeg bewijs dat vogel echt weg is
+                    return False
+
             return True
 
     return False
@@ -354,7 +432,8 @@ def analyze_nestbox(nestbox_id, image_path=None, model=None, classes=None,
 
         # Check of we statuswijziging moeten registreren
         if result['confidence'] >= CONFIDENCE_THRESHOLD:
-            if should_register_change(current_event, result['is_occupied'], result.get('species')):
+            if should_register_change(current_event, result['is_occupied'], result.get('species'),
+                                      conn=conn, nestbox_id=nestbox_id):
                 new_status = "bezet" if result['is_occupied'] else "leeg"
 
                 if verbose:
@@ -386,6 +465,12 @@ def analyze_nestbox(nestbox_id, image_path=None, model=None, classes=None,
         else:
             if verbose:
                 print(f"[{nestbox_id}] Confidence te laag ({result['confidence']:.1%} < {CONFIDENCE_THRESHOLD:.0%})")
+
+        # Extra logging voor nachtelijke bescherming
+        if verbose and is_night_time() and not result['is_occupied']:
+            empty_streak = get_recent_empty_count(conn, nestbox_id, hours=2)
+            if empty_streak < NIGHT_MIN_EMPTY_STREAK:
+                print(f"[{nestbox_id}] Nachtelijke bescherming: {empty_streak}/{NIGHT_MIN_EMPTY_STREAK} leeg detecties (geen vertrek event)")
 
         return {
             'nestbox_id': nestbox_id,
