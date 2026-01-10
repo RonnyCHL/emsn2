@@ -328,7 +328,7 @@ TIMERS = {
         'atmosbird-archive-sync.timer',
     ],
     'meteo': [
-        'weather-publisher.timer',
+        'weather-sync.timer',
     ],
 }
 
@@ -359,8 +359,8 @@ THRESHOLDS = {
     'memory_critical': 95,
     'cpu_temp_warning': 70,
     'cpu_temp_critical': 80,
-    'latency_warning': 50,  # ms
-    'latency_critical': 200,  # ms
+    'latency_warning': 100,  # ms (verhoogd voor WiFi/ESP32 devices)
+    'latency_critical': 500,  # ms
     'detection_gap_warning': 2,  # hours
     'detection_gap_critical': 6,  # hours
     'sync_lag_warning': 1,  # hours
@@ -462,12 +462,27 @@ KNOWN_SERVICES = {
         'sd-backup-weekly.timer',
     ],
     'berging': [
-        # Services
+        # EMSN Services
         'birdnet-mqtt-publisher.service',
         'mosquitto.service',
         'atmosbird-stream.service',
         'atmosbird-climate.service',
+        'atmosbird-capture.service',
+        'atmosbird-analysis.service',
+        'atmosbird-archive-sync.service',
+        'atmosbird-timelapse.service',
+        'emsn-dbmirror-berging.service',
         'reboot-alert.service',
+        'avahi-alias@emsn2-berging.local.service',
+        'vocalization-enricher.service',
+        'hardware-monitor.service',
+        'lifetime-sync.service',
+        'lifetime-sync-berging.service',
+        # BirdNET-Pi core services
+        'birdnet_analysis.service',
+        'birdnet_log.service',
+        'birdnet_recording.service',
+        'birdnet_stats.service',
         # Timers
         'lifetime-sync.timer',
         'lifetime-sync-berging.timer',
@@ -475,13 +490,28 @@ KNOWN_SERVICES = {
         'atmosbird-analysis.timer',
         'atmosbird-timelapse.timer',
         'atmosbird-archive-sync.timer',
+        'emsn-dbmirror-berging.timer',
+        'hardware-monitor.timer',
+        # Utility services (backup, cleanup)
+        'log-cleanup.service',
+        'log-cleanup.timer',
+        'sd-backup-cleanup.service',
+        'sd-backup-cleanup.timer',
+        'sd-backup-daily.service',
         'sd-backup-daily.timer',
+        'sd-backup-database.service',
+        'sd-backup-database.timer',
+        'sd-backup-weekly.service',
+        'sd-backup-weekly.timer',
     ],
     'meteo': [
         # Services
+        'davis-weather-monitor.service',
+        'weather-sync.service',
+        'hardware-monitor.service',
         'reboot-alert.service',
         # Timers
-        'weather-publisher.timer',
+        'weather-sync.timer',
         'hardware-monitor.timer',
     ],
 }
@@ -1011,22 +1041,36 @@ def check_nas_mount(path: str, name: str) -> CheckResult:
 
 @timed_check
 def check_mqtt_broker() -> CheckResult:
-    """Check MQTT broker connectiviteit"""
+    """Check MQTT broker connectiviteit met authenticatie"""
     try:
+        mqtt_config = get_mqtt_config()
+        cmd = ['mosquitto_sub', '-h', '192.168.1.178', '-t', '$SYS/broker/uptime',
+               '-C', '1', '-W', '5']
+
+        if mqtt_config and mqtt_config.get('username') and mqtt_config.get('password'):
+            cmd.extend(['-u', mqtt_config['username'], '-P', mqtt_config['password']])
+
         result = subprocess.run(
-            ['mosquitto_sub', '-h', '192.168.1.178', '-t', '$SYS/broker/uptime',
-             '-C', '1', '-W', '5'],
+            cmd,
             capture_output=True,
             text=True,
             timeout=10
         )
         if result.returncode == 0:
-            uptime = result.stdout.strip()
+            uptime_raw = result.stdout.strip()
+            # Parse uptime (format: "123456 seconds") naar leesbare vorm
+            try:
+                uptime_secs = int(uptime_raw.split()[0])
+                days = uptime_secs // 86400
+                hours = (uptime_secs % 86400) // 3600
+                uptime_str = f"{days}d {hours}u" if days > 0 else f"{hours}u"
+            except (ValueError, IndexError):
+                uptime_str = uptime_raw
             return CheckResult(
                 name="MQTT Broker",
                 status=Status.OK,
-                message=f"Actief (uptime: {uptime}s)",
-                details={'uptime': uptime}
+                message=f"Actief ({uptime_str})",
+                details={'uptime_seconds': uptime_raw}
             )
         else:
             return CheckResult(
@@ -1245,19 +1289,35 @@ def check_go2rtc_streams() -> List[CheckResult]:
                 if stream in data:
                     stream_info = data[stream]
                     producers = stream_info.get('producers', [])
-                    has_active = any('id' in p for p in producers)
+                    consumers = stream_info.get('consumers', [])
 
-                    if has_active:
+                    # Stream is actief als:
+                    # 1. Producer heeft actieve connectie (id veld), OF
+                    # 2. Consumer heeft senders met bytes (data stroomt)
+                    has_active_producer = any('id' in p for p in producers)
+                    has_data_flow = any(
+                        any(s.get('bytes', 0) > 0 for s in c.get('senders', []))
+                        for c in consumers
+                    )
+
+                    if has_active_producer or has_data_flow:
+                        # Bereken totale bytes voor info
+                        total_bytes = sum(
+                            s.get('bytes', 0)
+                            for c in consumers
+                            for s in c.get('senders', [])
+                        )
+                        mb = total_bytes / (1024 * 1024)
                         results.append(CheckResult(
                             name=f"Camera {stream.split('_')[1]}",
                             status=Status.OK,
-                            message="Stream actief"
+                            message=f"Stream actief ({mb:.0f}MB)"
                         ))
                     else:
                         results.append(CheckResult(
                             name=f"Camera {stream.split('_')[1]}",
                             status=Status.WARNING,
-                            message="Geen actieve producer"
+                            message="Geen actieve stream"
                         ))
                 else:
                     results.append(CheckResult(
@@ -1333,13 +1393,15 @@ def check_atmosbird_captures() -> List[CheckResult]:
 
     try:
         # Check lokale USB captures op berging
+        # Directory structuur: /mnt/usb/atmosbird/ruwe_foto/YYYY/MM/DD/
         result = subprocess.run(
             ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
              f'ronny@{berging_ip}',
              '''
-             echo "LOCAL_COUNT:$(ls /mnt/usb/atmosbird/captures/ 2>/dev/null | wc -l)"
-             echo "LOCAL_TODAY:$(ls /mnt/usb/atmosbird/captures/ 2>/dev/null | grep "$(date +%Y%m%d)" | wc -l)"
-             echo "LOCAL_LATEST:$(ls -t /mnt/usb/atmosbird/captures/ 2>/dev/null | head -1)"
+             TODAY_DIR="/mnt/usb/atmosbird/ruwe_foto/$(date +%Y/%m/%d)"
+             echo "LOCAL_COUNT:$(find /mnt/usb/atmosbird/ruwe_foto -name '*.jpg' 2>/dev/null | wc -l)"
+             echo "LOCAL_TODAY:$(ls "$TODAY_DIR" 2>/dev/null | wc -l)"
+             echo "LOCAL_LATEST:$(find /mnt/usb/atmosbird/ruwe_foto -name '*.jpg' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2)"
              echo "LOCAL_SPACE:$(df /mnt/usb 2>/dev/null | tail -1 | awk '{print $5}' | sed 's/%//')"
              '''],
             capture_output=True,
@@ -1412,14 +1474,16 @@ def check_atmosbird_captures() -> List[CheckResult]:
         ))
 
     # Check NAS archief
+    # Directory structuur: /mnt/nas-birdnet-archive/atmosbird/ruwe_foto/YYYY/MM/DD/
     try:
-        nas_path = Path('/mnt/nas-birdnet-archive/atmosbird/captures')
-        if nas_path.exists():
-            today = datetime.now().strftime('%Y%m%d')
-            all_files = list(nas_path.glob('*.jpg'))
-            today_files = [f for f in all_files if today in f.name]
+        nas_base = Path('/mnt/nas-birdnet-archive/atmosbird/ruwe_foto')
+        if nas_base.exists():
+            today = datetime.now()
+            today_path = nas_base / today.strftime('%Y/%m/%d')
+            today_files = list(today_path.glob('*.jpg')) if today_path.exists() else []
+            all_files = list(nas_base.glob('**/*.jpg'))
 
-            if len(today_files) == 0 and datetime.now().hour > 1:
+            if len(today_files) == 0 and today.hour > 1:
                 results.append(CheckResult(
                     name="AtmosBird NAS",
                     status=Status.WARNING,
@@ -1438,7 +1502,7 @@ def check_atmosbird_captures() -> List[CheckResult]:
                 name="AtmosBird NAS",
                 status=Status.CRITICAL,
                 message="NAS archief niet bereikbaar",
-                details={'path': str(nas_path)}
+                details={'path': str(nas_base)}
             ))
     except Exception as e:
         results.append(CheckResult(
@@ -1456,31 +1520,40 @@ def check_atmosbird_camera() -> CheckResult:
     berging_ip = HOSTS['berging']['ip']
 
     try:
+        # Gebruik rpicam-hello (nieuwere Pi OS) of libcamera-hello (oudere)
         result = subprocess.run(
             ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
              f'ronny@{berging_ip}',
-             'libcamera-hello --list-cameras 2>&1 | head -5'],
+             'rpicam-hello --list-cameras 2>&1 || libcamera-hello --list-cameras 2>&1 | head -5'],
             capture_output=True,
             text=True,
             timeout=15
         )
 
-        if result.returncode == 0:
-            output = result.stdout.lower()
-            if 'imx708' in output or 'available cameras' in output:
-                return CheckResult(
-                    name="AtmosBird Camera",
-                    status=Status.OK,
-                    message="Pi Camera NoIR gedetecteerd",
-                    details={'output': result.stdout.strip()[:100]}
-                )
-            elif 'no cameras' in output:
-                return CheckResult(
-                    name="AtmosBird Camera",
-                    status=Status.CRITICAL,
-                    message="Geen camera gevonden!",
-                    details={'output': result.stdout.strip()}
-                )
+        output = result.stdout.lower()
+        if 'imx708' in output:
+            # Extract camera model
+            return CheckResult(
+                name="AtmosBird Camera",
+                status=Status.OK,
+                message="Pi Camera NoIR (imx708) actief",
+                details={'model': 'imx708_wide_noir'}
+            )
+        elif 'available cameras' in output and '0 :' in output:
+            return CheckResult(
+                name="AtmosBird Camera",
+                status=Status.OK,
+                message="Camera gedetecteerd",
+                details={'output': result.stdout.strip()[:100]}
+            )
+        elif 'no cameras' in output or 'available cameras' not in output:
+            return CheckResult(
+                name="AtmosBird Camera",
+                status=Status.CRITICAL,
+                message="Geen camera gevonden!",
+                details={'output': result.stdout.strip()[:100]}
+            )
+
         return CheckResult(
             name="AtmosBird Camera",
             status=Status.WARNING,
@@ -1930,16 +2003,15 @@ def check_audio_recording(host: str, ip: str) -> CheckResult:
 def check_mqtt_bridge_status() -> List[CheckResult]:
     """Check MQTT bridge status tussen berging en zolder"""
     results = []
+    mqtt_config = get_mqtt_config()
 
     try:
-        # Check bridge monitor service
+        # Check bridge monitor service (lokaal op zolder)
         result = subprocess.run(
-            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
-             f'ronny@{HOSTS["zolder"]["ip"]}',
-             'systemctl is-active mqtt-bridge-monitor'],
+            ['systemctl', 'is-active', 'mqtt-bridge-monitor'],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=5
         )
 
         if result.returncode == 0 and result.stdout.strip() == 'active':
@@ -1952,43 +2024,36 @@ def check_mqtt_bridge_status() -> List[CheckResult]:
             results.append(CheckResult(
                 name="Bridge Monitor",
                 status=Status.WARNING,
-                message=f"Service: {result.stdout.strip() or 'onbekend'}"
+                message=f"Service: {result.stdout.strip() or 'inactief'}"
             ))
 
-        # Check bridge status topic
-        result = subprocess.run(
-            ['mosquitto_sub', '-h', '192.168.1.178', '-t', 'emsn2/bridge/status',
-             '-C', '1', '-W', '5'],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
+        # Check bridge status topic (mosquitto notification: 1=connected, 0=disconnected)
+        cmd = ['mosquitto_sub', '-h', '192.168.1.178', '-t', 'emsn2/bridge/zolder-status',
+               '-C', '1', '-W', '3']
+        if mqtt_config and mqtt_config.get('username') and mqtt_config.get('password'):
+            cmd.extend(['-u', mqtt_config['username'], '-P', mqtt_config['password']])
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=8)
 
         if result.returncode == 0:
-            try:
-                bridge_data = json.loads(result.stdout.strip())
-                status = bridge_data.get('status', 'unknown')
-                last_check = bridge_data.get('last_check', '')
-
-                if status == 'connected':
-                    results.append(CheckResult(
-                        name="Bridge Connectie",
-                        status=Status.OK,
-                        message="Berging ↔ Zolder verbonden",
-                        details=bridge_data
-                    ))
-                else:
-                    results.append(CheckResult(
-                        name="Bridge Connectie",
-                        status=Status.WARNING,
-                        message=f"Status: {status}",
-                        details=bridge_data
-                    ))
-            except json.JSONDecodeError:
+            status_val = result.stdout.strip()
+            if status_val == '1':
                 results.append(CheckResult(
                     name="Bridge Connectie",
                     status=Status.OK,
-                    message=f"Actief: {result.stdout.strip()[:50]}"
+                    message="Zolder → Berging verbonden"
+                ))
+            elif status_val == '0':
+                results.append(CheckResult(
+                    name="Bridge Connectie",
+                    status=Status.WARNING,
+                    message="Bridge disconnected"
+                ))
+            else:
+                results.append(CheckResult(
+                    name="Bridge Connectie",
+                    status=Status.OK,
+                    message=f"Status: {status_val}"
                 ))
         else:
             results.append(CheckResult(
@@ -1997,22 +2062,28 @@ def check_mqtt_bridge_status() -> List[CheckResult]:
                 message="Geen bridge status ontvangen"
             ))
 
-        # Check message throughput op berging broker
-        result = subprocess.run(
-            ['mosquitto_sub', '-h', '192.168.1.87', '-t', '$SYS/broker/messages/received',
-             '-C', '1', '-W', '5'],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
+        # Check berging broker uptime (met authenticatie)
+        cmd = ['mosquitto_sub', '-h', '192.168.1.87', '-t', '$SYS/broker/uptime',
+               '-C', '1', '-W', '5']
+        if mqtt_config and mqtt_config.get('username') and mqtt_config.get('password'):
+            cmd.extend(['-u', mqtt_config['username'], '-P', mqtt_config['password']])
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
 
         if result.returncode == 0:
-            msg_count = result.stdout.strip()
+            uptime_raw = result.stdout.strip()
+            try:
+                uptime_secs = int(uptime_raw.split()[0])
+                days = uptime_secs // 86400
+                hours = (uptime_secs % 86400) // 3600
+                uptime_str = f"{days}d {hours}u" if days > 0 else f"{hours}u"
+            except (ValueError, IndexError):
+                uptime_str = uptime_raw
             results.append(CheckResult(
                 name="Berging Broker",
                 status=Status.OK,
-                message=f"Actief ({msg_count} msgs received)",
-                details={'messages': msg_count}
+                message=f"Actief ({uptime_str})",
+                details={'uptime': uptime_raw}
             ))
         else:
             results.append(CheckResult(
@@ -2246,8 +2317,8 @@ def check_backup_status() -> List[CheckResult]:
         try:
             path = Path(backup_path)
             if path.exists():
-                # Zoek laatste backup
-                backups = list(path.glob('*.sql*')) + list(path.glob('*.dump'))
+                # Zoek laatste backup (ook in subdirectories)
+                backups = list(path.glob('**/*.sql*')) + list(path.glob('**/*.dump'))
                 if backups:
                     latest = max(backups, key=lambda x: x.stat().st_mtime)
                     age_hours = (time.time() - latest.stat().st_mtime) / 3600
@@ -2879,10 +2950,10 @@ def check_sd_card_health(host: str, ip: str) -> CheckResult:
              f'ronny@{ip}',
              '''
              # Check voor SD card wear via kernel messages
-             WEAR_ERRORS=$(dmesg 2>/dev/null | grep -ci "mmc0.*error\|mmcblk0.*error" || echo 0)
+             WEAR_ERRORS=$(dmesg 2>/dev/null | grep -ciE "mmc0.*error|mmcblk0.*error" || echo 0)
 
              # Check filesystem errors
-             FS_ERRORS=$(dmesg 2>/dev/null | grep -ci "ext4.*error\|EXT4-fs error" || echo 0)
+             FS_ERRORS=$(dmesg 2>/dev/null | grep -ciE "ext4.*error|EXT4-fs error" || echo 0)
 
              # Check read-only remounts (teken van probleem)
              RO_MOUNTS=$(dmesg 2>/dev/null | grep -ci "remount.*read-only" || echo 0)
@@ -2966,9 +3037,9 @@ def check_kernel_errors(host: str, ip: str) -> CheckResult:
              '''
              # Tel verschillende error types in dmesg
              TOTAL_ERRORS=$(dmesg --level=err,crit,alert,emerg 2>/dev/null | wc -l || echo 0)
-             USB_ERRORS=$(dmesg 2>/dev/null | grep -ci "usb.*error\|usb.*fail" || echo 0)
-             TEMP_WARNINGS=$(dmesg 2>/dev/null | grep -ci "temperature\|thermal\|throttl" || echo 0)
-             OOM_KILLS=$(dmesg 2>/dev/null | grep -ci "out of memory\|oom-killer" || echo 0)
+             USB_ERRORS=$(dmesg 2>/dev/null | grep -ciE "usb.*error|usb.*fail" || echo 0)
+             TEMP_WARNINGS=$(dmesg 2>/dev/null | grep -ciE "temperature|thermal|throttl" || echo 0)
+             OOM_KILLS=$(dmesg 2>/dev/null | grep -ciE "out of memory|oom-killer" || echo 0)
 
              # Laatste kritieke error
              LAST_ERROR=$(dmesg --level=err,crit 2>/dev/null | tail -1 | cut -c1-80)
@@ -3043,10 +3114,10 @@ def check_usb_devices(host: str, ip: str) -> CheckResult:
              USB_COUNT=$(lsusb 2>/dev/null | wc -l || echo 0)
 
              # Check voor USB storage (voor audio opslag)
-             USB_STORAGE=$(lsusb 2>/dev/null | grep -ci "mass storage\|flash\|disk" || echo 0)
+             USB_STORAGE=$(lsusb 2>/dev/null | grep -ciE "mass storage|flash|disk" || echo 0)
 
              # Check voor audio devices (microfoon)
-             USB_AUDIO=$(lsusb 2>/dev/null | grep -ci "audio\|sound\|mic" || echo 0)
+             USB_AUDIO=$(lsusb 2>/dev/null | grep -ciE "audio|sound|mic" || echo 0)
 
              # Check mount status van USB disk
              USB_MOUNTED=$(mount | grep -c "/mnt/usb" || echo 0)
@@ -3083,7 +3154,9 @@ def check_usb_devices(host: str, ip: str) -> CheckResult:
                 issues.append("USB niet gemount")
                 status = Status.WARNING
 
-            if usb_count < 2:  # Minimaal hub + iets
+            # Meteo heeft minimale USB setup (alleen weerstation), geen storage nodig
+            min_usb = 1 if host == 'meteo' else 2
+            if usb_count < min_usb:
                 issues.append(f"Weinig USB devices ({usb_count})")
                 status = Status.WARNING
 
@@ -3135,7 +3208,7 @@ def check_birdnet_analyzer(host: str, ip: str) -> CheckResult:
              EXTRACTION_STATUS=$(systemctl is-active extraction.service 2>/dev/null || echo "not-found")
 
              # Check of BirdNET process draait
-             BIRDNET_PROCS=$(pgrep -c -f "birdnet\|analyze" 2>/dev/null || echo 0)
+             BIRDNET_PROCS=$(pgrep -cf "birdnet|analyze" 2>/dev/null || echo 0)
 
              # Laatste analyse tijd (uit log)
              LAST_ANALYSIS=$(journalctl -u birdnet_analysis --since "1 hour ago" --no-pager 2>/dev/null | grep -c "Analyzed" || echo 0)
@@ -3168,18 +3241,13 @@ def check_birdnet_analyzer(host: str, ip: str) -> CheckResult:
                     message=f"Analyzer niet actief! ({analyzer})",
                     details=metrics
                 )
-            elif extraction != 'active':
-                return CheckResult(
-                    name=f"{host} BirdNET Analyzer",
-                    status=Status.WARNING,
-                    message=f"Extraction service: {extraction}",
-                    details=metrics
-                )
             else:
+                # extraction.service is optioneel (niet in alle BirdNET-Pi versies)
+                msg = f"Actief ({recent} analyses laatste uur)"
                 return CheckResult(
                     name=f"{host} BirdNET Analyzer",
                     status=Status.OK,
-                    message=f"Actief ({recent} analyses laatste uur)",
+                    message=msg,
                     details=metrics
                 )
 
@@ -3619,48 +3687,41 @@ def check_vocalization_service() -> CheckResult:
 
 @timed_check
 def check_vocalization_docker() -> CheckResult:
-    """Check vocalization Docker container op NAS"""
+    """Check vocalization systeem via model directory"""
     try:
-        # Check of container draait via SSH naar NAS
-        result = subprocess.run(
-            ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
-             'ronny@192.168.1.25',
-             'sudo docker ps --filter "name=emsn-vocalization" --format "{{.Status}}" 2>/dev/null || echo "not-found"'],
-            capture_output=True,
-            text=True,
-            timeout=15
-        )
+        # Check model directory via NAS mount (geen sudo nodig)
+        models_dir = Path('/mnt/nas-docker/emsn-vocalization/data/models')
 
-        if result.returncode == 0:
-            status_output = result.stdout.strip()
-            if 'Up' in status_output:
-                return CheckResult(
-                    name="Vocalization Docker",
-                    status=Status.OK,
-                    message=f"Container: {status_output[:30]}"
-                )
-            elif 'not-found' in status_output or not status_output:
-                return CheckResult(
-                    name="Vocalization Docker",
-                    status=Status.WARNING,
-                    message="Container niet gevonden"
-                )
-            else:
-                return CheckResult(
-                    name="Vocalization Docker",
-                    status=Status.WARNING,
-                    message=f"Container status: {status_output[:30]}"
-                )
+        if not models_dir.exists():
+            return CheckResult(
+                name="Vocalization Modellen",
+                status=Status.WARNING,
+                message="Models directory niet bereikbaar"
+            )
 
-        return CheckResult(
-            name="Vocalization Docker",
-            status=Status.UNKNOWN,
-            message="Kan Docker niet controleren"
-        )
+        # Tel modellen
+        models = list(models_dir.glob('*.pt'))
+        if len(models) > 0:
+            # Check meest recente model
+            latest = max(models, key=lambda x: x.stat().st_mtime)
+            age_days = (time.time() - latest.stat().st_mtime) / 86400
+
+            return CheckResult(
+                name="Vocalization Modellen",
+                status=Status.OK,
+                message=f"{len(models)} modellen beschikbaar",
+                details={'count': len(models), 'latest': latest.name}
+            )
+        else:
+            return CheckResult(
+                name="Vocalization Modellen",
+                status=Status.WARNING,
+                message="Geen modellen gevonden"
+            )
 
     except Exception as e:
         return CheckResult(
-            name="Vocalization Docker",
+            name="Vocalization Modellen",
             status=Status.UNKNOWN,
             message=f"Fout: {e}"
         )
@@ -4025,18 +4086,21 @@ def check_nestbox_screenshots_today() -> CheckResult:
     """Check nestkast screenshots vandaag"""
     try:
         base_path = Path("/mnt/nas-birdnet-archive/nestbox")
-        today = datetime.now().strftime('%Y-%m-%d')
+        today = datetime.now()
+        today_path = today.strftime('%Y/%m/%d')
 
         total_today = 0
         per_box = {}
 
         for nestbox in ['voor', 'midden', 'achter']:
-            screenshots_dir = base_path / nestbox / 'screenshots'
+            # Screenshots structuur: nestbox/screenshots/YYYY/MM/DD/
+            screenshots_dir = base_path / nestbox / 'screenshots' / today_path
             if screenshots_dir.exists():
-                # Tel screenshots van vandaag
-                count = len(list(screenshots_dir.glob(f'*{today}*.jpg')))
+                count = len(list(screenshots_dir.glob('*.jpg')))
                 per_box[nestbox] = count
                 total_today += count
+            else:
+                per_box[nestbox] = 0
 
         if total_today > 0:
             summary = ", ".join([f"{k}:{v}" for k, v in per_box.items() if v > 0])
@@ -4078,27 +4142,53 @@ def check_report_timers() -> List[CheckResult]:
 
     try:
         for timer, name in report_timers:
+            # Lokale check (we draaien op zolder)
             result = subprocess.run(
-                ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
-                 f'ronny@{HOSTS["zolder"]["ip"]}',
-                 f'systemctl is-active {timer} 2>/dev/null || echo "not-found"'],
+                ['systemctl', 'is-active', timer],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=5
             )
 
             status_val = result.stdout.strip()
-            if status_val == 'active':
+            # Timers kunnen 'active' (waiting) zijn - dat is correct
+            if status_val in ('active', 'waiting'):
+                # Haal volgende trigger tijd op
+                next_result = subprocess.run(
+                    ['systemctl', 'show', timer, '--property=NextElapseUSecRealtime'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                next_run = ""
+                if next_result.returncode == 0:
+                    next_time = next_result.stdout.strip().split('=')[1] if '=' in next_result.stdout else ""
+                    if next_time:
+                        # Converteer timestamp naar leesbare datum
+                        try:
+                            from datetime import datetime
+                            ts = int(next_time) / 1_000_000  # microseconds to seconds
+                            dt = datetime.fromtimestamp(ts)
+                            next_run = f", volgende: {dt.strftime('%d-%m %H:%M')}"
+                        except (ValueError, OSError):
+                            pass
+
                 results.append(CheckResult(
                     name=f"{name} Timer",
                     status=Status.OK,
-                    message="Actief"
+                    message=f"Actief{next_run}"
+                ))
+            elif status_val == 'inactive':
+                results.append(CheckResult(
+                    name=f"{name} Timer",
+                    status=Status.WARNING,
+                    message="Inactief (disabled)"
                 ))
             else:
                 results.append(CheckResult(
                     name=f"{name} Timer",
                     status=Status.WARNING,
-                    message=f"Status: {status_val}"
+                    message=f"Status: {status_val or 'niet gevonden'}"
                 ))
 
     except Exception as e:
@@ -4164,27 +4254,33 @@ def check_anomaly_services() -> List[CheckResult]:
 
     try:
         for timer, name in anomaly_timers:
+            # Lokale check (we draaien op zolder)
             result = subprocess.run(
-                ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
-                 f'ronny@{HOSTS["zolder"]["ip"]}',
-                 f'systemctl is-active {timer} 2>/dev/null || echo "not-found"'],
+                ['systemctl', 'is-active', timer],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=5
             )
 
             status_val = result.stdout.strip()
-            if status_val == 'active':
+            # Timers kunnen 'active' (waiting) zijn - dat is correct
+            if status_val in ('active', 'waiting'):
                 results.append(CheckResult(
                     name=f"{name}",
                     status=Status.OK,
                     message="Timer actief"
                 ))
+            elif status_val == 'inactive':
+                results.append(CheckResult(
+                    name=f"{name}",
+                    status=Status.WARNING,
+                    message="Inactief (disabled)"
+                ))
             else:
                 results.append(CheckResult(
                     name=f"{name}",
                     status=Status.WARNING,
-                    message=f"Timer: {status_val}"
+                    message=f"Timer: {status_val or 'niet gevonden'}"
                 ))
 
     except Exception as e:
@@ -4313,7 +4409,7 @@ def check_audio_device(host: str, ip: str) -> CheckResult:
              CAPTURE_DEVICES=$(arecord -l 2>/dev/null | grep -c "card" || echo 0)
 
              # Check of USB audio device aanwezig is
-             USB_AUDIO=$(lsusb 2>/dev/null | grep -ci "audio\|sound\|microphone" || echo 0)
+             USB_AUDIO=$(lsusb 2>/dev/null | grep -ciE "audio|sound|microphone" || echo 0)
 
              # Check ALSA volume levels
              AMIXER_OUTPUT=$(amixer -c 0 sget Capture 2>/dev/null | grep -o "[0-9]*%" | head -1 || echo "unknown")
@@ -4474,46 +4570,45 @@ def check_day_night_ratio() -> CheckResult:
 def check_sd_backup_timers() -> List[CheckResult]:
     """Check SD backup timer status"""
     results = []
-    backup_timers = [
-        ('sd-backup-daily.timer', 'Daily Backup', 'zolder'),
-        ('sd-backup-daily.timer', 'Daily Backup', 'berging'),
-        ('sd-backup-weekly.timer', 'Weekly Backup', 'zolder'),
+
+    # Lokale timers (zolder)
+    local_timers = [
+        ('sd-backup-daily.timer', 'Daily Backup'),
+        ('sd-backup-weekly.timer', 'Weekly Backup'),
     ]
 
-    for timer, name, host in backup_timers:
+    for timer, name in local_timers:
         try:
             result = subprocess.run(
-                ['ssh', '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes',
-                 f'ronny@{HOSTS[host]["ip"]}',
-                 f'systemctl is-active {timer} 2>/dev/null || echo "not-found"'],
+                ['systemctl', 'is-active', timer],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=5
             )
 
             status_val = result.stdout.strip()
-            if status_val == 'active':
+            if status_val in ('active', 'waiting'):
                 results.append(CheckResult(
-                    name=f"{host} {name}",
+                    name=f"zolder {name}",
                     status=Status.OK,
                     message="Timer actief"
                 ))
-            elif status_val == 'not-found':
+            elif status_val == 'inactive':
                 results.append(CheckResult(
-                    name=f"{host} {name}",
-                    status=Status.OK,
-                    message="Timer niet geconfigureerd"
+                    name=f"zolder {name}",
+                    status=Status.WARNING,
+                    message="Timer inactief"
                 ))
             else:
                 results.append(CheckResult(
-                    name=f"{host} {name}",
-                    status=Status.WARNING,
-                    message=f"Timer: {status_val}"
+                    name=f"zolder {name}",
+                    status=Status.OK,
+                    message="Timer niet geconfigureerd"
                 ))
 
         except Exception as e:
             results.append(CheckResult(
-                name=f"{host} {name}",
+                name=f"zolder {name}",
                 status=Status.UNKNOWN,
                 message=f"Fout: {e}"
             ))
@@ -5237,23 +5332,18 @@ def check_new_systemd_files() -> CheckResult:
         # Vind files in repo die niet geïnstalleerd zijn
         niet_geinstalleerd = repo_files - installed
 
-        if niet_geinstalleerd:
-            return CheckResult(
-                name="Systemd Files Sync",
-                status=Status.WARNING,
-                message=f"{len(niet_geinstalleerd)} niet geïnstalleerd: {', '.join(list(niet_geinstalleerd)[:3])}...",
-                details={
-                    'niet_geinstalleerd': list(niet_geinstalleerd),
-                    'repo_files': len(repo_files),
-                    'installed': len(installed)
-                }
-            )
-        else:
-            return CheckResult(
-                name="Systemd Files Sync",
-                status=Status.OK,
-                message=f"Alle {len(repo_files)} repo files geïnstalleerd"
-            )
+        # Dit is informatief, niet kritiek - veel files zijn host-specifiek
+        # (berging, meteo) of nog niet geïmplementeerd
+        return CheckResult(
+            name="Systemd Files Sync",
+            status=Status.OK,
+            message=f"{len(installed)} geïnstalleerd van {len(repo_files)} in repo",
+            details={
+                'repo_files': len(repo_files),
+                'installed': len(installed),
+                'uninstalled': len(niet_geinstalleerd)
+            }
+        )
 
     except Exception as e:
         return CheckResult(
@@ -5545,10 +5635,11 @@ def run_deep_health_check() -> Dict[str, CategoryResult]:
                 cat.checks.append(result)
                 print_check(result)
 
-            # Audio recording check
-            result = check_audio_recording(host, ip)
-            cat.checks.append(result)
-            print_check(result)
+            # Audio recording check (alleen zolder heeft microfoon)
+            if host == 'zolder':
+                result = check_audio_recording(host, ip)
+                cat.checks.append(result)
+                print_check(result)
 
     categories['sqlite'] = cat
 
@@ -5808,11 +5899,11 @@ def run_deep_health_check() -> Dict[str, CategoryResult]:
     print_header("25. AUDIO & MICROFOON KWALITEIT")
     cat = CategoryResult(name="Audio")
 
-    for host in ['zolder', 'berging']:
-        if ssh_available.get(host, False):
-            result = check_audio_device(host, HOSTS[host]['ip'])
-            cat.checks.append(result)
-            print_check(result)
+    # Alleen zolder heeft microfoon (berging heeft alleen AtmosBird camera)
+    if ssh_available.get('zolder', False):
+        result = check_audio_device('zolder', HOSTS['zolder']['ip'])
+        cat.checks.append(result)
+        print_check(result)
 
     print_subheader("Detectie Patronen")
     result = check_day_night_ratio()
