@@ -20,6 +20,7 @@ import psycopg2
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 from report_base import ReportBase, REPORTS_PATH
+from species_images import get_images_for_species_list, generate_species_gallery_markdown
 
 # Season definitions
 SEASONS = {
@@ -102,7 +103,8 @@ class SeasonalReportGenerator(ReportBase):
             "season": season,
             "season_name": season_info['name_nl'],
             "year": year,
-            "display_year": f"{year}/{year+1}" if season == 'winter' else str(year)
+            "display_year": f"{year}/{year+1}" if season == 'winter' else str(year),
+            "filename_year": f"{year}-{year+1}" if season == 'winter' else str(year)
         }
 
         # Total detections
@@ -470,8 +472,8 @@ Genereer ALLEEN de inhoud, zonder de titel/header - die wordt automatisch toegev
 
         REPORTS_PATH.mkdir(parents=True, exist_ok=True)
 
-        # Filename: 2025-Herfst-Seizoensrapport.md
-        filename = f"{data['display_year']}-{data['season_name']}-Seizoensrapport.md"
+        # Filename: 2025-Herfst-Seizoensrapport.md (winter: 2025-2026-Winter)
+        filename = f"{data['filename_year']}-{data['season_name']}-Seizoensrapport.md"
         filepath = REPORTS_PATH / filename
 
         # Create markdown with frontmatter
@@ -565,6 +567,12 @@ generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 | Soorten | {py['species']} | {data['unique_species']} | {py['species_change']:+d} |
 """
 
+        # Add species images gallery if available
+        species_images = data.get('species_images', [])
+        if species_images:
+            markdown += "\n---\n\n"
+            markdown += generate_species_gallery_markdown(species_images)
+
         markdown += f"""
 ---
 
@@ -630,6 +638,19 @@ Licentie: CC BY-NC 4.0 (gebruik toegestaan met bronvermelding, niet commercieel)
         print(f"   - {data['total_detections']:,} detecties")
         print(f"   - {data['unique_species']} soorten")
         print(f"   - {data['dual_detections']:,} dual detections")
+
+        # Fetch species images for top 5 species
+        print("Ophalen vogelfoto's...")
+        try:
+            top_species_for_images = [
+                {'name': s['name'], 'scientific_name': s.get('scientific_name', '')}
+                for s in data['top_species'][:5]
+            ]
+            data['species_images'] = get_images_for_species_list(top_species_for_images, max_images=5)
+            print(f"   - {len(data['species_images'])} foto's opgehaald")
+        except Exception as e:
+            print(f"   WARNING: Kon vogelfoto's niet ophalen: {e}")
+            data['species_images'] = []
 
         # Generate report with Claude
         print("Genereren rapport met Claude AI...")

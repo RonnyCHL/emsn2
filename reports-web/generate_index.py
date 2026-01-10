@@ -44,8 +44,8 @@ def parse_report_filename(filename):
             'filename': filename
         }
 
-    # Seasonal: 2025-Herfst-Seizoensrapport.md or 2025/2026-Winter-Seizoensrapport.md
-    season_match = re.match(r'(\d{4}(?:/\d{4})?)-(\w+)-Seizoensrapport\.md', filename)
+    # Seasonal: 2025-Herfst-Seizoensrapport.md or 2025-2026-Winter-Seizoensrapport.md
+    season_match = re.match(r'(\d{4}(?:-\d{4})?)-(\w+)-Seizoensrapport\.md', filename)
     if season_match:
         year = season_match.group(1)
         season = season_match.group(2)

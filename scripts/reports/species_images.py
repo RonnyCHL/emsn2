@@ -103,6 +103,29 @@ SPECIES_MAPPING = {
     'Tuinfluiter': 'Sylvia borin',
     'Spotvogel': 'Hippolais icterina',
     'Wielewaal': 'Oriolus oriolus',
+    # Ganzen
+    'Kolgans': 'Anser albifrons',
+    'Grauwe Gans': 'Anser anser',
+    'Brandgans': 'Branta leucopsis',
+    'Canadese Gans': 'Branta canadensis',
+    'Nijlgans': 'Alopochen aegyptiaca',
+    'Grote Canadese Gans': 'Branta canadensis',
+    # Extra soorten
+    'Kleine Bonte Specht': 'Dryobates minor',
+    'Graspieper': 'Anthus pratensis',
+    'Boompieper': 'Anthus trivialis',
+    'Witte Kwikstaart': 'Motacilla alba',
+    'Gele Kwikstaart': 'Motacilla flava',
+    'Grote Gele Kwikstaart': 'Motacilla cinerea',
+    'Aalscholver': 'Phalacrocorax carbo',
+    'Fuut': 'Podiceps cristatus',
+    'Ooievaar': 'Ciconia ciconia',
+    'Lepelaar': 'Platalea leucorodia',
+    'Roek': 'Corvus frugilegus',
+    'Raaf': 'Corvus corax',
+    'Roerdomp': 'Botaurus stellaris',
+    'Kleine Zilverreiger': 'Egretta garzetta',
+    'Grote Zilverreiger': 'Ardea alba',
 }
 
 
@@ -115,6 +138,11 @@ def search_commons_image(species_name: str, scientific_name: str = None) -> Opti
     """
     Search Wikimedia Commons for a bird image.
 
+    Uses a strict search strategy to avoid incorrect species:
+    1. First tries to find images in the species-specific Wikimedia category
+    2. Falls back to search with scientific name only (not common name)
+    3. Validates that filenames contain the scientific name
+
     Args:
         species_name: Dutch or English common name
         scientific_name: Scientific name (Latin binomial)
@@ -122,52 +150,107 @@ def search_commons_image(species_name: str, scientific_name: str = None) -> Opti
     Returns:
         Dict with image info or None
     """
-    # Try scientific name first (more accurate)
-    search_terms = []
-    if scientific_name:
-        search_terms.append(scientific_name)
-    search_terms.append(species_name)
+    if not scientific_name:
+        scientific_name = get_scientific_name(species_name)
 
-    for search_term in search_terms:
-        try:
-            # Search for images with the species name
-            params = {
-                'action': 'query',
-                'format': 'json',
-                'list': 'search',
-                'srsearch': f'{search_term} bird',
-                'srnamespace': 6,  # File namespace
-                'srlimit': 5,
-            }
+    if not scientific_name or scientific_name == species_name:
+        print(f"   WARNING: No scientific name for {species_name}, skipping image search")
+        return None
 
-            response = requests.get(COMMONS_API, params=params, headers=HEADERS, timeout=10)
-            response.raise_for_status()
-            data = response.json()
+    # Extract genus and species from scientific name (e.g., "Parus major" -> "Parus", "major")
+    sci_parts = scientific_name.split()
+    if len(sci_parts) < 2:
+        return None
+    genus, species_epithet = sci_parts[0], sci_parts[1]
 
-            results = data.get('query', {}).get('search', [])
+    # Strategy 1: Search in the species category (most accurate)
+    try:
+        # Wikimedia Commons uses category names like "Category:Parus major"
+        category_name = f"Category:{scientific_name.replace(' ', '_')}"
 
-            # Filter for likely good bird photos
-            for result in results:
-                title = result.get('title', '')
-                # Skip non-image files
-                if not any(title.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png']):
-                    continue
-                # Skip diagrams, maps, stamps etc
-                skip_words = ['stamp', 'map', 'diagram', 'drawing', 'illustration', 'logo', 'icon']
-                if any(word in title.lower() for word in skip_words):
-                    continue
+        params = {
+            'action': 'query',
+            'format': 'json',
+            'list': 'categorymembers',
+            'cmtitle': category_name,
+            'cmtype': 'file',
+            'cmlimit': 10,
+        }
 
-                # Get image info
-                image_info = get_image_info(title)
-                if image_info:
-                    return image_info
+        response = requests.get(COMMONS_API, params=params, headers=HEADERS, timeout=10)
+        response.raise_for_status()
+        data = response.json()
 
-            # Small delay between requests
-            time.sleep(0.5)
+        members = data.get('query', {}).get('categorymembers', [])
 
-        except Exception as e:
-            print(f"   WARNING: Commons search failed for {search_term}: {e}")
-            continue
+        for member in members:
+            title = member.get('title', '')
+            # Skip non-image files
+            if not any(title.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png']):
+                continue
+            # Skip diagrams, maps, stamps, eggs, nests, etc
+            skip_words = ['stamp', 'map', 'diagram', 'drawing', 'illustration', 'logo',
+                         'icon', 'egg', 'nest', 'skeleton', 'skull', 'feather', 'track',
+                         'distribution', 'range', 'habitat']
+            if any(word in title.lower() for word in skip_words):
+                continue
+
+            # Get image info
+            image_info = get_image_info(title)
+            if image_info:
+                print(f"      Found in category: {title[:50]}...")
+                return image_info
+
+        time.sleep(0.5)
+
+    except Exception as e:
+        print(f"   WARNING: Category search failed for {scientific_name}: {e}")
+
+    # Strategy 2: Direct search with scientific name (fallback)
+    try:
+        params = {
+            'action': 'query',
+            'format': 'json',
+            'list': 'search',
+            'srsearch': f'"{scientific_name}"',  # Exact phrase match
+            'srnamespace': 6,  # File namespace
+            'srlimit': 10,
+        }
+
+        response = requests.get(COMMONS_API, params=params, headers=HEADERS, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        results = data.get('query', {}).get('search', [])
+
+        for result in results:
+            title = result.get('title', '')
+            title_lower = title.lower()
+
+            # Skip non-image files
+            if not any(title_lower.endswith(ext) for ext in ['.jpg', '.jpeg', '.png']):
+                continue
+
+            # Skip diagrams, maps, stamps, eggs, etc
+            skip_words = ['stamp', 'map', 'diagram', 'drawing', 'illustration', 'logo',
+                         'icon', 'egg', 'nest', 'skeleton', 'skull', 'feather', 'track',
+                         'distribution', 'range', 'habitat']
+            if any(word in title_lower for word in skip_words):
+                continue
+
+            # IMPORTANT: Verify filename contains scientific name parts
+            # This prevents returning wrong species
+            if genus.lower() not in title_lower and species_epithet.lower() not in title_lower:
+                continue
+
+            # Get image info
+            image_info = get_image_info(title)
+            if image_info:
+                print(f"      Found via search: {title[:50]}...")
+                return image_info
+
+    except Exception as e:
+        print(f"   WARNING: Search failed for {scientific_name}: {e}")
 
     return None
 

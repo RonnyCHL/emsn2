@@ -9,6 +9,13 @@
 <body>
     <div class="container">
         <header>
+            <div class="header-top">
+                <img src="logo.png" alt="EMSN Logo" class="header-logo">
+                <button id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" aria-label="Wissel thema">
+                    <span class="theme-icon-light">☀️</span>
+                    <span class="theme-icon-dark">🌙</span>
+                </button>
+            </div>
             <h1>EMSN Vogelrapporten</h1>
             <p class="subtitle">Automatisch gegenereerde rapporten over vogelactiviteit in Nijverdal</p>
         </header>
@@ -384,5 +391,23 @@
     </div>
 
     <script src="app.js"></script>
+    <script>
+        // Theme toggle functionality
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        // Initialize theme on page load
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </body>
 </html>

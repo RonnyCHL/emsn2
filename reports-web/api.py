@@ -177,6 +177,34 @@ def generate_pdf_with_logo(md_path, output_pdf_path, title=None):
         # Get date from metadata or use today
         report_date = metadata.get('date', datetime.now().strftime('%d %B %Y'))
 
+        # Escape LaTeX special characters in content (but preserve markdown formatting)
+        # The % character causes "Missing number" errors in LaTeX
+        # We need to escape it but only outside of code blocks and URLs
+        import re
+
+        def escape_latex_in_text(text):
+            """Escape % signs that aren't in URLs or code blocks"""
+            # Split by code blocks to preserve them
+            parts = re.split(r'(```[\s\S]*?```|`[^`]+`)', text)
+            result = []
+            for i, part in enumerate(parts):
+                if part.startswith('`'):
+                    # Code block - don't escape
+                    result.append(part)
+                else:
+                    # Regular text - escape % but not in URLs
+                    # First protect URLs
+                    url_placeholder = "___URL_PERCENT___"
+                    protected = re.sub(r'(https?://[^\s\)]+)', lambda m: m.group(0).replace('%', url_placeholder), part)
+                    # Escape remaining %
+                    escaped = protected.replace('%', r'\%')
+                    # Restore URL percents
+                    escaped = escaped.replace(url_placeholder, '%')
+                    result.append(escaped)
+            return ''.join(result)
+
+        content = escape_latex_in_text(content)
+
         # Write cleaned content to temp file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False, encoding='utf-8') as tmp_md:
             tmp_md.write(content)
