@@ -108,7 +108,7 @@ Lees dit bestand voor database, NAS, MQTT, Grafana en email wachtwoorden.
 - iss_passes, moon_observations, meteor_detections, star_brightness
 
 ### Dashboard
-- **URL:** http://192.168.1.25:3000/d/e93c556b-ff12-44b7-a66f-80bde253f8b7/
+- **URL:** http://192.168.1.25:3000/d/emsn-atmosbird-hemel/
 
 ## Vocalization System
 
